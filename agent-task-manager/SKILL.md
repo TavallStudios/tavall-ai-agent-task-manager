@@ -16,6 +16,7 @@ Use the bundled scripts in this skill as the canonical task runtime for cross-pr
 5. Use `scripts/record_checkpoint.sh` during work to write a fresh Redis checkpoint and a durable Postgres checkpoint.
 6. Use `scripts/view_tasks.sh` to inspect the current viewer state.
 7. Use `scripts/start_web_app.sh` to launch the Spring Boot control plane on port `9000` for mobile and browser access.
+8. Leave the web app running if queued prompts should execute automatically through the local Codex bridge.
 
 ## Task Model
 
@@ -53,6 +54,11 @@ The scripts are shell-based and can be used from any repo. They support override
 - `AGENT_TASK_MANAGER_CHECKPOINT_TTL_SECONDS`
 - `AGENT_TASK_MANAGER_USERNAME`
 - `AGENT_TASK_MANAGER_PASSWORD`
+- `AGENT_TASK_MANAGER_BRIDGE_ENABLED`
+- `AGENT_TASK_MANAGER_BRIDGE_AGENT_ID`
+- `AGENT_TASK_MANAGER_BRIDGE_COMMAND`
+- `AGENT_TASK_MANAGER_BRIDGE_POLL_INTERVAL_MS`
+- `AGENT_TASK_MANAGER_BRIDGE_MAX_MESSAGE_CHARS`
 
 If `AGENT_TASK_MANAGER_DB_URL` is not set, the helper script will try the local service env files already used on this machine.
 
@@ -60,3 +66,4 @@ If `AGENT_TASK_MANAGER_DB_URL` is not set, the helper script will try the local 
 
 - Keep this skill repo generic. Do not add project-specific names, task ids, or schemas unless they are deliberately parameterized.
 - Prefer shell or small deterministic scripts for runtime actions. The Boot app is the shared viewer and prompt queue, while the shell scripts remain the lowest-friction runtime tools.
+- The Boot app now also runs the local Codex bridge. Queued prompt requests move through `queued -> claimed -> running -> completed|failed` and their live output is persisted into `prompt_messages`.
