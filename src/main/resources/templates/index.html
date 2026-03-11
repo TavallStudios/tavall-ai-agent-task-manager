@@ -59,13 +59,11 @@
         </div>
       </div>
       <form id="prompt-form" class="compose-form">
-        <label>
-          <span>Project key</span>
-          <input type="text" id="project-key" name="projectKey" placeholder="companions" required>
-        </label>
-        <label>
-          <span>Repo path</span>
-          <input type="text" id="repo-path" name="repoPath" placeholder="/srv/Companions" required>
+        <label class="full-span">
+          <span>Repository</span>
+          <select id="repo-path" name="repoPath" required>
+            <option value="">Select a repository</option>
+          </select>
         </label>
         <label>
           <span>Execution mode</span>
@@ -75,10 +73,7 @@
             <option value="run-tests">run-tests</option>
           </select>
         </label>
-        <label>
-          <span>Requested from</span>
-          <input type="text" id="requested-from" name="requestedFrom" placeholder="iphone-15-pro">
-        </label>
+        <div class="full-span muted" id="repo-selection-meta">Select a repo. Agent Task Manager will assign the internal project key automatically.</div>
         <label class="full-span">
           <span>Prompt</span>
           <textarea id="prompt-text" name="promptText" rows="6" placeholder="Investigate the startup race and only patch the server if the client logs rule out a hard crash." required></textarea>

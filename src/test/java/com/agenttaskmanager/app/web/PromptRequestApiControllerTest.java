@@ -13,6 +13,7 @@ import com.agenttaskmanager.app.model.PromptRequestFull;
 import com.agenttaskmanager.app.model.PromptRequestSummary;
 import com.agenttaskmanager.app.model.PromptRun;
 import com.agenttaskmanager.app.service.PromptRequestService;
+import com.agenttaskmanager.app.service.RepoCatalogService;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(controllers = {PromptRequestApiController.class, ApiExceptionHandler.class})
+@WebMvcTest(controllers = {
+    PromptRequestApiController.class,
+    RepoCatalogApiController.class,
+    ApiExceptionHandler.class
+})
 @AutoConfigureMockMvc(addFilters = false)
 class PromptRequestApiControllerTest {
 
@@ -47,16 +52,23 @@ class PromptRequestApiControllerTest {
             .contentType("application/json")
             .content("""
                 {
-                  "projectKey": "companions",
                   "repoPath": "/srv/Companions",
                   "executionMode": "edit",
-                  "requestedFrom": "iphone",
                   "promptText": "Investigate startup race"
                 }
                 """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.requestId").value("pr_123"))
         .andExpect(jsonPath("$.requestedBy").value("tester"));
+  }
+
+  @Test
+  void shouldListKnownRepos() throws Exception {
+    mockMvc.perform(get("/api/repos").with(user("tester").roles("OPERATOR")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].displayName").value("Companions"))
+        .andExpect(jsonPath("$.items[0].projectKey").value("companions"))
+        .andExpect(jsonPath("$.items[0].repoPath").value("/srv/Companions"));
   }
 
   @Test
@@ -100,7 +112,7 @@ class PromptRequestApiControllerTest {
                   "companions",
                   "/srv/Companions",
                   "tester",
-                  "iphone",
+                  null,
                   null,
                   "edit",
                   "queued",
@@ -138,7 +150,7 @@ class PromptRequestApiControllerTest {
               "companions",
               "/srv/Companions",
               requestedBy,
-              "iphone",
+              null,
               null,
               "edit",
               "queued",
@@ -152,6 +164,27 @@ class PromptRequestApiControllerTest {
               null,
               OffsetDateTime.parse("2026-03-11T00:00:00Z")
           );
+        }
+      };
+    }
+
+    @Bean
+    @Primary
+    RepoCatalogService repoCatalogService() {
+      return new RepoCatalogService(null) {
+        @Override
+        public List<com.agenttaskmanager.app.model.KnownRepo> listRepos() {
+          return List.of(new com.agenttaskmanager.app.model.KnownRepo(
+              "Companions",
+              "companions",
+              "/srv/Companions",
+              "remote"
+          ));
+        }
+
+        @Override
+        public com.agenttaskmanager.app.model.KnownRepo requireByPath(String repoPath) {
+          return listRepos().getFirst();
         }
       };
     }

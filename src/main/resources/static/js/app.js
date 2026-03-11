@@ -4,6 +4,7 @@ const username = document.querySelector('meta[name="atm-username"]')?.content ??
 const appBase = document.querySelector('meta[name="app-base"]')?.content ?? "/";
 
 const state = {
+  knownRepos: [],
   selectedPromptId: null,
   selectedTaskId: null,
 };
@@ -63,12 +64,12 @@ function renderPromptList(items) {
   root.innerHTML = items.map((item) => `
     <article class="list-item ${item.requestId === state.selectedPromptId ? "active" : ""}" data-prompt-id="${escapeHtml(item.requestId)}">
       <div class="item-top">
-        <strong>${escapeHtml(item.projectKey)} :: ${escapeHtml(item.executionMode)}</strong>
+        <strong>${escapeHtml(repoNameFromPath(item.repoPath))} :: ${escapeHtml(item.executionMode)}</strong>
         ${statusPill(item.status)}
       </div>
       <div class="muted">${escapeHtml(item.promptPreview)}</div>
       <div class="item-meta muted">
-        <span>${escapeHtml(item.requestedBy)} from ${escapeHtml(item.requestedFrom || "browser")}</span>
+        <span>${escapeHtml(item.requestedBy)} · ${escapeHtml(item.repoPath)}</span>
         <span>${formatDate(item.updatedAt)}</span>
       </div>
     </article>
@@ -158,10 +159,11 @@ function renderPromptDetail(payload) {
   root.innerHTML = `
     <div class="detail-card">
       <div class="item-top">
-        <strong>${escapeHtml(payload.request.projectKey)} · ${escapeHtml(payload.request.executionMode)}</strong>
+        <strong>${escapeHtml(repoNameFromPath(payload.request.repoPath))} · ${escapeHtml(payload.request.executionMode)}</strong>
         ${statusPill(payload.request.status)}
       </div>
       <div class="muted">${escapeHtml(payload.request.repoPath)}</div>
+      <div class="muted">Internal key: ${escapeHtml(payload.request.projectKey)}</div>
       <pre>${escapeHtml(payload.request.promptText)}</pre>
     </div>
     <div>
@@ -224,6 +226,56 @@ function renderTaskDetail(payload) {
   `;
 }
 
+function repoNameFromPath(path) {
+  const value = String(path ?? "").replaceAll("\\", "/").replace(/\/+$/, "");
+  if (!value) {
+    return "unknown repo";
+  }
+  const parts = value.split("/");
+  return parts[parts.length - 1] || value;
+}
+
+function renderRepoSelectionMeta(repo) {
+  const meta = document.getElementById("repo-selection-meta");
+  if (!repo) {
+    meta.textContent = "Select a repo. Agent Task Manager will assign the internal project key automatically.";
+    return;
+  }
+  meta.textContent = `Path: ${repo.repoPath} · Internal key: ${repo.projectKey} · Source: ${repo.locationLabel}`;
+}
+
+function selectedRepo() {
+  const repoPath = document.getElementById("repo-path").value;
+  return state.knownRepos.find((repo) => repo.repoPath === repoPath) ?? null;
+}
+
+function renderRepoOptions(items) {
+  state.knownRepos = items;
+  const select = document.getElementById("repo-path");
+  const previousValue = select.value;
+  select.innerHTML = '<option value="">Select a repository</option>' + items.map((repo) => `
+    <option value="${escapeHtml(repo.repoPath)}">${escapeHtml(repo.displayName)} · ${escapeHtml(repo.locationLabel)}</option>
+  `).join("");
+
+  const nextValue = items.some((repo) => repo.repoPath === previousValue)
+      ? previousValue
+      : preferredRepoPath(items);
+  select.value = nextValue;
+  renderRepoSelectionMeta(selectedRepo());
+}
+
+function preferredRepoPath(items) {
+  const preferred = items.find((repo) => repo.repoPath === "/srv/Companions")
+      ?? items.find((repo) => repo.locationLabel === "remote")
+      ?? items[0];
+  return preferred?.repoPath ?? "";
+}
+
+async function loadRepoCatalog() {
+  const payload = await fetchJson(appUrl("/api/repos"));
+  renderRepoOptions(payload.items);
+}
+
 async function loadRuntimeStatus() {
   const payload = await fetchJson(appUrl("/api/runtime/status"));
   document.getElementById("task-count").textContent = payload.taskCount;
@@ -275,12 +327,15 @@ async function submitPrompt(event) {
   event.preventDefault();
   const status = document.getElementById("prompt-submit-status");
   status.textContent = "Submitting prompt request...";
+  const repo = selectedRepo();
+  if (!repo) {
+    status.textContent = "Select a repository first.";
+    return;
+  }
 
   const body = {
-    projectKey: document.getElementById("project-key").value.trim(),
-    repoPath: document.getElementById("repo-path").value.trim(),
+    repoPath: repo.repoPath,
     executionMode: document.getElementById("execution-mode").value,
-    requestedFrom: document.getElementById("requested-from").value.trim(),
     promptText: document.getElementById("prompt-text").value.trim(),
   };
 
@@ -315,9 +370,12 @@ async function refreshAll() {
 }
 
 document.getElementById("prompt-form")?.addEventListener("submit", submitPrompt);
+document.getElementById("repo-path")?.addEventListener("change", () => renderRepoSelectionMeta(selectedRepo()));
 document.getElementById("prompt-status-filter")?.addEventListener("change", refreshPromptList);
 document.getElementById("task-project-filter")?.addEventListener("change", refreshTaskList);
 document.getElementById("task-status-filter")?.addEventListener("change", refreshTaskList);
 
-refreshAll();
+loadRepoCatalog().then(refreshAll).catch((error) => {
+  console.error(error);
+});
 setInterval(refreshAll, 5000);

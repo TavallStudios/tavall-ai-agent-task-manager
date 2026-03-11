@@ -1,6 +1,7 @@
 package com.agenttaskmanager.app;
 
 import com.agenttaskmanager.app.config.CodexBridgeProperties;
+import com.agenttaskmanager.app.config.RepoCatalogProperties;
 import com.agenttaskmanager.app.config.SecurityProperties;
 import com.agenttaskmanager.app.config.TaskRuntimeProperties;
 import org.springframework.boot.SpringApplication;
@@ -13,7 +14,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableConfigurationProperties({
     SecurityProperties.class,
     TaskRuntimeProperties.class,
-    CodexBridgeProperties.class
+    CodexBridgeProperties.class,
+    RepoCatalogProperties.class
 })
 public class AgentTaskManagerApplication {
 

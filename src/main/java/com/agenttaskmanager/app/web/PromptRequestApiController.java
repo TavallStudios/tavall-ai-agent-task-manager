@@ -3,6 +3,7 @@ package com.agenttaskmanager.app.web;
 import com.agenttaskmanager.app.model.PromptRequestDetail;
 import com.agenttaskmanager.app.model.PromptRequestSummary;
 import com.agenttaskmanager.app.service.PromptRequestService;
+import com.agenttaskmanager.app.service.RepoCatalogService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -24,9 +25,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class PromptRequestApiController {
 
   private final PromptRequestService promptRequestService;
+  private final RepoCatalogService repoCatalogService;
 
-  public PromptRequestApiController(PromptRequestService promptRequestService) {
+  public PromptRequestApiController(
+      PromptRequestService promptRequestService,
+      RepoCatalogService repoCatalogService
+  ) {
     this.promptRequestService = promptRequestService;
+    this.repoCatalogService = repoCatalogService;
   }
 
   @GetMapping
@@ -48,13 +54,14 @@ public class PromptRequestApiController {
       @Valid @RequestBody CreatePromptRequestRequest request,
       Principal principal
   ) {
+    var repo = repoCatalogService.requireByPath(request.repoPath());
     return promptRequestService.create(
-        request.projectKey(),
-        request.repoPath(),
+        repo.projectKey(),
+        repo.repoPath(),
         request.executionMode(),
         request.promptText(),
         principal == null ? "unknown" : principal.getName(),
-        request.requestedFrom()
+        null
     );
   }
 
@@ -62,12 +69,9 @@ public class PromptRequestApiController {
   }
 
   public record CreatePromptRequestRequest(
-      @NotBlank String projectKey,
       @NotBlank String repoPath,
       @NotBlank String executionMode,
-      String requestedFrom,
       @NotBlank String promptText
   ) {
   }
 }
-
