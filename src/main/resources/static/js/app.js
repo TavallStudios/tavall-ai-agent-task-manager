@@ -223,6 +223,12 @@ async function loadRuntimeStatus() {
   document.getElementById("queued-prompts").textContent = payload.queuedPromptCount;
   document.getElementById("multi-agent-mode").textContent = payload.multiAgentEnabled ? "enabled" : "disabled";
   document.getElementById("redis-namespace").textContent = payload.redisNamespace;
+  document.getElementById("bridge-status").textContent =
+    payload.bridgeEnabled
+      ? `${payload.bridgeOnline ? "online" : payload.bridgeSessionStatus || "offline"} · ${payload.bridgeAgentId || "-"}`
+      : "disabled";
+  document.getElementById("bridge-active-request").textContent =
+    payload.bridgeActiveRequestId || "idle";
 }
 
 async function refreshPromptList() {
@@ -308,4 +314,3 @@ document.getElementById("task-status-filter")?.addEventListener("change", refres
 
 refreshAll();
 setInterval(refreshAll, 5000);
-

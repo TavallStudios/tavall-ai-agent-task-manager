@@ -118,6 +118,24 @@ Auth:
 - password via `AGENT_TASK_MANAGER_PASSWORD`
 - if the password is not set, the app generates one at startup and logs it once
 
+Bridge behavior:
+
+- the web app includes a local Codex bridge worker by default
+- queued prompt requests are claimed from Postgres, executed with `codex exec`, and written back into:
+  - `prompt_runs`
+  - `prompt_messages`
+  - `agent_sessions`
+- `read-only` requests run with Codex read-only sandboxing
+- `edit` and `run-tests` requests run with workspace-write sandboxing
+
+Bridge env overrides:
+
+- `AGENT_TASK_MANAGER_BRIDGE_ENABLED`
+- `AGENT_TASK_MANAGER_BRIDGE_AGENT_ID`
+- `AGENT_TASK_MANAGER_BRIDGE_COMMAND`
+- `AGENT_TASK_MANAGER_BRIDGE_POLL_INTERVAL_MS`
+- `AGENT_TASK_MANAGER_BRIDGE_MAX_MESSAGE_CHARS`
+
 ## Why This Split
 
 - `memory` stays clean and durable.

@@ -5,7 +5,13 @@ public record RuntimeStatus(
     long queuedPromptCount,
     boolean multiAgentEnabled,
     boolean redisReachable,
-    String redisNamespace
+    String redisNamespace,
+    boolean bridgeEnabled,
+    boolean bridgeOnline,
+    String bridgeAgentId,
+    String bridgeSessionId,
+    String bridgeSessionStatus,
+    String bridgeActiveRequestId,
+    Long bridgeActiveRunId
 ) {
 }
-
