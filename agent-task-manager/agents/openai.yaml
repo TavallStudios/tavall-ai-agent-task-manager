@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Task Manager"
+  short_description: "Global task coordination skill for multi-agent work"
+  default_prompt: "Use the local Redis and Postgres task runtime to bootstrap task storage, toggle multi-agent mode, upsert tasks, record checkpoints, and view task status across projects."
