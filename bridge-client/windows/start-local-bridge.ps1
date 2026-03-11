@@ -1,0 +1,60 @@
+param(
+    [string]$ConfigPath = "$PSScriptRoot\agent-task-manager-bridge.config.json"
+)
+
+$ErrorActionPreference = "Stop"
+
+if (-not (Test-Path $ConfigPath)) {
+    throw "Missing config file: $ConfigPath"
+}
+
+$config = Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json
+$scriptRoot = Split-Path -Parent $PSScriptRoot
+$pythonScript = Join-Path $scriptRoot "agent_task_manager_local_bridge.py"
+
+if (-not (Test-Path $pythonScript)) {
+    throw "Missing bridge script: $pythonScript"
+}
+
+$pythonCommand = if ($config.pythonCommand) { [string]$config.pythonCommand } else { "py -3" }
+$pythonParts = $pythonCommand -split '\s+'
+$pythonExe = $pythonParts[0]
+$pythonArgs = @()
+if ($pythonParts.Length -gt 1) {
+    $pythonArgs = $pythonParts[1..($pythonParts.Length - 1)]
+}
+
+$arguments = @()
+$arguments += $pythonArgs
+$arguments += $pythonScript
+$arguments += "--base-url"
+$arguments += [string]$config.baseUrl
+$arguments += "--username"
+$arguments += [string]$config.username
+$arguments += "--password"
+$arguments += [string]$config.password
+$arguments += "--bridge-target"
+$arguments += [string]$config.bridgeTarget
+$arguments += "--agent-id"
+$arguments += [string]$config.agentId
+$arguments += "--client-name"
+$arguments += [string]$config.clientName
+$arguments += "--repo-path"
+$arguments += [string]$config.repoPath
+$arguments += "--poll-interval"
+$arguments += [string]$config.pollInterval
+$arguments += "--codex-command"
+$arguments += [string]$config.codexCommand
+$arguments += "--session-file"
+$arguments += [string]$config.sessionFile
+
+if ($config.codexRealBin) {
+    $arguments += "--codex-real-bin"
+    $arguments += [string]$config.codexRealBin
+}
+
+Write-Host "Starting AgentTaskManager local bridge from $pythonScript"
+Write-Host "Base URL: $($config.baseUrl)"
+Write-Host "Bridge target: $($config.bridgeTarget)"
+
+& $pythonExe @arguments
