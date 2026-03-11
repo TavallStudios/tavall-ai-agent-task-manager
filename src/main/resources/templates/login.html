@@ -20,6 +20,7 @@
     </div>
 
     <form method="post" th:action="@{/login}" class="stack">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
       <label>
         <span>Username</span>
         <input type="text" name="username" autocomplete="username" required>
