@@ -1,6 +1,7 @@
 const csrfToken = document.querySelector('meta[name="_csrf"]')?.content ?? "";
 const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content ?? "X-CSRF-TOKEN";
 const username = document.querySelector('meta[name="atm-username"]')?.content ?? "unknown";
+const appBase = document.querySelector('meta[name="app-base"]')?.content ?? "/";
 
 const state = {
   selectedPromptId: null,
@@ -12,6 +13,12 @@ function apiHeaders() {
     "Content-Type": "application/json",
     [csrfHeader]: csrfToken,
   };
+}
+
+function appUrl(path) {
+  const base = appBase.endsWith("/") ? appBase.slice(0, -1) : appBase;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${normalizedPath}`;
 }
 
 function escapeHtml(value) {
@@ -218,7 +225,7 @@ function renderTaskDetail(payload) {
 }
 
 async function loadRuntimeStatus() {
-  const payload = await fetchJson("/api/runtime/status");
+  const payload = await fetchJson(appUrl("/api/runtime/status"));
   document.getElementById("task-count").textContent = payload.taskCount;
   document.getElementById("queued-prompts").textContent = payload.queuedPromptCount;
   document.getElementById("multi-agent-mode").textContent = payload.multiAgentEnabled ? "enabled" : "disabled";
@@ -234,7 +241,7 @@ async function loadRuntimeStatus() {
 async function refreshPromptList() {
   const status = document.getElementById("prompt-status-filter").value.trim();
   const query = new URLSearchParams({ limit: "25", status });
-  const payload = await fetchJson(`/api/prompt-requests?${query.toString()}`);
+  const payload = await fetchJson(`${appUrl("/api/prompt-requests")}?${query.toString()}`);
   renderPromptList(payload.items);
 }
 
@@ -242,7 +249,7 @@ async function refreshTaskList() {
   const project = document.getElementById("task-project-filter").value.trim();
   const status = document.getElementById("task-status-filter").value.trim();
   const query = new URLSearchParams({ limit: "25", project, status });
-  const payload = await fetchJson(`/api/tasks?${query.toString()}`);
+  const payload = await fetchJson(`${appUrl("/api/tasks")}?${query.toString()}`);
   renderTaskList(payload.items);
 }
 
@@ -251,7 +258,7 @@ async function loadPromptDetail() {
     renderPromptDetail(null);
     return;
   }
-  const payload = await fetchJson(`/api/prompt-requests/${encodeURIComponent(state.selectedPromptId)}`);
+  const payload = await fetchJson(appUrl(`/api/prompt-requests/${encodeURIComponent(state.selectedPromptId)}`));
   renderPromptDetail(payload);
 }
 
@@ -260,7 +267,7 @@ async function loadTaskDetail() {
     renderTaskDetail(null);
     return;
   }
-  const payload = await fetchJson(`/api/tasks/${encodeURIComponent(state.selectedTaskId)}`);
+  const payload = await fetchJson(appUrl(`/api/tasks/${encodeURIComponent(state.selectedTaskId)}`));
   renderTaskDetail(payload);
 }
 
@@ -278,7 +285,7 @@ async function submitPrompt(event) {
   };
 
   try {
-    const payload = await fetchJson("/api/prompt-requests", {
+    const payload = await fetchJson(appUrl("/api/prompt-requests"), {
       method: "POST",
       headers: apiHeaders(),
       body: JSON.stringify(body),
