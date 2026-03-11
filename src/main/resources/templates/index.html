@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Task Manager</title>
+  <meta name="_csrf" th:content="${_csrf.token}">
+  <meta name="_csrf_header" th:content="${_csrf.headerName}">
+  <meta name="atm-username" th:content="${username}">
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">Agent Task Manager</div>
+      <h1>Mobile control plane for tasks and queued prompts</h1>
+    </div>
+    <form method="post" th:action="@{/logout}">
+      <button class="ghost-button" type="submit">Sign out</button>
+    </form>
+  </header>
+
+  <main class="layout">
+    <section class="panel hero">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Task count</div>
+          <div class="stat-value" id="task-count">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Queued prompts</div>
+          <div class="stat-value" id="queued-prompts">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Multi-agent</div>
+          <div class="stat-value" id="multi-agent-mode">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Redis namespace</div>
+          <div class="stat-value small" id="redis-namespace">-</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel compose-panel">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">Prompt Queue</div>
+          <h2>Send a prompt from your phone</h2>
+        </div>
+      </div>
+      <form id="prompt-form" class="compose-form">
+        <label>
+          <span>Project key</span>
+          <input type="text" id="project-key" name="projectKey" placeholder="companions" required>
+        </label>
+        <label>
+          <span>Repo path</span>
+          <input type="text" id="repo-path" name="repoPath" placeholder="/srv/Companions" required>
+        </label>
+        <label>
+          <span>Execution mode</span>
+          <select id="execution-mode" name="executionMode">
+            <option value="read-only">read-only</option>
+            <option value="edit">edit</option>
+            <option value="run-tests">run-tests</option>
+          </select>
+        </label>
+        <label>
+          <span>Requested from</span>
+          <input type="text" id="requested-from" name="requestedFrom" placeholder="iphone-15-pro">
+        </label>
+        <label class="full-span">
+          <span>Prompt</span>
+          <textarea id="prompt-text" name="promptText" rows="6" placeholder="Investigate the startup race and only patch the server if the client logs rule out a hard crash." required></textarea>
+        </label>
+        <div class="full-span submit-row">
+          <div class="muted" id="prompt-submit-status">Queue a prompt request for the local Codex bridge.</div>
+          <button type="submit">Queue prompt</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">Prompt Requests</div>
+          <h2>Durable execution inbox</h2>
+        </div>
+        <label class="compact-filter">
+          <span>Status</span>
+          <select id="prompt-status-filter">
+            <option value="">all</option>
+            <option value="queued">queued</option>
+            <option value="claimed">claimed</option>
+            <option value="running">running</option>
+            <option value="completed">completed</option>
+            <option value="failed">failed</option>
+            <option value="cancelled">cancelled</option>
+          </select>
+        </label>
+      </div>
+      <div class="list-shell" id="prompt-list"></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">Task Viewer</div>
+          <h2>Cross-project task state</h2>
+        </div>
+        <div class="filter-row">
+          <input type="text" id="task-project-filter" placeholder="project key">
+          <input type="text" id="task-status-filter" placeholder="status">
+        </div>
+      </div>
+      <div class="list-shell" id="task-list"></div>
+    </section>
+
+    <section class="panel detail-grid">
+      <div>
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">Prompt Detail</div>
+            <h2 id="prompt-detail-title">Select a prompt request</h2>
+          </div>
+        </div>
+        <div id="prompt-detail" class="detail-shell empty-state">Choose a prompt request to inspect status and messages.</div>
+      </div>
+      <div>
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">Task Detail</div>
+            <h2 id="task-detail-title">Select a task</h2>
+          </div>
+        </div>
+        <div id="task-detail" class="detail-shell empty-state">Choose a task to inspect checkpoints.</div>
+      </div>
+    </section>
+  </main>
+
+  <script th:src="@{/js/app.js}"></script>
+</body>
+</html>

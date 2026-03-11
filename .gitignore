@@ -1,0 +1,6 @@
+target/
+*.log
+.idea/
+*.iml
+agent-task-manager/scripts/__pycache__/
+

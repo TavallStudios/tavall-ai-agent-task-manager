@@ -77,6 +77,8 @@ Tables:
   - writes an ephemeral checkpoint to Redis and a durable checkpoint to Postgres
 - [view_tasks.sh](/srv/AgentTaskManager/agent-task-manager/scripts/view_tasks.sh)
   - reads the current durable task overview from Postgres
+- [start_web_app.sh](/srv/AgentTaskManager/agent-task-manager/scripts/start_web_app.sh)
+  - starts the Spring Boot control plane for phones, tablets, laptops, or remote browsers
 
 ## Recommended Flow
 
@@ -86,9 +88,40 @@ Tables:
 4. Write frequent progress checkpoints to Redis and durable checkpoints to Postgres.
 5. Use the Postgres view as the global viewer, not memory or raw chat logs.
 
+## Web Control Plane
+
+The runtime now includes an authenticated Spring Boot control plane:
+
+- entrypoint: [start_web_app.sh](/srv/AgentTaskManager/agent-task-manager/scripts/start_web_app.sh)
+- Maven project: [/srv/AgentTaskManager/pom.xml](/srv/AgentTaskManager/pom.xml)
+
+Default bind:
+
+- host: `0.0.0.0`
+- port: `9000`
+
+Current UI and API surface:
+
+- `GET /login`
+- `GET /`
+- `GET /api/runtime/status`
+- `GET /api/tasks?limit=25&project=&status=`
+- `GET /api/tasks/{taskId}`
+- `GET /api/prompt-requests?limit=25&status=`
+- `GET /api/prompt-requests/{requestId}`
+- `POST /api/prompt-requests`
+
+Auth:
+
+- Spring Security form login
+- username via `AGENT_TASK_MANAGER_USERNAME`
+- password via `AGENT_TASK_MANAGER_PASSWORD`
+- if the password is not set, the app generates one at startup and logs it once
+
 ## Why This Split
 
 - `memory` stays clean and durable.
 - `redis` stays fast and disposable.
 - `postgres` becomes the viewer and history surface.
 - agents can coordinate without dragging large chat transcripts into context.
+- the mobile web app becomes the operator surface while agent bridges consume the same durable queue later.
