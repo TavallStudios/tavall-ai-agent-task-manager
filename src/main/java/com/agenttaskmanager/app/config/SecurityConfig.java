@@ -40,7 +40,10 @@ public class SecurityConfig {
         )
         .logout(logout -> logout.logoutSuccessUrl("/login?logout"))
         .rememberMe(remember -> remember.key(properties.getRememberMeKey()))
-        .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+        .csrf(csrf -> csrf
+            .ignoringRequestMatchers("/api/bridge/**")
+            .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+        )
         .httpBasic(Customizer.withDefaults())
         .build();
   }
@@ -78,4 +81,3 @@ public class SecurityConfig {
     return builder.toString();
   }
 }
-

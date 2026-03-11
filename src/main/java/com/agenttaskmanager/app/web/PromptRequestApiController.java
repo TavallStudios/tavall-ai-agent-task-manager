@@ -58,6 +58,7 @@ public class PromptRequestApiController {
     return promptRequestService.create(
         repo.projectKey(),
         repo.repoPath(),
+        request.bridgeTarget(),
         request.executionMode(),
         request.promptText(),
         principal == null ? "unknown" : principal.getName(),
@@ -70,6 +71,7 @@ public class PromptRequestApiController {
 
   public record CreatePromptRequestRequest(
       @NotBlank String repoPath,
+      @NotBlank String bridgeTarget,
       @NotBlank String executionMode,
       @NotBlank String promptText
   ) {

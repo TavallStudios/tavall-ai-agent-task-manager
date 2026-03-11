@@ -54,8 +54,8 @@
     <section class="panel compose-panel">
       <div class="section-heading">
         <div>
-          <div class="eyebrow">Prompt Queue</div>
-          <h2>Send a prompt from your phone</h2>
+          <div class="eyebrow">Chat Composer</div>
+          <h2>Send a prompt into a live bridge thread</h2>
         </div>
       </div>
       <form id="prompt-form" class="compose-form">
@@ -63,6 +63,13 @@
           <span>Repository</span>
           <select id="repo-path" name="repoPath" required>
             <option value="">Select a repository</option>
+          </select>
+        </label>
+        <label>
+          <span>Bridge target</span>
+          <select id="bridge-target" name="bridgeTarget">
+            <option value="local-ide">local IDE</option>
+            <option value="remote-headless">remote server</option>
           </select>
         </label>
         <label>
@@ -88,23 +95,19 @@
     <section class="panel">
       <div class="section-heading">
         <div>
-          <div class="eyebrow">Prompt Requests</div>
-          <h2>Durable execution inbox</h2>
+          <div class="eyebrow">Chats</div>
+          <h2>Threaded prompt history</h2>
         </div>
         <label class="compact-filter">
-          <span>Status</span>
-          <select id="prompt-status-filter">
+          <span>Bridge</span>
+          <select id="thread-bridge-filter">
             <option value="">all</option>
-            <option value="queued">queued</option>
-            <option value="claimed">claimed</option>
-            <option value="running">running</option>
-            <option value="completed">completed</option>
-            <option value="failed">failed</option>
-            <option value="cancelled">cancelled</option>
+            <option value="local-ide">local IDE</option>
+            <option value="remote-headless">remote server</option>
           </select>
         </label>
       </div>
-      <div class="list-shell" id="prompt-list"></div>
+      <div class="list-shell" id="thread-list"></div>
     </section>
 
     <section class="panel">
@@ -125,11 +128,11 @@
       <div>
         <div class="section-heading">
           <div>
-            <div class="eyebrow">Prompt Detail</div>
-            <h2 id="prompt-detail-title">Select a prompt request</h2>
+            <div class="eyebrow">Chat View</div>
+            <h2 id="thread-detail-title">Select a chat thread</h2>
           </div>
         </div>
-        <div id="prompt-detail" class="detail-shell empty-state">Choose a prompt request to inspect status and messages.</div>
+        <div id="thread-detail" class="detail-shell empty-state">Choose a chat thread to inspect the conversation.</div>
       </div>
       <div>
         <div class="section-heading">

@@ -6,6 +6,8 @@ public record PromptRequestFull(
     String requestId,
     String projectKey,
     String repoPath,
+    String bridgeTarget,
+    String threadKey,
     String requestedBy,
     String requestedFrom,
     String targetAgentId,
@@ -18,4 +20,3 @@ public record PromptRequestFull(
     OffsetDateTime completedAt
 ) {
 }
-

@@ -19,12 +19,33 @@ class CodexExecCommandFactoryTest {
     List<String> command = factory.buildCommand(
         Path.of("/srv/AgentTaskManager"),
         "read-only",
-        Path.of("/tmp/out.txt")
+        Path.of("/tmp/out.txt"),
+        null
     );
 
     assertEquals("codex", command.getFirst());
     assertTrue(command.contains("exec"));
     assertTrue(command.contains("read-only"));
+  }
+
+  @Test
+  void shouldBuildResumeCommandWithRepoBeforeExec() {
+    CodexBridgeProperties properties = new CodexBridgeProperties();
+    properties.setCommand("codex");
+    CodexExecCommandFactory factory = new CodexExecCommandFactory(properties);
+
+    List<String> command = factory.buildCommand(
+        Path.of("/srv/local-pc-root/F:/workspace/DevTest"),
+        "read-only",
+        Path.of("/tmp/out.txt"),
+        "session-123"
+    );
+
+    assertEquals(
+        List.of("codex", "-C", "/srv/local-pc-root/F:/workspace/DevTest", "-s", "read-only", "exec", "resume"),
+        command.subList(0, 7)
+    );
+    assertEquals("session-123", command.get(command.size() - 1));
   }
 
   @Test
@@ -39,4 +60,3 @@ class CodexExecCommandFactoryTest {
     assertTrue(prompt.contains("Fix the failing build."));
   }
 }
-

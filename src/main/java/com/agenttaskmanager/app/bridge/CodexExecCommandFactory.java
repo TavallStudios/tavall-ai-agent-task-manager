@@ -15,17 +15,28 @@ public class CodexExecCommandFactory {
     this.properties = properties;
   }
 
-  public List<String> buildCommand(Path repoPath, String executionMode, Path outputFile) {
+  public List<String> buildCommand(
+      Path repoPath,
+      String executionMode,
+      Path outputFile,
+      String resumeSessionId
+  ) {
     List<String> command = new ArrayList<>();
     command.add(properties.getCommand());
-    command.add("exec");
-    command.add("--json");
-    command.add("--output-last-message");
-    command.add(outputFile.toString());
     command.add("-C");
     command.add(repoPath.toString());
     command.add("-s");
     command.add(resolveSandboxMode(executionMode));
+    command.add("exec");
+    if (resumeSessionId != null && !resumeSessionId.isBlank()) {
+      command.add("resume");
+    }
+    command.add("--json");
+    command.add("--output-last-message");
+    command.add(outputFile.toString());
+    if (resumeSessionId != null && !resumeSessionId.isBlank()) {
+      command.add(resumeSessionId);
+    }
     return command;
   }
 

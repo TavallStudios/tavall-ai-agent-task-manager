@@ -53,6 +53,7 @@ class PromptRequestApiControllerTest {
             .content("""
                 {
                   "repoPath": "/srv/Companions",
+                  "bridgeTarget": "local-ide",
                   "executionMode": "edit",
                   "promptText": "Investigate startup race"
                 }
@@ -86,7 +87,7 @@ class PromptRequestApiControllerTest {
     @Bean
     @Primary
     PromptRequestService promptRequestService() {
-      return new PromptRequestService(null) {
+      return new PromptRequestService(null, null) {
         @Override
         public List<PromptRequestSummary> list(int limit, String status) {
           return List.of(sampleSummary("pr_123", "tester"));
@@ -96,6 +97,7 @@ class PromptRequestApiControllerTest {
         public PromptRequestSummary create(
             String projectKey,
             String repoPath,
+            String bridgeTarget,
             String executionMode,
             String promptText,
             String requestedBy,
@@ -111,6 +113,8 @@ class PromptRequestApiControllerTest {
                   requestId,
                   "companions",
                   "/srv/Companions",
+                  "local-ide",
+                  "local-ide:/srv/companions",
                   "tester",
                   null,
                   null,
@@ -126,6 +130,7 @@ class PromptRequestApiControllerTest {
                   10L,
                   "session-1",
                   "codex-bridge",
+                  "thread-1",
                   "running",
                   null,
                   "Started",
@@ -149,6 +154,8 @@ class PromptRequestApiControllerTest {
               requestId,
               "companions",
               "/srv/Companions",
+              "local-ide",
+              "local-ide:/srv/companions",
               requestedBy,
               null,
               null,

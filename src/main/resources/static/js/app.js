@@ -5,7 +5,7 @@ const appBase = document.querySelector('meta[name="app-base"]')?.content ?? "/";
 
 const state = {
   knownRepos: [],
-  selectedPromptId: null,
+  selectedThreadKey: null,
   selectedTaskId: null,
 };
 
@@ -45,6 +45,33 @@ function formatDate(value) {
   return new Date(value).toLocaleString();
 }
 
+function normalizePath(path) {
+  return String(path ?? "").replaceAll("\\", "/").replace(/\/+$/, "");
+}
+
+function repoNameFromPath(path) {
+  const value = normalizePath(path);
+  if (!value) {
+    return "unknown repo";
+  }
+  const parts = value.split("/");
+  return parts[parts.length - 1] || value;
+}
+
+function bridgeTargetLabel(value) {
+  return value === "local-ide" ? "local IDE" : "remote server";
+}
+
+function messageRole(message) {
+  if (message.messageKind === "prompt") {
+    return "user";
+  }
+  if (message.messageKind === "agent-message" || message.messageKind === "final-response") {
+    return "assistant";
+  }
+  return "system";
+}
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, options);
   if (!response.ok) {
@@ -54,32 +81,32 @@ async function fetchJson(url, options = {}) {
   return response.json();
 }
 
-function renderPromptList(items) {
-  const root = document.getElementById("prompt-list");
+function renderThreadList(items) {
+  const root = document.getElementById("thread-list");
   if (!items.length) {
-    root.innerHTML = '<div class="empty-state">No prompt requests matched the current filter.</div>';
+    root.innerHTML = '<div class="empty-state">No chat threads matched the current filter.</div>';
     return;
   }
 
   root.innerHTML = items.map((item) => `
-    <article class="list-item ${item.requestId === state.selectedPromptId ? "active" : ""}" data-prompt-id="${escapeHtml(item.requestId)}">
+    <article class="list-item ${item.threadKey === state.selectedThreadKey ? "active" : ""}" data-thread-key="${escapeHtml(item.threadKey)}">
       <div class="item-top">
-        <strong>${escapeHtml(repoNameFromPath(item.repoPath))} :: ${escapeHtml(item.executionMode)}</strong>
-        ${statusPill(item.status)}
+        <strong>${escapeHtml(repoNameFromPath(item.repoPath))} · ${escapeHtml(bridgeTargetLabel(item.bridgeTarget))}</strong>
+        ${statusPill(item.latestRequestStatus)}
       </div>
-      <div class="muted">${escapeHtml(item.promptPreview)}</div>
+      <div class="muted">${escapeHtml(item.latestPromptPreview || item.latestRequestSummary || "No prompts yet.")}</div>
       <div class="item-meta muted">
-        <span>${escapeHtml(item.requestedBy)} · ${escapeHtml(item.repoPath)}</span>
-        <span>${formatDate(item.updatedAt)}</span>
+        <span>${escapeHtml(item.threadSessionId || "new thread")}</span>
+        <span>${formatDate(item.lastMessageAt || item.updatedAt)}</span>
       </div>
     </article>
   `).join("");
 
-  root.querySelectorAll("[data-prompt-id]").forEach((element) => {
+  root.querySelectorAll("[data-thread-key]").forEach((element) => {
     element.addEventListener("click", async () => {
-      state.selectedPromptId = element.dataset.promptId;
-      await loadPromptDetail();
-      await refreshPromptList();
+      state.selectedThreadKey = element.dataset.threadKey;
+      await loadThreadDetail();
+      await refreshThreadList();
     });
   });
 }
@@ -114,65 +141,71 @@ function renderTaskList(items) {
   });
 }
 
-function renderPromptDetail(payload) {
-  const title = document.getElementById("prompt-detail-title");
-  const root = document.getElementById("prompt-detail");
+function renderThreadDetail(payload) {
+  const title = document.getElementById("thread-detail-title");
+  const root = document.getElementById("thread-detail");
 
   if (!payload) {
-    title.textContent = "Select a prompt request";
-    root.innerHTML = "Choose a prompt request to inspect status and messages.";
+    title.textContent = "Select a chat thread";
+    root.innerHTML = "Choose a chat thread to inspect the conversation.";
     root.classList.add("empty-state");
     return;
   }
 
-  title.textContent = payload.request.requestId;
+  title.textContent = `${repoNameFromPath(payload.thread.repoPath)} · ${bridgeTargetLabel(payload.thread.bridgeTarget)}`;
   root.classList.remove("empty-state");
-  const runs = payload.runs.length
-    ? payload.runs.map((run) => `
-        <div class="detail-card">
-          <div class="item-top">
-            <strong>Run ${escapeHtml(run.runId)}</strong>
-            ${statusPill(run.status)}
-          </div>
-          <div class="muted">${escapeHtml(run.summary || "-")}</div>
-          <div class="item-meta muted">
-            <span>${escapeHtml(run.bridgeName || "unassigned")}</span>
-            <span>${formatDate(run.updatedAt)}</span>
-          </div>
-        </div>
-      `).join("")
-    : '<div class="empty-state">No runs have been attached yet.</div>';
 
-  const messages = payload.messages.length
-    ? payload.messages.map((message) => `
-        <div class="message-card">
-          <div class="item-top">
-            <strong>${escapeHtml(message.senderName || message.messageKind)}</strong>
-            <span class="muted">${formatDate(message.createdAt)}</span>
-          </div>
-          <div class="muted">${escapeHtml(message.messageKind)}</div>
-          <pre>${escapeHtml(message.body)}</pre>
+  const requests = payload.requests.map((request) => `
+    <div class="detail-card compact-card">
+      <div class="item-top">
+        <strong>${escapeHtml(request.requestId)}</strong>
+        ${statusPill(request.status)}
+      </div>
+      <div class="item-meta muted">
+        <span>${escapeHtml(request.executionMode)}</span>
+        <span>${formatDate(request.updatedAt)}</span>
+      </div>
+    </div>
+  `).join("");
+
+  const messages = payload.messages
+    .filter((message, index, items) => {
+      if (message.messageKind !== "final-response") {
+        return true;
+      }
+      const previous = items[index - 1];
+      return !previous || previous.body !== message.body;
+    })
+    .map((message) => `
+      <article class="chat-message ${messageRole(message)}">
+        <div class="chat-meta">
+          <strong>${escapeHtml(message.senderName || message.messageKind)}</strong>
+          <span>${formatDate(message.createdAt)}</span>
         </div>
-      `).join("")
-    : '<div class="empty-state">No output messages have been recorded yet.</div>';
+        <div class="chat-kind">${escapeHtml(message.messageKind)}</div>
+        <pre>${escapeHtml(message.body)}</pre>
+      </article>
+    `).join("");
 
   root.innerHTML = `
     <div class="detail-card">
       <div class="item-top">
-        <strong>${escapeHtml(repoNameFromPath(payload.request.repoPath))} · ${escapeHtml(payload.request.executionMode)}</strong>
-        ${statusPill(payload.request.status)}
+        <strong>${escapeHtml(payload.thread.repoPath)}</strong>
+        ${statusPill(payload.thread.latestRequestStatus)}
       </div>
-      <div class="muted">${escapeHtml(payload.request.repoPath)}</div>
-      <div class="muted">Internal key: ${escapeHtml(payload.request.projectKey)}</div>
-      <pre>${escapeHtml(payload.request.promptText)}</pre>
+      <div class="item-meta muted">
+        <span>${escapeHtml(payload.thread.threadSessionId || "new local thread")}</span>
+        <span>${escapeHtml(payload.thread.threadKey)}</span>
+      </div>
+      <div class="muted">Bridge target: ${escapeHtml(bridgeTargetLabel(payload.thread.bridgeTarget))}</div>
     </div>
     <div>
-      <h3>Runs</h3>
-      ${runs}
+      <h3>Conversation</h3>
+      <div class="chat-shell">${messages || '<div class="empty-state">No messages recorded yet.</div>'}</div>
     </div>
     <div>
-      <h3>Messages</h3>
-      ${messages}
+      <h3>Requests</h3>
+      <div class="list-shell">${requests || '<div class="empty-state">No requests recorded yet.</div>'}</div>
     </div>
   `;
 }
@@ -226,22 +259,14 @@ function renderTaskDetail(payload) {
   `;
 }
 
-function repoNameFromPath(path) {
-  const value = String(path ?? "").replaceAll("\\", "/").replace(/\/+$/, "");
-  if (!value) {
-    return "unknown repo";
-  }
-  const parts = value.split("/");
-  return parts[parts.length - 1] || value;
-}
-
 function renderRepoSelectionMeta(repo) {
   const meta = document.getElementById("repo-selection-meta");
   if (!repo) {
     meta.textContent = "Select a repo. Agent Task Manager will assign the internal project key automatically.";
     return;
   }
-  meta.textContent = `Path: ${repo.repoPath} · Internal key: ${repo.projectKey} · Source: ${repo.locationLabel}`;
+  const bridgeTarget = document.getElementById("bridge-target")?.value ?? "local-ide";
+  meta.textContent = `Path: ${repo.repoPath} · Internal key: ${repo.projectKey} · Default thread: ${bridgeTarget}:${normalizePath(repo.repoPath).toLowerCase()}`;
 }
 
 function selectedRepo() {
@@ -290,11 +315,11 @@ async function loadRuntimeStatus() {
     payload.bridgeActiveRequestId || "idle";
 }
 
-async function refreshPromptList() {
-  const status = document.getElementById("prompt-status-filter").value.trim();
-  const query = new URLSearchParams({ limit: "25", status });
-  const payload = await fetchJson(`${appUrl("/api/prompt-requests")}?${query.toString()}`);
-  renderPromptList(payload.items);
+async function refreshThreadList() {
+  const bridgeTarget = document.getElementById("thread-bridge-filter").value.trim();
+  const query = new URLSearchParams({ limit: "25", bridgeTarget });
+  const payload = await fetchJson(`${appUrl("/api/threads")}?${query.toString()}`);
+  renderThreadList(payload.items);
 }
 
 async function refreshTaskList() {
@@ -305,13 +330,14 @@ async function refreshTaskList() {
   renderTaskList(payload.items);
 }
 
-async function loadPromptDetail() {
-  if (!state.selectedPromptId) {
-    renderPromptDetail(null);
+async function loadThreadDetail() {
+  if (!state.selectedThreadKey) {
+    renderThreadDetail(null);
     return;
   }
-  const payload = await fetchJson(appUrl(`/api/prompt-requests/${encodeURIComponent(state.selectedPromptId)}`));
-  renderPromptDetail(payload);
+  const query = new URLSearchParams({ threadKey: state.selectedThreadKey });
+  const payload = await fetchJson(`${appUrl("/api/threads/detail")}?${query.toString()}`);
+  renderThreadDetail(payload);
 }
 
 async function loadTaskDetail() {
@@ -335,6 +361,7 @@ async function submitPrompt(event) {
 
   const body = {
     repoPath: repo.repoPath,
+    bridgeTarget: document.getElementById("bridge-target").value,
     executionMode: document.getElementById("execution-mode").value,
     promptText: document.getElementById("prompt-text").value.trim(),
   };
@@ -348,8 +375,9 @@ async function submitPrompt(event) {
     document.getElementById("prompt-submit-status").textContent =
       `Queued ${payload.requestId} for ${username}.`;
     document.getElementById("prompt-text").value = "";
-    state.selectedPromptId = payload.requestId;
-    await Promise.all([loadRuntimeStatus(), refreshPromptList(), loadPromptDetail()]);
+    state.selectedThreadKey = payload.threadKey;
+    document.getElementById("thread-bridge-filter").value = payload.bridgeTarget;
+    await Promise.all([loadRuntimeStatus(), refreshThreadList(), loadThreadDetail()]);
   } catch (error) {
     status.textContent = error.message;
   }
@@ -359,9 +387,9 @@ async function refreshAll() {
   try {
     await Promise.all([
       loadRuntimeStatus(),
-      refreshPromptList(),
+      refreshThreadList(),
       refreshTaskList(),
-      loadPromptDetail(),
+      loadThreadDetail(),
       loadTaskDetail(),
     ]);
   } catch (error) {
@@ -371,7 +399,8 @@ async function refreshAll() {
 
 document.getElementById("prompt-form")?.addEventListener("submit", submitPrompt);
 document.getElementById("repo-path")?.addEventListener("change", () => renderRepoSelectionMeta(selectedRepo()));
-document.getElementById("prompt-status-filter")?.addEventListener("change", refreshPromptList);
+document.getElementById("bridge-target")?.addEventListener("change", () => renderRepoSelectionMeta(selectedRepo()));
+document.getElementById("thread-bridge-filter")?.addEventListener("change", refreshThreadList);
 document.getElementById("task-project-filter")?.addEventListener("change", refreshTaskList);
 document.getElementById("task-status-filter")?.addEventListener("change", refreshTaskList);
 

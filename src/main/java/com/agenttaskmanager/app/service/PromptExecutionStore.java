@@ -2,8 +2,10 @@ package com.agenttaskmanager.app.service;
 
 import com.agenttaskmanager.app.bridge.BridgeClaim;
 import com.agenttaskmanager.app.bridge.BridgeRunHandle;
+import java.time.OffsetDateTime;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -55,6 +57,54 @@ public class PromptExecutionStore {
         .update();
   }
 
+  public void upsertBridgeSession(
+      String sessionId,
+      String agentId,
+      String status,
+      String hostName,
+      String clientName,
+      String repoPath,
+      String capabilitiesJson
+  ) {
+    jdbcClient.sql("""
+            INSERT INTO agent_task_manager.agent_sessions (
+              session_id,
+              agent_id,
+              host_name,
+              client_name,
+              repo_path,
+              status,
+              capabilities,
+              last_seen_at
+            ) VALUES (
+              :sessionId,
+              :agentId,
+              :hostName,
+              :clientName,
+              NULLIF(:repoPath, ''),
+              :status,
+              CAST(:capabilities AS jsonb),
+              now()
+            )
+            ON CONFLICT (session_id) DO UPDATE SET
+              agent_id = EXCLUDED.agent_id,
+              host_name = EXCLUDED.host_name,
+              client_name = EXCLUDED.client_name,
+              repo_path = EXCLUDED.repo_path,
+              status = EXCLUDED.status,
+              capabilities = EXCLUDED.capabilities,
+              last_seen_at = now()
+            """)
+        .param("sessionId", sessionId)
+        .param("agentId", agentId)
+        .param("hostName", hostName)
+        .param("clientName", clientName)
+        .param("repoPath", repoPath == null ? "" : repoPath)
+        .param("status", status)
+        .param("capabilities", capabilitiesJson == null || capabilitiesJson.isBlank() ? "{}" : capabilitiesJson)
+        .update();
+  }
+
   public void heartbeatAgentSession(String sessionId, String status) {
     jdbcClient.sql("""
             UPDATE agent_task_manager.agent_sessions
@@ -67,12 +117,13 @@ public class PromptExecutionStore {
         .update();
   }
 
-  public Optional<BridgeClaim> claimNextQueued(String agentId) {
+  public Optional<BridgeClaim> claimNextQueued(String agentId, String bridgeTarget) {
     return jdbcClient.sql("""
             WITH next_request AS (
               SELECT request_id
               FROM agent_task_manager.prompt_requests
               WHERE status = 'queued'
+                AND bridge_target = :bridgeTarget
               ORDER BY created_at ASC
               FOR UPDATE SKIP LOCKED
               LIMIT 1
@@ -88,17 +139,34 @@ public class PromptExecutionStore {
               request.request_id,
               request.project_key,
               request.repo_path,
+              request.bridge_target,
+              request.thread_key,
               request.requested_by,
               request.requested_from,
               request.execution_mode,
-              request.prompt_text
+              request.prompt_text,
+              (
+                SELECT thread.thread_session_id
+                FROM agent_task_manager.prompt_threads AS thread
+                WHERE thread.thread_key = request.thread_key
+              ) AS resume_session_id
             """)
         .param("agentId", agentId)
+        .param("bridgeTarget", bridgeTarget)
         .query(this::mapBridgeClaim)
         .optional();
   }
 
   public BridgeRunHandle startRun(String requestId, String sessionId, String agentId) {
+    return startRun(requestId, sessionId, agentId, null);
+  }
+
+  public BridgeRunHandle startRun(
+      String requestId,
+      String sessionId,
+      String agentId,
+      String threadKey
+  ) {
     Long runId = jdbcClient.sql("""
             INSERT INTO agent_task_manager.prompt_runs (
               request_id,
@@ -133,7 +201,7 @@ public class PromptExecutionStore {
         .param("agentId", agentId)
         .update();
 
-    return new BridgeRunHandle(runId == null ? -1L : runId, requestId);
+    return new BridgeRunHandle(runId == null ? -1L : runId, requestId, threadKey);
   }
 
   public void appendPromptMessage(
@@ -164,19 +232,38 @@ public class PromptExecutionStore {
         .param("senderName", senderName)
         .param("body", body)
         .update();
+
+    jdbcClient.sql("""
+            UPDATE agent_task_manager.prompt_threads
+            SET last_request_id = :requestId,
+                last_message_at = now()
+            WHERE thread_key = (
+              SELECT thread_key
+              FROM agent_task_manager.prompt_requests
+              WHERE request_id = :requestId
+            )
+            """)
+        .param("requestId", requestId)
+        .update();
   }
 
   public void completeRun(String requestId, long runId, String summary) {
+    completeRun(requestId, runId, summary, null);
+  }
+
+  public void completeRun(String requestId, long runId, String summary, String threadSessionId) {
     jdbcClient.sql("""
             UPDATE agent_task_manager.prompt_runs
             SET status = 'completed',
                 exit_code = 0,
                 summary = :summary,
+                thread_session_id = COALESCE(NULLIF(:threadSessionId, ''), thread_session_id),
                 completed_at = now(),
                 updated_at = now()
             WHERE run_id = :runId
             """)
         .param("summary", summary)
+        .param("threadSessionId", threadSessionId == null ? "" : threadSessionId)
         .param("runId", runId)
         .update();
 
@@ -191,20 +278,36 @@ public class PromptExecutionStore {
         .param("summary", summary)
         .param("requestId", requestId)
         .update();
+
+    if (threadSessionId != null && !threadSessionId.isBlank()) {
+      recordThreadSession(requestId, runId, threadSessionId);
+    }
   }
 
   public void failRun(String requestId, long runId, int exitCode, String summary) {
+    failRun(requestId, runId, exitCode, summary, null);
+  }
+
+  public void failRun(
+      String requestId,
+      long runId,
+      int exitCode,
+      String summary,
+      String threadSessionId
+  ) {
     jdbcClient.sql("""
             UPDATE agent_task_manager.prompt_runs
             SET status = 'failed',
                 exit_code = :exitCode,
                 summary = :summary,
+                thread_session_id = COALESCE(NULLIF(:threadSessionId, ''), thread_session_id),
                 completed_at = now(),
                 updated_at = now()
             WHERE run_id = :runId
             """)
         .param("exitCode", exitCode)
         .param("summary", summary)
+        .param("threadSessionId", threadSessionId == null ? "" : threadSessionId)
         .param("runId", runId)
         .update();
 
@@ -219,6 +322,95 @@ public class PromptExecutionStore {
         .param("summary", summary)
         .param("requestId", requestId)
         .update();
+
+    if (threadSessionId != null && !threadSessionId.isBlank()) {
+      recordThreadSession(requestId, runId, threadSessionId);
+    }
+  }
+
+  public void recordThreadSession(String requestId, long runId, String threadSessionId) {
+    jdbcClient.sql("""
+            UPDATE agent_task_manager.prompt_runs
+            SET thread_session_id = :threadSessionId,
+                updated_at = now()
+            WHERE run_id = :runId
+            """)
+        .param("threadSessionId", threadSessionId)
+        .param("runId", runId)
+        .update();
+
+    jdbcClient.sql("""
+            INSERT INTO agent_task_manager.prompt_threads (
+              thread_key,
+              project_key,
+              repo_path,
+              bridge_target,
+              thread_session_id,
+              last_request_id,
+              last_message_at
+            )
+            SELECT
+              request.thread_key,
+              request.project_key,
+              request.repo_path,
+              request.bridge_target,
+              :threadSessionId,
+              request.request_id,
+              now()
+            FROM agent_task_manager.prompt_requests AS request
+            WHERE request.request_id = :requestId
+            ON CONFLICT (thread_key) DO UPDATE SET
+              thread_session_id = EXCLUDED.thread_session_id,
+              last_request_id = EXCLUDED.last_request_id,
+              last_message_at = now()
+            """)
+        .param("threadSessionId", threadSessionId)
+        .param("requestId", requestId)
+        .update();
+  }
+
+  public void ensurePromptThread(
+      String threadKey,
+      String projectKey,
+      String repoPath,
+      String bridgeTarget,
+      String requestId
+  ) {
+    jdbcClient.sql("""
+            INSERT INTO agent_task_manager.prompt_threads (
+              thread_key,
+              project_key,
+              repo_path,
+              bridge_target,
+              last_request_id,
+              last_message_at
+            ) VALUES (
+              :threadKey,
+              :projectKey,
+              :repoPath,
+              :bridgeTarget,
+              :requestId,
+              now()
+            )
+            ON CONFLICT (thread_key) DO UPDATE SET
+              last_request_id = EXCLUDED.last_request_id,
+              last_message_at = COALESCE(agent_task_manager.prompt_threads.last_message_at, now())
+            """)
+        .param("threadKey", threadKey)
+        .param("projectKey", projectKey)
+        .param("repoPath", repoPath)
+        .param("bridgeTarget", normalizeBridgeTarget(bridgeTarget))
+        .param("requestId", requestId)
+        .update();
+  }
+
+  public static String normalizeBridgeTarget(String bridgeTarget) {
+    String normalized = bridgeTarget == null ? "" : bridgeTarget.strip().toLowerCase(Locale.ROOT);
+    return switch (normalized) {
+      case "", "remote", "remote-headless" -> "remote-headless";
+      case "local", "local-ide" -> "local-ide";
+      default -> throw new IllegalArgumentException("Unsupported bridge target: " + bridgeTarget);
+    };
   }
 
   private BridgeClaim mapBridgeClaim(ResultSet rs, int rowNum) throws SQLException {
@@ -226,6 +418,9 @@ public class PromptExecutionStore {
         rs.getString("request_id"),
         rs.getString("project_key"),
         rs.getString("repo_path"),
+        rs.getString("bridge_target"),
+        rs.getString("thread_key"),
+        rs.getString("resume_session_id"),
         rs.getString("requested_by"),
         rs.getString("requested_from"),
         rs.getString("execution_mode"),

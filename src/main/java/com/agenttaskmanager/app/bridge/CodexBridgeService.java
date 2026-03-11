@@ -85,13 +85,18 @@ public class CodexBridgeService {
       activeRun.compareAndSet(current, null);
     }
 
-    Optional<BridgeClaim> claim = executionStore.claimNextQueued(agentId);
+    Optional<BridgeClaim> claim = executionStore.claimNextQueued(agentId, "remote-headless");
     if (claim.isEmpty()) {
       return;
     }
 
     BridgeClaim next = claim.get();
-    BridgeRunHandle runHandle = executionStore.startRun(next.requestId(), sessionId, agentId);
+    BridgeRunHandle runHandle = executionStore.startRun(
+        next.requestId(),
+        sessionId,
+        agentId,
+        next.threadKey()
+    );
     Future<?> future = worker.submit(() -> executeClaim(next, runHandle));
     activeRun.set(new ActiveRun(next.requestId(), runHandle.runId(), future));
   }
@@ -113,10 +118,12 @@ public class CodexBridgeService {
     Path outputFile = null;
     try {
       outputFile = Files.createTempFile("agent-task-manager-codex-", ".txt");
+      AtomicReference<String> threadSessionId = new AtomicReference<>(claim.resumeSessionId());
       List<String> command = commandFactory.buildCommand(
           Path.of(claim.repoPath()),
           claim.executionMode(),
-          outputFile
+          outputFile,
+          claim.resumeSessionId()
       );
       command.add(commandFactory.buildPromptEnvelope(claim.executionMode(), claim.promptText()));
       ProcessBuilder processBuilder = new ProcessBuilder(command);
@@ -134,7 +141,7 @@ public class CodexBridgeService {
       Thread stderrThread = Thread.ofPlatform()
           .name("codex-bridge-stderr-" + runHandle.runId())
           .start(() -> consumeStderr(process.getErrorStream(), claim, runHandle));
-      consumeStdout(process.getInputStream(), claim, runHandle);
+      consumeStdout(process.getInputStream(), claim, runHandle, threadSessionId);
       int exitCode = process.waitFor();
       stderrThread.join();
 
@@ -154,9 +161,9 @@ public class CodexBridgeService {
           : truncate(finalMessage);
 
       if (exitCode == 0) {
-        executionStore.completeRun(claim.requestId(), runHandle.runId(), summary);
+        executionStore.completeRun(claim.requestId(), runHandle.runId(), summary, threadSessionId.get());
       } else {
-        executionStore.failRun(claim.requestId(), runHandle.runId(), exitCode, summary);
+        executionStore.failRun(claim.requestId(), runHandle.runId(), exitCode, summary, threadSessionId.get());
       }
     } catch (Exception exception) {
       LOGGER.error("Codex bridge failed for {}", claim.requestId(), exception);
@@ -184,7 +191,12 @@ public class CodexBridgeService {
     }
   }
 
-  private void consumeStdout(InputStream inputStream, BridgeClaim claim, BridgeRunHandle runHandle)
+  private void consumeStdout(
+      InputStream inputStream,
+      BridgeClaim claim,
+      BridgeRunHandle runHandle,
+      AtomicReference<String> threadSessionId
+  )
       throws IOException {
     try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
       String line;
@@ -194,6 +206,13 @@ public class CodexBridgeService {
         }
         List<CodexEventMessage> messages = eventParser.parseLine(line);
         for (CodexEventMessage message : messages) {
+          if ("thread-started".equals(message.kind())) {
+            String parsedThreadId = parseThreadId(message.body());
+            if (parsedThreadId != null) {
+              threadSessionId.set(parsedThreadId);
+              executionStore.recordThreadSession(claim.requestId(), runHandle.runId(), parsedThreadId);
+            }
+          }
           executionStore.appendPromptMessage(
               claim.requestId(),
               runHandle.runId(),
@@ -246,7 +265,16 @@ public class CodexBridgeService {
   private static boolean isIgnorableStderr(String line) {
     return line.contains("Failed to kill MCP process group")
         || line.contains("Failed to delete shell snapshot")
-        || line.contains("Error reading from stream: serde error expected value");
+        || line.contains("Error reading from stream: serde error expected value")
+        || line.contains("failed to unwatch /home/ubuntu/.codex/skills/.system");
+  }
+
+  private static String parseThreadId(String body) {
+    if (body == null) {
+      return null;
+    }
+    String prefix = "Started thread ";
+    return body.startsWith(prefix) ? body.substring(prefix.length()).strip() : null;
   }
 
   private String resolveAgentId() {

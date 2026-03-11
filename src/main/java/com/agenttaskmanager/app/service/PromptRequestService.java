@@ -20,27 +20,34 @@ public class PromptRequestService {
   private static final List<String> EXECUTION_MODES = List.of("read-only", "edit", "run-tests");
 
   private final JdbcClient jdbcClient;
+  private final PromptExecutionStore executionStore;
 
-  public PromptRequestService(JdbcClient jdbcClient) {
+  public PromptRequestService(JdbcClient jdbcClient, PromptExecutionStore executionStore) {
     this.jdbcClient = jdbcClient;
+    this.executionStore = executionStore;
   }
 
   public PromptRequestSummary create(
       String projectKey,
       String repoPath,
+      String bridgeTarget,
       String executionMode,
       String promptText,
       String requestedBy,
       String requestedFrom
   ) {
     String normalizedMode = normalizeExecutionMode(executionMode);
+    String normalizedBridgeTarget = PromptExecutionStore.normalizeBridgeTarget(bridgeTarget);
     String requestId = "pr_" + UUID.randomUUID();
+    String threadKey = buildThreadKey(repoPath, normalizedBridgeTarget);
 
     jdbcClient.sql("""
             INSERT INTO agent_task_manager.prompt_requests (
               request_id,
               project_key,
               repo_path,
+              bridge_target,
+              thread_key,
               requested_by,
               requested_from,
               execution_mode,
@@ -51,6 +58,8 @@ public class PromptRequestService {
               :requestId,
               :projectKey,
               :repoPath,
+              :bridgeTarget,
+              :threadKey,
               :requestedBy,
               NULLIF(:requestedFrom, ''),
               :executionMode,
@@ -62,11 +71,15 @@ public class PromptRequestService {
         .param("requestId", requestId)
         .param("projectKey", projectKey)
         .param("repoPath", repoPath)
+        .param("bridgeTarget", normalizedBridgeTarget)
+        .param("threadKey", threadKey)
         .param("requestedBy", requestedBy)
         .param("requestedFrom", requestedFrom == null ? "" : requestedFrom)
         .param("executionMode", normalizedMode)
         .param("promptText", promptText)
         .update();
+
+    executionStore.ensurePromptThread(threadKey, projectKey, repoPath, normalizedBridgeTarget, requestId);
 
     jdbcClient.sql("""
             INSERT INTO agent_task_manager.prompt_messages (
@@ -95,6 +108,8 @@ public class PromptRequestService {
               request_id,
               project_key,
               repo_path,
+              bridge_target,
+              thread_key,
               requested_by,
               requested_from,
               target_agent_id,
@@ -126,6 +141,8 @@ public class PromptRequestService {
               request_id,
               project_key,
               repo_path,
+              bridge_target,
+              thread_key,
               requested_by,
               requested_from,
               target_agent_id,
@@ -144,6 +161,8 @@ public class PromptRequestService {
             rs.getString("request_id"),
             rs.getString("project_key"),
             rs.getString("repo_path"),
+            rs.getString("bridge_target"),
+            rs.getString("thread_key"),
             rs.getString("requested_by"),
             rs.getString("requested_from"),
             rs.getString("target_agent_id"),
@@ -163,6 +182,7 @@ public class PromptRequestService {
               run_id,
               agent_session_id,
               bridge_name,
+              thread_session_id,
               status,
               exit_code,
               summary,
@@ -179,6 +199,7 @@ public class PromptRequestService {
             rs.getLong("run_id"),
             rs.getString("agent_session_id"),
             rs.getString("bridge_name"),
+            rs.getString("thread_session_id"),
             rs.getString("status"),
             (Integer) rs.getObject("exit_code", Integer.class),
             rs.getString("summary"),
@@ -232,6 +253,8 @@ public class PromptRequestService {
               request_id,
               project_key,
               repo_path,
+              bridge_target,
+              thread_key,
               requested_by,
               requested_from,
               target_agent_id,
@@ -265,6 +288,8 @@ public class PromptRequestService {
         rs.getString("request_id"),
         rs.getString("project_key"),
         rs.getString("repo_path"),
+        rs.getString("bridge_target"),
+        rs.getString("thread_key"),
         rs.getString("requested_by"),
         rs.getString("requested_from"),
         rs.getString("target_agent_id"),
@@ -293,5 +318,10 @@ public class PromptRequestService {
   private static OffsetDateTime getOffsetDateTime(ResultSet rs, String column) throws SQLException {
     return rs.getObject(column, OffsetDateTime.class);
   }
-}
 
+  public static String buildThreadKey(String repoPath, String bridgeTarget) {
+    String normalizedPath = repoPath == null ? "" : repoPath.strip().toLowerCase(Locale.ROOT);
+    String normalizedTarget = PromptExecutionStore.normalizeBridgeTarget(bridgeTarget);
+    return normalizedTarget + ":" + normalizedPath;
+  }
+}

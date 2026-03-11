@@ -6,6 +6,8 @@ public record PromptRequestSummary(
     String requestId,
     String projectKey,
     String repoPath,
+    String bridgeTarget,
+    String threadKey,
     String requestedBy,
     String requestedFrom,
     String targetAgentId,
@@ -22,4 +24,3 @@ public record PromptRequestSummary(
     OffsetDateTime latestMessageAt
 ) {
 }
-

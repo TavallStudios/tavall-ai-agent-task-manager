@@ -6,6 +6,7 @@ public record PromptRun(
     long runId,
     String agentSessionId,
     String bridgeName,
+    String threadSessionId,
     String status,
     Integer exitCode,
     String summary,
@@ -14,4 +15,3 @@ public record PromptRun(
     OffsetDateTime completedAt
 ) {
 }
-

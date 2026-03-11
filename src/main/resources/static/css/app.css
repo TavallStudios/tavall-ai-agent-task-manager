@@ -190,11 +190,16 @@ button {
 .list-item,
 .detail-card,
 .message-card,
-.checkpoint-card {
+.checkpoint-card,
+.chat-message {
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 14px 16px;
   background: rgba(249, 250, 251, 0.95);
+}
+
+.compact-card {
+  padding: 12px 14px;
 }
 
 .list-item {
@@ -242,6 +247,56 @@ button {
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
 
+.chat-shell {
+  display: grid;
+  gap: 12px;
+}
+
+.chat-message {
+  max-width: 100%;
+}
+
+.chat-message.user {
+  background: linear-gradient(180deg, rgba(20, 184, 166, 0.10), rgba(255, 255, 255, 0.98));
+  border-color: rgba(20, 184, 166, 0.28);
+}
+
+.chat-message.assistant {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(15, 118, 110, 0.18);
+}
+
+.chat-message.system {
+  background: rgba(229, 231, 235, 0.65);
+  border-style: dashed;
+}
+
+.chat-meta,
+.chat-kind {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chat-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.chat-kind {
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+}
+
 .empty-state {
   color: var(--muted);
 }
@@ -284,4 +339,3 @@ button {
     align-items: stretch;
   }
 }
-

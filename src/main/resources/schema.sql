@@ -87,6 +87,8 @@ CREATE TABLE IF NOT EXISTS agent_task_manager.prompt_requests (
   request_id text PRIMARY KEY,
   project_key text NOT NULL,
   repo_path text NOT NULL,
+  bridge_target text NOT NULL DEFAULT 'remote-headless',
+  thread_key text NOT NULL DEFAULT '',
   requested_by text NOT NULL,
   requested_from text,
   target_agent_id text,
@@ -100,11 +102,20 @@ CREATE TABLE IF NOT EXISTS agent_task_manager.prompt_requests (
   completed_at timestamptz
 );
 
+ALTER TABLE agent_task_manager.prompt_requests
+  ADD COLUMN IF NOT EXISTS bridge_target text NOT NULL DEFAULT 'remote-headless';
+
+ALTER TABLE agent_task_manager.prompt_requests
+  ADD COLUMN IF NOT EXISTS thread_key text NOT NULL DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS prompt_requests_status_updated_idx
   ON agent_task_manager.prompt_requests (status, updated_at DESC);
 
 CREATE INDEX IF NOT EXISTS prompt_requests_project_updated_idx
   ON agent_task_manager.prompt_requests (project_key, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS prompt_requests_bridge_target_updated_idx
+  ON agent_task_manager.prompt_requests (bridge_target, updated_at DESC);
 
 DROP TRIGGER IF EXISTS prompt_requests_touch_updated_at
   ON agent_task_manager.prompt_requests;
@@ -143,6 +154,7 @@ CREATE TABLE IF NOT EXISTS agent_task_manager.prompt_runs (
   request_id text NOT NULL REFERENCES agent_task_manager.prompt_requests(request_id) ON DELETE CASCADE,
   agent_session_id text REFERENCES agent_task_manager.agent_sessions(session_id) ON DELETE SET NULL,
   bridge_name text,
+  thread_session_id text,
   status text NOT NULL DEFAULT 'queued',
   exit_code integer,
   summary text,
@@ -151,6 +163,9 @@ CREATE TABLE IF NOT EXISTS agent_task_manager.prompt_runs (
   updated_at timestamptz NOT NULL DEFAULT now(),
   completed_at timestamptz
 );
+
+ALTER TABLE agent_task_manager.prompt_runs
+  ADD COLUMN IF NOT EXISTS thread_session_id text;
 
 CREATE INDEX IF NOT EXISTS prompt_runs_request_updated_idx
   ON agent_task_manager.prompt_runs (request_id, updated_at DESC);
@@ -176,6 +191,29 @@ CREATE TABLE IF NOT EXISTS agent_task_manager.prompt_messages (
 
 CREATE INDEX IF NOT EXISTS prompt_messages_request_created_idx
   ON agent_task_manager.prompt_messages (request_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.prompt_threads (
+  thread_key text PRIMARY KEY,
+  project_key text NOT NULL,
+  repo_path text NOT NULL,
+  bridge_target text NOT NULL,
+  thread_session_id text,
+  last_request_id text REFERENCES agent_task_manager.prompt_requests(request_id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  last_message_at timestamptz
+);
+
+DROP TRIGGER IF EXISTS prompt_threads_touch_updated_at
+  ON agent_task_manager.prompt_threads;
+
+CREATE TRIGGER prompt_threads_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.prompt_threads
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE INDEX IF NOT EXISTS prompt_threads_bridge_message_idx
+  ON agent_task_manager.prompt_threads (bridge_target, last_message_at DESC, updated_at DESC);
 
 CREATE OR REPLACE VIEW agent_task_manager.task_overview AS
 SELECT
@@ -214,11 +252,16 @@ LEFT JOIN LATERAL (
   LIMIT 1
 ) AS lease ON true;
 
+DROP VIEW IF EXISTS agent_task_manager.prompt_thread_overview;
+DROP VIEW IF EXISTS agent_task_manager.prompt_request_overview;
+
 CREATE OR REPLACE VIEW agent_task_manager.prompt_request_overview AS
 SELECT
   request.request_id,
   request.project_key,
   request.repo_path,
+  request.bridge_target,
+  request.thread_key,
   request.requested_by,
   request.requested_from,
   request.target_agent_id,
@@ -252,3 +295,22 @@ LEFT JOIN LATERAL (
   ORDER BY message.created_at DESC, message.message_id DESC
   LIMIT 1
 ) AS latest_message ON true;
+
+CREATE OR REPLACE VIEW agent_task_manager.prompt_thread_overview AS
+SELECT
+  thread.thread_key,
+  thread.project_key,
+  thread.repo_path,
+  thread.bridge_target,
+  thread.thread_session_id,
+  thread.last_request_id,
+  thread.created_at,
+  thread.updated_at,
+  thread.last_message_at,
+  request.status AS latest_request_status,
+  request.latest_summary AS latest_request_summary,
+  request.prompt_text AS latest_prompt_text,
+  request.updated_at AS latest_request_updated_at
+FROM agent_task_manager.prompt_threads AS thread
+LEFT JOIN agent_task_manager.prompt_requests AS request
+  ON request.request_id = thread.last_request_id;
