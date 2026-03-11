@@ -77,6 +77,12 @@ body {
   padding: 24px;
 }
 
+.hero-subsection {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
 .stat-grid,
 .detail-grid,
 .compose-form,
@@ -119,6 +125,10 @@ label span,
   gap: 16px;
   align-items: end;
   margin-bottom: 16px;
+}
+
+.section-heading.compact {
+  margin-bottom: 12px;
 }
 
 .compose-form {
@@ -187,6 +197,10 @@ button {
   gap: 12px;
 }
 
+.bridge-session-list {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
 .list-item,
 .detail-card,
 .message-card,
@@ -196,6 +210,10 @@ button {
   border-radius: 18px;
   padding: 14px 16px;
   background: rgba(249, 250, 251, 0.95);
+}
+
+.bridge-session-card {
+  cursor: default;
 }
 
 .compact-card {

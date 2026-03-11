@@ -2,9 +2,11 @@ package com.agenttaskmanager.app.service;
 
 import com.agenttaskmanager.app.bridge.BridgeClaim;
 import com.agenttaskmanager.app.bridge.BridgeRunHandle;
-import java.time.OffsetDateTime;
+import com.agenttaskmanager.app.model.BridgeSessionSummary;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -115,6 +117,43 @@ public class PromptExecutionStore {
         .param("status", status)
         .param("sessionId", sessionId)
         .update();
+  }
+
+  public List<BridgeSessionSummary> listBridgeSessions(int limit) {
+    return jdbcClient.sql("""
+            SELECT
+              session_id,
+              agent_id,
+              client_name,
+              host_name,
+              repo_path,
+              COALESCE(capabilities ->> 'bridgeTarget', '') AS bridge_target,
+              COALESCE(capabilities ->> 'transport', '') AS transport,
+              status,
+              last_seen_at,
+              (
+                status NOT IN ('offline', 'disabled')
+                AND last_seen_at > now() - interval '90 seconds'
+              ) AS online
+            FROM agent_task_manager.agent_sessions
+            WHERE COALESCE(capabilities ->> 'bridgeTarget', '') <> ''
+            ORDER BY last_seen_at DESC, updated_at DESC
+            LIMIT :limit
+            """)
+        .param("limit", limit)
+        .query((rs, rowNum) -> new BridgeSessionSummary(
+            rs.getString("session_id"),
+            rs.getString("agent_id"),
+            rs.getString("client_name"),
+            rs.getString("host_name"),
+            rs.getString("repo_path"),
+            rs.getString("bridge_target"),
+            rs.getString("transport"),
+            rs.getString("status"),
+            rs.getBoolean("online"),
+            rs.getObject("last_seen_at", OffsetDateTime.class)
+        ))
+        .list();
   }
 
   public Optional<BridgeClaim> claimNextQueued(String agentId, String bridgeTarget) {

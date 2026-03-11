@@ -62,6 +62,13 @@ function bridgeTargetLabel(value) {
   return value === "local-ide" ? "local IDE" : "remote server";
 }
 
+function bridgeOnlineLabel(session) {
+  if (session.online) {
+    return "online";
+  }
+  return session.status || "offline";
+}
+
 function messageRole(message) {
   if (message.messageKind === "prompt") {
     return "user";
@@ -79,6 +86,33 @@ async function fetchJson(url, options = {}) {
     throw new Error(text || `Request failed: ${response.status}`);
   }
   return response.json();
+}
+
+function renderBridgeSessions(items) {
+  const root = document.getElementById("bridge-session-list");
+  if (!root) {
+    return;
+  }
+  if (!items.length) {
+    root.innerHTML = '<div class="empty-state">No bridge sessions have registered yet.</div>';
+    return;
+  }
+
+  root.innerHTML = items.map((session) => `
+    <article class="detail-card bridge-session-card">
+      <div class="item-top">
+        <strong>${escapeHtml(session.clientName || session.agentId || "bridge")}</strong>
+        ${statusPill(bridgeOnlineLabel(session))}
+      </div>
+      <div class="muted">${escapeHtml(bridgeTargetLabel(session.bridgeTarget || "remote-headless"))} · ${escapeHtml(session.transport || "unknown transport")}</div>
+      <div class="item-meta muted">
+        <span>${escapeHtml(session.hostName || "-")}</span>
+        <span>${formatDate(session.lastSeenAt)}</span>
+      </div>
+      <div class="muted">${escapeHtml(session.repoPath || "all repos")}</div>
+      <div class="muted">${escapeHtml(session.sessionId)}</div>
+    </article>
+  `).join("");
 }
 
 function renderThreadList(items) {
@@ -315,6 +349,11 @@ async function loadRuntimeStatus() {
     payload.bridgeActiveRequestId || "idle";
 }
 
+async function loadBridgeSessions() {
+  const payload = await fetchJson(`${appUrl("/api/bridge/sessions")}?limit=12`);
+  renderBridgeSessions(payload.items);
+}
+
 async function refreshThreadList() {
   const bridgeTarget = document.getElementById("thread-bridge-filter").value.trim();
   const query = new URLSearchParams({ limit: "25", bridgeTarget });
@@ -387,6 +426,7 @@ async function refreshAll() {
   try {
     await Promise.all([
       loadRuntimeStatus(),
+      loadBridgeSessions(),
       refreshThreadList(),
       refreshTaskList(),
       loadThreadDetail(),
