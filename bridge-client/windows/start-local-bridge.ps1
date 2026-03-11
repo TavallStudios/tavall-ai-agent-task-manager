@@ -39,14 +39,17 @@ $arguments += "--agent-id"
 $arguments += [string]$config.agentId
 $arguments += "--client-name"
 $arguments += [string]$config.clientName
-$arguments += "--repo-path"
-$arguments += [string]$config.repoPath
 $arguments += "--poll-interval"
 $arguments += [string]$config.pollInterval
 $arguments += "--codex-command"
 $arguments += [string]$config.codexCommand
 $arguments += "--session-file"
 $arguments += [string]$config.sessionFile
+
+if ($config.repoPath) {
+    $arguments += "--repo-path"
+    $arguments += [string]$config.repoPath
+}
 
 if ($config.codexRealBin) {
     $arguments += "--codex-real-bin"
