@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -22,6 +23,13 @@ IGNORABLE_STDERR = (
     "failed to unwatch /home/ubuntu/.codex/skills/.system",
 )
 
+DEFAULT_HTTP_HEADERS = {
+    "User-Agent": "curl/8.7.1",
+    "Accept": "*/*",
+}
+
+LOCAL_PC_ROOT_PREFIX = "/srv/local-pc-root/"
+
 
 def basic_auth(username: str, password: str) -> str:
     token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
@@ -30,10 +38,42 @@ def basic_auth(username: str, password: str) -> str:
 
 def post_json(base_url: str, path: str, payload: dict, auth_header: str) -> dict:
     url = urllib.parse.urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+    body = json.dumps(payload)
+    curl_command = shutil.which("curl") or shutil.which("curl.exe")
+    if curl_command:
+        result = subprocess.run(
+            [
+                curl_command,
+                "--silent",
+                "--show-error",
+                "--fail-with-body",
+                "-X",
+                "POST",
+                url,
+                "-H",
+                f"Authorization: {auth_header}",
+                "-H",
+                "Content-Type: application/json",
+                "-H",
+                f"User-Agent: {DEFAULT_HTTP_HEADERS['User-Agent']}",
+                "-H",
+                f"Accept: {DEFAULT_HTTP_HEADERS['Accept']}",
+                "--data-binary",
+                body,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        response_body = (result.stdout or "").strip()
+        return json.loads(response_body) if response_body else {}
+
     request = urllib.request.Request(
         url,
-        data=json.dumps(payload).encode("utf-8"),
+        data=body.encode("utf-8"),
         headers={
+            **DEFAULT_HTTP_HEADERS,
             "Authorization": auth_header,
             "Content-Type": "application/json",
         },
@@ -90,36 +130,30 @@ def parse_event_messages(line: str) -> list[dict]:
     return messages
 
 
-def build_prompt_envelope(execution_mode: str, prompt_text: str) -> str:
-    mode_instructions = {
-        "read-only": "Do not modify files. Investigate, inspect, and report only.",
-        "edit": "You may modify files if needed. Implement the requested change and explain the result.",
-        "run-tests": "You may modify files if needed. Run relevant verification before finishing and report the outcome.",
-    }
-    return (
-        f"Execution mode: {execution_mode}\n\n"
-        f"Mode policy:\n{mode_instructions.get(execution_mode, 'Follow the user request carefully.')}\n\n"
-        f"User request:\n{prompt_text.strip()}"
-    )
+def translate_repo_path(repo_path: str) -> str:
+    normalized = (repo_path or "").replace("\\", "/")
+    if os.name == "nt":
+        if normalized.startswith(LOCAL_PC_ROOT_PREFIX):
+            normalized = normalized[len(LOCAL_PC_ROOT_PREFIX):]
+        if len(normalized) >= 2 and normalized[1] == ":":
+            return normalized.replace("/", "\\")
+    return repo_path
 
 
-def build_command(args, claim: dict, output_file: str) -> list[str]:
+def build_command(args, claim: dict, output_file: str, repo_path: str) -> list[str]:
     command = [
         args.codex_command,
-        "-C", claim["repoPath"],
+        "-C", repo_path,
         "-s", "read-only" if claim["executionMode"] == "read-only" else "workspace-write",
         "exec",
-    ]
-    resume_session_id = claim.get("resumeSessionId")
-    if resume_session_id:
-        command.append("resume")
-    command.extend([
+        # The current Windows Codex CLI does not support `exec resume` with the
+        # JSON and output-file flags the bridge needs, so each queued prompt
+        # starts a fresh Codex session even when the web thread already exists.
+        "--skip-git-repo-check",
         "--json",
         "--output-last-message", output_file,
-    ])
-    if resume_session_id:
-        command.append(resume_session_id)
-    command.append(build_prompt_envelope(claim["executionMode"], claim["promptText"]))
+    ]
+    command.append(claim["promptText"].strip())
     return command
 
 
@@ -172,10 +206,22 @@ def stream_stderr(args, process: subprocess.Popen, request_id: str, run_id: int,
 
 def execute_claim(args, claim: dict) -> None:
     thread_state = {"threadSessionId": claim.get("resumeSessionId")}
+    repo_path = translate_repo_path(claim["repoPath"])
+    if not repo_path or not os.path.isdir(repo_path):
+        fail_run(
+            args,
+            claim["requestId"],
+            claim["runId"],
+            1,
+            f"Resolved repo path does not exist on bridge host: {repo_path or claim['repoPath']}",
+            thread_state.get("threadSessionId"),
+        )
+        return
+
     with tempfile.NamedTemporaryFile(prefix="agent-task-manager-", suffix=".txt", delete=False) as handle:
         output_path = handle.name
 
-    command = build_command(args, claim, output_path)
+    command = build_command(args, claim, output_path, repo_path)
     env = os.environ.copy()
     if args.codex_real_bin:
         env["CODEX_REAL_BIN"] = args.codex_real_bin
@@ -193,7 +239,7 @@ def execute_claim(args, claim: dict) -> None:
     append_message(args, claim["requestId"], claim["runId"], {
         "messageKind": "bridge-status",
         "senderName": "local-ide-bridge",
-        "body": f"Started local bridge run on {claim['repoPath']}",
+        "body": f"Started local bridge run on {repo_path}",
         "threadSessionId": thread_state.get("threadSessionId"),
     })
 
@@ -231,7 +277,7 @@ def execute_claim(args, claim: dict) -> None:
         })
 
     summary = final_message or f"Codex run completed with exit code {exit_code}"
-    if exit_code == 0:
+    if final_message or exit_code == 0:
         complete_run(args, claim["requestId"], claim["runId"], summary, thread_state.get("threadSessionId"))
     else:
         fail_run(args, claim["requestId"], claim["runId"], exit_code, summary, thread_state.get("threadSessionId"))
