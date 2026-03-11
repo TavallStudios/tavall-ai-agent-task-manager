@@ -3,12 +3,10 @@ CREATE SCHEMA IF NOT EXISTS agent_task_manager;
 CREATE OR REPLACE FUNCTION agent_task_manager.touch_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
-AS $$
-BEGIN
+AS 'BEGIN
   NEW.updated_at = now();
   RETURN NEW;
-END;
-$$;
+END;';
 
 CREATE TABLE IF NOT EXISTS agent_task_manager.agent_tasks (
   task_id text PRIMARY KEY,
@@ -85,6 +83,100 @@ CREATE TABLE IF NOT EXISTS agent_task_manager.agent_leases (
 CREATE INDEX IF NOT EXISTS agent_leases_expiry_idx
   ON agent_task_manager.agent_leases (expires_at ASC);
 
+CREATE TABLE IF NOT EXISTS agent_task_manager.prompt_requests (
+  request_id text PRIMARY KEY,
+  project_key text NOT NULL,
+  repo_path text NOT NULL,
+  requested_by text NOT NULL,
+  requested_from text,
+  target_agent_id text,
+  execution_mode text NOT NULL,
+  status text NOT NULL DEFAULT 'queued',
+  prompt_text text NOT NULL,
+  latest_summary text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS prompt_requests_status_updated_idx
+  ON agent_task_manager.prompt_requests (status, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS prompt_requests_project_updated_idx
+  ON agent_task_manager.prompt_requests (project_key, updated_at DESC);
+
+DROP TRIGGER IF EXISTS prompt_requests_touch_updated_at
+  ON agent_task_manager.prompt_requests;
+
+CREATE TRIGGER prompt_requests_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.prompt_requests
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.agent_sessions (
+  session_id text PRIMARY KEY,
+  agent_id text NOT NULL,
+  host_name text,
+  client_name text,
+  repo_path text,
+  status text NOT NULL DEFAULT 'online',
+  capabilities jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  last_seen_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS agent_sessions_status_seen_idx
+  ON agent_task_manager.agent_sessions (status, last_seen_at DESC);
+
+DROP TRIGGER IF EXISTS agent_sessions_touch_updated_at
+  ON agent_task_manager.agent_sessions;
+
+CREATE TRIGGER agent_sessions_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.agent_sessions
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.prompt_runs (
+  run_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  request_id text NOT NULL REFERENCES agent_task_manager.prompt_requests(request_id) ON DELETE CASCADE,
+  agent_session_id text REFERENCES agent_task_manager.agent_sessions(session_id) ON DELETE SET NULL,
+  bridge_name text,
+  status text NOT NULL DEFAULT 'queued',
+  exit_code integer,
+  summary text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS prompt_runs_request_updated_idx
+  ON agent_task_manager.prompt_runs (request_id, updated_at DESC);
+
+DROP TRIGGER IF EXISTS prompt_runs_touch_updated_at
+  ON agent_task_manager.prompt_runs;
+
+CREATE TRIGGER prompt_runs_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.prompt_runs
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.prompt_messages (
+  message_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  request_id text NOT NULL REFERENCES agent_task_manager.prompt_requests(request_id) ON DELETE CASCADE,
+  run_id bigint REFERENCES agent_task_manager.prompt_runs(run_id) ON DELETE CASCADE,
+  message_kind text NOT NULL,
+  sender_name text,
+  body text NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS prompt_messages_request_created_idx
+  ON agent_task_manager.prompt_messages (request_id, created_at DESC);
+
 CREATE OR REPLACE VIEW agent_task_manager.task_overview AS
 SELECT
   task.task_id,
@@ -121,3 +213,42 @@ LEFT JOIN LATERAL (
   ORDER BY active_lease.expires_at DESC
   LIMIT 1
 ) AS lease ON true;
+
+CREATE OR REPLACE VIEW agent_task_manager.prompt_request_overview AS
+SELECT
+  request.request_id,
+  request.project_key,
+  request.repo_path,
+  request.requested_by,
+  request.requested_from,
+  request.target_agent_id,
+  request.execution_mode,
+  request.status,
+  request.prompt_text,
+  request.latest_summary,
+  request.metadata,
+  request.created_at,
+  request.updated_at,
+  request.completed_at,
+  latest_run.run_id AS latest_run_id,
+  latest_run.status AS latest_run_status,
+  latest_run.summary AS latest_run_summary,
+  latest_run.completed_at AS latest_run_completed_at,
+  latest_message.message_kind AS latest_message_kind,
+  latest_message.sender_name AS latest_message_sender_name,
+  latest_message.created_at AS latest_message_at
+FROM agent_task_manager.prompt_requests AS request
+LEFT JOIN LATERAL (
+  SELECT run.run_id, run.status, run.summary, run.completed_at
+  FROM agent_task_manager.prompt_runs AS run
+  WHERE run.request_id = request.request_id
+  ORDER BY run.updated_at DESC, run.run_id DESC
+  LIMIT 1
+) AS latest_run ON true
+LEFT JOIN LATERAL (
+  SELECT message.message_kind, message.sender_name, message.created_at
+  FROM agent_task_manager.prompt_messages AS message
+  WHERE message.request_id = request.request_id
+  ORDER BY message.created_at DESC, message.message_id DESC
+  LIMIT 1
+) AS latest_message ON true;

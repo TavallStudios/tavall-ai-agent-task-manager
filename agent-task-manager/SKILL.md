@@ -15,6 +15,7 @@ Use the bundled scripts in this skill as the canonical task runtime for cross-pr
 4. Use `scripts/upsert_task.sh` to create or update the durable task row in Postgres.
 5. Use `scripts/record_checkpoint.sh` during work to write a fresh Redis checkpoint and a durable Postgres checkpoint.
 6. Use `scripts/view_tasks.sh` to inspect the current viewer state.
+7. Use `scripts/start_web_app.sh` to launch the Spring Boot control plane on port `9000` for mobile and browser access.
 
 ## Task Model
 
@@ -37,6 +38,8 @@ Use the bundled scripts in this skill as the canonical task runtime for cross-pr
   Write a Redis checkpoint and append a durable Postgres checkpoint.
 - `scripts/view_tasks.sh`
   Query the durable task overview.
+- `scripts/start_web_app.sh`
+  Start the Spring Boot web app that exposes the authenticated dashboard plus `/api/tasks`, `/api/prompt-requests`, and `/api/runtime/status`.
 
 ## Environment
 
@@ -48,10 +51,12 @@ The scripts are shell-based and can be used from any repo. They support override
 - `AGENT_TASK_MANAGER_REDIS_DB`
 - `AGENT_TASK_MANAGER_REDIS_NAMESPACE`
 - `AGENT_TASK_MANAGER_CHECKPOINT_TTL_SECONDS`
+- `AGENT_TASK_MANAGER_USERNAME`
+- `AGENT_TASK_MANAGER_PASSWORD`
 
 If `AGENT_TASK_MANAGER_DB_URL` is not set, the helper script will try the local service env files already used on this machine.
 
 ## Notes
 
 - Keep this skill repo generic. Do not add project-specific names, task ids, or schemas unless they are deliberately parameterized.
-- Prefer shell or small deterministic scripts for runtime actions. The skill body should stay concise and procedural.
+- Prefer shell or small deterministic scripts for runtime actions. The Boot app is the shared viewer and prompt queue, while the shell scripts remain the lowest-friction runtime tools.
