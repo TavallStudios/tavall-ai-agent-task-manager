@@ -1,0 +1,9 @@
+package cache;
+
+public enum CacheType {
+  DASHBOARD_SUMMARY,
+  SEMANTIC_CONTEXT,
+  TASK_CONTEXT,
+  VALIDATION_SUMMARY,
+  WORKER_SESSION
+}

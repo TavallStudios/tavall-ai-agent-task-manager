@@ -314,3 +314,249 @@ SELECT
 FROM agent_task_manager.prompt_threads AS thread
 LEFT JOIN agent_task_manager.prompt_requests AS request
   ON request.request_id = thread.last_request_id;
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.worker_tasks (
+  worker_task_id text PRIMARY KEY,
+  task_id text NOT NULL REFERENCES agent_task_manager.agent_tasks(task_id) ON DELETE CASCADE,
+  parent_worker_task_id text REFERENCES agent_task_manager.worker_tasks(worker_task_id) ON DELETE SET NULL,
+  task_role text NOT NULL,
+  title text NOT NULL,
+  status text NOT NULL,
+  assigned_agent_id text,
+  assigned_transport text,
+  attempt_count integer NOT NULL DEFAULT 0,
+  max_attempts integer NOT NULL DEFAULT 3,
+  latest_summary text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  last_check_in_at timestamptz,
+  completed_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS worker_tasks_task_status_idx
+  ON agent_task_manager.worker_tasks (task_id, status, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS worker_tasks_agent_status_idx
+  ON agent_task_manager.worker_tasks (assigned_agent_id, status, updated_at DESC);
+
+DROP TRIGGER IF EXISTS worker_tasks_touch_updated_at
+  ON agent_task_manager.worker_tasks;
+
+CREATE TRIGGER worker_tasks_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.worker_tasks
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.worker_task_leases (
+  worker_task_id text PRIMARY KEY REFERENCES agent_task_manager.worker_tasks(worker_task_id) ON DELETE CASCADE,
+  task_id text NOT NULL REFERENCES agent_task_manager.agent_tasks(task_id) ON DELETE CASCADE,
+  agent_id text NOT NULL,
+  session_id text,
+  lease_token text NOT NULL,
+  transport_kind text NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  acquired_at timestamptz NOT NULL DEFAULT now(),
+  heartbeat_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS worker_task_leases_expiry_idx
+  ON agent_task_manager.worker_task_leases (expires_at ASC);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.worker_checkins (
+  check_in_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  worker_task_id text NOT NULL REFERENCES agent_task_manager.worker_tasks(worker_task_id) ON DELETE CASCADE,
+  task_id text NOT NULL REFERENCES agent_task_manager.agent_tasks(task_id) ON DELETE CASCADE,
+  agent_id text NOT NULL,
+  status text NOT NULL,
+  summary text NOT NULL,
+  details jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS worker_checkins_worker_created_idx
+  ON agent_task_manager.worker_checkins (worker_task_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.cleanup_reviews (
+  cleanup_review_id text PRIMARY KEY,
+  task_id text NOT NULL REFERENCES agent_task_manager.agent_tasks(task_id) ON DELETE CASCADE,
+  worker_task_id text REFERENCES agent_task_manager.worker_tasks(worker_task_id) ON DELETE CASCADE,
+  reviewer_agent_id text,
+  status text NOT NULL,
+  summary text,
+  diff_artifact_id text,
+  findings jsonb NOT NULL DEFAULT '[]'::jsonb,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS cleanup_reviews_task_status_idx
+  ON agent_task_manager.cleanup_reviews (task_id, status, updated_at DESC);
+
+DROP TRIGGER IF EXISTS cleanup_reviews_touch_updated_at
+  ON agent_task_manager.cleanup_reviews;
+
+CREATE TRIGGER cleanup_reviews_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.cleanup_reviews
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.overseer_decisions (
+  decision_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  task_id text NOT NULL REFERENCES agent_task_manager.agent_tasks(task_id) ON DELETE CASCADE,
+  worker_task_id text REFERENCES agent_task_manager.worker_tasks(worker_task_id) ON DELETE SET NULL,
+  decision_type text NOT NULL,
+  status text NOT NULL,
+  summary text NOT NULL,
+  details jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS overseer_decisions_task_created_idx
+  ON agent_task_manager.overseer_decisions (task_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.validation_reports (
+  report_id text PRIMARY KEY,
+  task_id text NOT NULL REFERENCES agent_task_manager.agent_tasks(task_id) ON DELETE CASCADE,
+  worker_task_id text REFERENCES agent_task_manager.worker_tasks(worker_task_id) ON DELETE CASCADE,
+  cleanup_review_id text REFERENCES agent_task_manager.cleanup_reviews(cleanup_review_id) ON DELETE SET NULL,
+  status text NOT NULL,
+  compliance_score numeric(5, 2) NOT NULL DEFAULT 0.00,
+  summary text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS validation_reports_task_status_idx
+  ON agent_task_manager.validation_reports (task_id, status, updated_at DESC);
+
+DROP TRIGGER IF EXISTS validation_reports_touch_updated_at
+  ON agent_task_manager.validation_reports;
+
+CREATE TRIGGER validation_reports_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.validation_reports
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.validation_violations (
+  violation_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  report_id text NOT NULL REFERENCES agent_task_manager.validation_reports(report_id) ON DELETE CASCADE,
+  rule_id text NOT NULL,
+  severity text NOT NULL,
+  target_type text NOT NULL,
+  target_name text NOT NULL,
+  engine_source text NOT NULL,
+  explanation text NOT NULL,
+  remediation text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS validation_violations_report_idx
+  ON agent_task_manager.validation_violations (report_id, severity, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.patch_decisions (
+  patch_decision_id text PRIMARY KEY,
+  task_id text NOT NULL REFERENCES agent_task_manager.agent_tasks(task_id) ON DELETE CASCADE,
+  worker_task_id text REFERENCES agent_task_manager.worker_tasks(worker_task_id) ON DELETE CASCADE,
+  validation_report_id text REFERENCES agent_task_manager.validation_reports(report_id) ON DELETE SET NULL,
+  cleanup_review_id text REFERENCES agent_task_manager.cleanup_reviews(cleanup_review_id) ON DELETE SET NULL,
+  diff_artifact_id text,
+  status text NOT NULL,
+  summary text NOT NULL,
+  decision_by text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS patch_decisions_task_status_idx
+  ON agent_task_manager.patch_decisions (task_id, status, updated_at DESC);
+
+DROP TRIGGER IF EXISTS patch_decisions_touch_updated_at
+  ON agent_task_manager.patch_decisions;
+
+CREATE TRIGGER patch_decisions_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.patch_decisions
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.shared_task_context (
+  context_id text PRIMARY KEY,
+  task_id text NOT NULL REFERENCES agent_task_manager.agent_tasks(task_id) ON DELETE CASCADE,
+  worker_task_id text REFERENCES agent_task_manager.worker_tasks(worker_task_id) ON DELETE CASCADE,
+  context_key text NOT NULL,
+  visibility text NOT NULL,
+  summary text NOT NULL,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS shared_task_context_task_idx
+  ON agent_task_manager.shared_task_context (task_id, context_key, updated_at DESC);
+
+DROP TRIGGER IF EXISTS shared_task_context_touch_updated_at
+  ON agent_task_manager.shared_task_context;
+
+CREATE TRIGGER shared_task_context_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.shared_task_context
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.task_artifacts (
+  artifact_id text PRIMARY KEY,
+  task_id text NOT NULL REFERENCES agent_task_manager.agent_tasks(task_id) ON DELETE CASCADE,
+  worker_task_id text REFERENCES agent_task_manager.worker_tasks(worker_task_id) ON DELETE CASCADE,
+  artifact_kind text NOT NULL,
+  storage_backend text NOT NULL,
+  storage_key text NOT NULL,
+  summary text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS task_artifacts_task_kind_idx
+  ON agent_task_manager.task_artifacts (task_id, artifact_kind, created_at DESC);
+
+CREATE OR REPLACE VIEW agent_task_manager.worker_task_overview AS
+SELECT
+  worker_task.worker_task_id,
+  worker_task.task_id,
+  worker_task.parent_worker_task_id,
+  worker_task.task_role,
+  worker_task.title,
+  worker_task.status,
+  worker_task.assigned_agent_id,
+  worker_task.assigned_transport,
+  worker_task.attempt_count,
+  worker_task.max_attempts,
+  worker_task.latest_summary,
+  worker_task.created_at,
+  worker_task.updated_at,
+  worker_task.last_check_in_at,
+  worker_task.completed_at,
+  lease.session_id AS active_session_id,
+  lease.expires_at AS active_lease_expires_at,
+  latest_check_in.summary AS latest_check_in_summary,
+  latest_check_in.status AS latest_check_in_status,
+  latest_check_in.created_at AS latest_check_in_created_at
+FROM agent_task_manager.worker_tasks AS worker_task
+LEFT JOIN LATERAL (
+  SELECT session_id, expires_at
+  FROM agent_task_manager.worker_task_leases AS active_lease
+  WHERE active_lease.worker_task_id = worker_task.worker_task_id
+    AND active_lease.expires_at > now()
+  LIMIT 1
+) AS lease ON true
+LEFT JOIN LATERAL (
+  SELECT summary, status, created_at
+  FROM agent_task_manager.worker_checkins AS check_in
+  WHERE check_in.worker_task_id = worker_task.worker_task_id
+  ORDER BY created_at DESC
+  LIMIT 1
+) AS latest_check_in ON true;

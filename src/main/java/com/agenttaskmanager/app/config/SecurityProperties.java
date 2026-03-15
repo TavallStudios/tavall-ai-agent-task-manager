@@ -8,6 +8,8 @@ public class SecurityProperties {
   private String username = "agent";
   private String password = "";
   private String rememberMeKey = "agent-task-manager-remember-me";
+  private boolean proxyAuthEnabled = false;
+  private String proxyAuthHeader = "X-Forwarded-User";
 
   public String getUsername() {
     return username;
@@ -31,6 +33,22 @@ public class SecurityProperties {
 
   public void setRememberMeKey(String rememberMeKey) {
     this.rememberMeKey = rememberMeKey;
+  }
+
+  public boolean isProxyAuthEnabled() {
+    return proxyAuthEnabled;
+  }
+
+  public void setProxyAuthEnabled(boolean proxyAuthEnabled) {
+    this.proxyAuthEnabled = proxyAuthEnabled;
+  }
+
+  public String getProxyAuthHeader() {
+    return proxyAuthHeader;
+  }
+
+  public void setProxyAuthHeader(String proxyAuthHeader) {
+    this.proxyAuthHeader = proxyAuthHeader;
   }
 }
 
