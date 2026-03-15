@@ -14,11 +14,17 @@
   <header class="topbar">
     <div>
       <div class="eyebrow">Agent Task Manager</div>
-      <h1>Mobile control plane for tasks and queued prompts</h1>
+      <h1>Remote control plane for tasks, browser IDE access, and fail-safe recovery</h1>
     </div>
-    <form method="post" th:action="@{/logout}">
-      <button class="ghost-button" type="submit">Sign out</button>
-    </form>
+    <div class="topbar-actions">
+      <div class="status-note" id="refresh-status">Waiting for first sync.</div>
+      <div class="topbar-button-row">
+        <button class="ghost-button" id="refresh-dashboard" type="button">Refresh now</button>
+        <form method="post" th:action="@{/logout}">
+          <button class="ghost-button" type="submit">Sign out</button>
+        </form>
+      </div>
+    </div>
   </header>
 
   <main class="layout">
@@ -37,7 +43,7 @@
           <div class="stat-value" id="multi-agent-mode">-</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Redis namespace</div>
+          <div class="stat-label">Redis</div>
           <div class="stat-value small" id="redis-namespace">-</div>
         </div>
         <div class="stat-card">
@@ -45,8 +51,36 @@
           <div class="stat-value small" id="bridge-status">-</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Active request</div>
+          <div class="stat-label">Bridge request</div>
           <div class="stat-value small" id="bridge-active-request">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Browser IDE</div>
+          <div class="stat-value small" id="browser-ide-status">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active workers</div>
+          <div class="stat-value" id="active-workers">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Dead workers</div>
+          <div class="stat-value" id="dead-workers">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active chats</div>
+          <div class="stat-value" id="active-chats">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Dead chats</div>
+          <div class="stat-value" id="dead-chats">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Cleanup pending</div>
+          <div class="stat-value" id="cleanup-pending">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Patch rejections</div>
+          <div class="stat-value" id="patch-rejections">-</div>
         </div>
       </div>
       <div class="hero-subsection">
@@ -57,6 +91,54 @@
           </div>
         </div>
         <div class="list-shell bridge-session-list" id="bridge-session-list"></div>
+      </div>
+    </section>
+
+    <section class="panel access-panel">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">Workspace Access</div>
+          <h2>Browser IDE, queue bridge, and recovery lanes</h2>
+        </div>
+        <div class="muted" id="workspace-checked-at">No operator surface check yet.</div>
+      </div>
+      <div class="tool-grid" id="workspace-tool-list"></div>
+      <div class="access-footer">
+        <div>
+          <h3>Repo roots</h3>
+          <div class="chip-list" id="workspace-repo-roots"></div>
+        </div>
+        <div>
+          <h3>Failover order</h3>
+          <div class="list-shell compact-list" id="workspace-failover-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">Orchestration</div>
+          <h2>Workers, batches, validation, and patch gates</h2>
+        </div>
+      </div>
+      <div class="dashboard-grid">
+        <div>
+          <h3>Workers</h3>
+          <div class="list-shell" id="dashboard-worker-list"></div>
+        </div>
+        <div>
+          <h3>Batches</h3>
+          <div class="list-shell" id="dashboard-batch-list"></div>
+        </div>
+        <div>
+          <h3>Validations</h3>
+          <div class="list-shell" id="dashboard-validation-list"></div>
+        </div>
+        <div>
+          <h3>Patch Decisions</h3>
+          <div class="list-shell" id="dashboard-patch-list"></div>
+        </div>
       </div>
     </section>
 

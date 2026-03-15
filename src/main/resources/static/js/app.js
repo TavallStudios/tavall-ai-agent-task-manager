@@ -7,6 +7,8 @@ const state = {
   knownRepos: [],
   selectedThreadKey: null,
   selectedTaskId: null,
+  refreshInFlight: false,
+  lastSuccessfulRefreshAt: null,
 };
 
 function apiHeaders() {
@@ -32,8 +34,9 @@ function escapeHtml(value) {
 }
 
 function statusPill(status) {
-  const css = ["failed", "cancelled"].includes(status) ? "failed"
-    : ["completed", "succeeded"].includes(status) ? "completed"
+  const css = ["failed", "cancelled", "offline"].includes(status) ? "failed"
+    : ["completed", "succeeded", "online"].includes(status) ? "completed"
+    : ["warning", "degraded", "stale"].includes(status) ? "warning"
     : "";
   return `<span class="status-pill ${css}">${escapeHtml(status || "unknown")}</span>`;
 }
@@ -104,7 +107,7 @@ function renderBridgeSessions(items) {
         <strong>${escapeHtml(session.clientName || session.agentId || "bridge")}</strong>
         ${statusPill(bridgeOnlineLabel(session))}
       </div>
-      <div class="muted">${escapeHtml(bridgeTargetLabel(session.bridgeTarget || "remote-headless"))} · ${escapeHtml(session.transport || "unknown transport")}</div>
+      <div class="muted">${escapeHtml(bridgeTargetLabel(session.bridgeTarget || "remote-headless"))} | ${escapeHtml(session.transport || "unknown transport")}</div>
       <div class="item-meta muted">
         <span>${escapeHtml(session.hostName || "-")}</span>
         <span>${formatDate(session.lastSeenAt)}</span>
@@ -113,6 +116,76 @@ function renderBridgeSessions(items) {
       <div class="muted">${escapeHtml(session.sessionId)}</div>
     </article>
   `).join("");
+}
+
+function renderDashboardSummary(payload) {
+  document.getElementById("active-workers").textContent = payload.activeWorkers;
+  document.getElementById("dead-workers").textContent = payload.deadWorkers;
+  document.getElementById("active-chats").textContent = payload.activeChats;
+  document.getElementById("dead-chats").textContent = payload.deadChats;
+  document.getElementById("cleanup-pending").textContent = payload.cleanupReviewsPending;
+  document.getElementById("patch-rejections").textContent = payload.patchRejections;
+  renderSimpleCards("dashboard-worker-list", payload.workers, (item) => `
+    <article class="detail-card compact-card">
+      <div class="item-top">
+        <strong>${escapeHtml(item.taskRole)}</strong>
+        ${statusPill(item.status)}
+      </div>
+      <div class="muted">${escapeHtml(item.agentId || "-")} | ${escapeHtml(item.transportKind || "-")}</div>
+      <div class="item-meta muted">
+        <span>${escapeHtml(item.workerTaskId)}</span>
+        <span>${formatDate(item.leaseExpiresAt)}</span>
+      </div>
+    </article>
+  `, "No worker state has been recorded yet.");
+  renderSimpleCards("dashboard-batch-list", payload.batches, (item) => `
+    <article class="detail-card compact-card">
+      <div class="item-top">
+        <strong>${escapeHtml(item.title)}</strong>
+        ${statusPill(item.status)}
+      </div>
+      <div class="muted">${escapeHtml(item.projectKey)} | queued ${escapeHtml(item.queuedTasks)} | running ${escapeHtml(item.runningTasks)}</div>
+      <div class="item-meta muted">
+        <span>failed ${escapeHtml(item.failedTasks)}</span>
+        <span>${formatDate(item.updatedAt)}</span>
+      </div>
+    </article>
+  `, "No orchestration batches have been created yet.");
+  renderSimpleCards("dashboard-validation-list", payload.validations, (item) => `
+    <article class="detail-card compact-card">
+      <div class="item-top">
+        <strong>${escapeHtml(item.taskId)}</strong>
+        ${statusPill(item.status)}
+      </div>
+      <div class="muted">score ${escapeHtml(item.complianceScore)}</div>
+      <div class="muted">${escapeHtml(item.summary || "")}</div>
+    </article>
+  `, "No validation reports have been stored yet.");
+  renderSimpleCards("dashboard-patch-list", payload.patchDecisions, (item) => `
+    <article class="detail-card compact-card">
+      <div class="item-top">
+        <strong>${escapeHtml(item.taskId)}</strong>
+        ${statusPill(item.status)}
+      </div>
+      <div class="muted">${escapeHtml(item.summary || "")}</div>
+      <div class="item-meta muted">
+        <span>${escapeHtml(item.decisionBy || "-")}</span>
+        <span>${formatDate(item.updatedAt)}</span>
+      </div>
+    </article>
+  `, "No patch decisions have been recorded yet.");
+}
+
+function renderSimpleCards(rootId, items, renderer, emptyMessage) {
+  const root = document.getElementById(rootId);
+  if (!root) {
+    return;
+  }
+  if (!items.length) {
+    root.innerHTML = `<div class="empty-state">${escapeHtml(emptyMessage)}</div>`;
+    return;
+  }
+  root.innerHTML = items.map(renderer).join("");
 }
 
 function renderThreadList(items) {
@@ -125,7 +198,7 @@ function renderThreadList(items) {
   root.innerHTML = items.map((item) => `
     <article class="list-item ${item.threadKey === state.selectedThreadKey ? "active" : ""}" data-thread-key="${escapeHtml(item.threadKey)}">
       <div class="item-top">
-        <strong>${escapeHtml(repoNameFromPath(item.repoPath))} · ${escapeHtml(bridgeTargetLabel(item.bridgeTarget))}</strong>
+        <strong>${escapeHtml(repoNameFromPath(item.repoPath))} | ${escapeHtml(bridgeTargetLabel(item.bridgeTarget))}</strong>
         ${statusPill(item.latestRequestStatus)}
       </div>
       <div class="muted">${escapeHtml(item.latestPromptPreview || item.latestRequestSummary || "No prompts yet.")}</div>
@@ -160,7 +233,7 @@ function renderTaskList(items) {
       </div>
       <div>${escapeHtml(item.title)}</div>
       <div class="item-meta muted">
-        <span>${escapeHtml(item.projectKey)} · priority ${escapeHtml(item.priority)}</span>
+        <span>${escapeHtml(item.projectKey)} | priority ${escapeHtml(item.priority)}</span>
         <span>${formatDate(item.updatedAt)}</span>
       </div>
     </article>
@@ -186,7 +259,7 @@ function renderThreadDetail(payload) {
     return;
   }
 
-  title.textContent = `${repoNameFromPath(payload.thread.repoPath)} · ${bridgeTargetLabel(payload.thread.bridgeTarget)}`;
+  title.textContent = `${repoNameFromPath(payload.thread.repoPath)} | ${bridgeTargetLabel(payload.thread.bridgeTarget)}`;
   root.classList.remove("empty-state");
 
   const requests = payload.requests.map((request) => `
@@ -284,7 +357,7 @@ function renderTaskDetail(payload) {
         <span>${escapeHtml(payload.task.projectKey)}</span>
         <span>${formatDate(payload.task.updatedAt)}</span>
       </div>
-      <div class="muted">Owner: ${escapeHtml(payload.task.ownerAgentId || "-")} · Lease: ${escapeHtml(payload.task.activeLeaseAgentId || "-")}</div>
+      <div class="muted">Owner: ${escapeHtml(payload.task.ownerAgentId || "-")} | Lease: ${escapeHtml(payload.task.activeLeaseAgentId || "-")}</div>
     </div>
     <div>
       <h3>Checkpoints</h3>
@@ -300,7 +373,7 @@ function renderRepoSelectionMeta(repo) {
     return;
   }
   const bridgeTarget = document.getElementById("bridge-target")?.value ?? "local-ide";
-  meta.textContent = `Path: ${repo.repoPath} · Internal key: ${repo.projectKey} · Default thread: ${bridgeTarget}:${normalizePath(repo.repoPath).toLowerCase()}`;
+  meta.textContent = `Path: ${repo.repoPath} | Internal key: ${repo.projectKey} | Default thread: ${bridgeTarget}:${normalizePath(repo.repoPath).toLowerCase()}`;
 }
 
 function selectedRepo() {
@@ -313,7 +386,7 @@ function renderRepoOptions(items) {
   const select = document.getElementById("repo-path");
   const previousValue = select.value;
   select.innerHTML = '<option value="">Select a repository</option>' + items.map((repo) => `
-    <option value="${escapeHtml(repo.repoPath)}">${escapeHtml(repo.displayName)} · ${escapeHtml(repo.locationLabel)}</option>
+    <option value="${escapeHtml(repo.repoPath)}">${escapeHtml(repo.displayName)} | ${escapeHtml(repo.locationLabel)}</option>
   `).join("");
 
   const nextValue = items.some((repo) => repo.repoPath === previousValue)
@@ -340,18 +413,88 @@ async function loadRuntimeStatus() {
   document.getElementById("task-count").textContent = payload.taskCount;
   document.getElementById("queued-prompts").textContent = payload.queuedPromptCount;
   document.getElementById("multi-agent-mode").textContent = payload.multiAgentEnabled ? "enabled" : "disabled";
-  document.getElementById("redis-namespace").textContent = payload.redisNamespace;
+  document.getElementById("redis-namespace").textContent =
+    `${payload.redisReachable ? "online" : "offline"} | ${payload.redisNamespace}`;
   document.getElementById("bridge-status").textContent =
     payload.bridgeEnabled
-      ? `${payload.bridgeOnline ? "online" : payload.bridgeSessionStatus || "offline"} · ${payload.bridgeAgentId || "-"}`
+      ? `${payload.bridgeOnline ? "online" : payload.bridgeSessionStatus || "offline"} | ${payload.bridgeAgentId || "-"}`
       : "disabled";
-  document.getElementById("bridge-active-request").textContent =
-    payload.bridgeActiveRequestId || "idle";
+  document.getElementById("bridge-active-request").textContent = payload.bridgeActiveRequestId || "idle";
+}
+
+function renderOperatorAccess(payload) {
+  document.getElementById("workspace-checked-at").textContent = `Checked ${formatDate(payload.checkedAt)}`;
+
+  const repoRootShell = document.getElementById("workspace-repo-roots");
+  repoRootShell.innerHTML = payload.repoRoots.length
+    ? payload.repoRoots.map((repoRoot) => `<span class="chip">${escapeHtml(repoRoot)}</span>`).join("")
+    : '<div class="empty-state">No repo roots configured.</div>';
+
+  const failoverRoot = document.getElementById("workspace-failover-list");
+  failoverRoot.innerHTML = payload.failoverSteps.length
+    ? payload.failoverSteps.map((step, index) => `
+        <article class="detail-card compact-card">
+          <strong>Step ${index + 1}</strong>
+          <div class="muted">${escapeHtml(step)}</div>
+        </article>
+      `).join("")
+    : '<div class="empty-state">No failover order configured.</div>';
+
+  const toolRoot = document.getElementById("workspace-tool-list");
+  toolRoot.innerHTML = payload.tools.length
+    ? payload.tools.map((tool) => `
+        <article class="tool-card">
+          <div class="item-top">
+            <strong>${escapeHtml(tool.title)}</strong>
+            ${statusPill(tool.status)}
+          </div>
+          <div>${escapeHtml(tool.summary || "")}</div>
+          <div class="muted">${escapeHtml(tool.description || "")}</div>
+          ${tool.command ? `<div class="tool-copy">${escapeHtml(tool.command)}</div>` : ""}
+          <div class="tool-actions">
+            ${tool.href
+              ? `<a class="button-link" href="${escapeHtml(tool.href)}" target="_blank" rel="noreferrer noopener">${escapeHtml(tool.launchLabel || "Open")}</a>`
+              : ""}
+            ${tool.command
+              ? `<button class="ghost-button small-button" type="button" data-copy-command="${escapeHtml(tool.command)}">Copy command</button>`
+              : ""}
+          </div>
+        </article>
+      `).join("")
+    : '<div class="empty-state">No operator tools configured.</div>';
+
+  const browserIde = payload.tools.find((tool) => tool.toolId === "browser-ide");
+  document.getElementById("browser-ide-status").textContent = browserIde?.status || "unknown";
+
+  toolRoot.querySelectorAll("[data-copy-command]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const originalLabel = button.textContent;
+      try {
+        await navigator.clipboard.writeText(button.dataset.copyCommand || "");
+        button.textContent = "Copied";
+      } catch (error) {
+        button.textContent = "Copy failed";
+      }
+      window.setTimeout(() => {
+        button.textContent = originalLabel;
+      }, 1500);
+    });
+  });
+}
+
+async function loadOperatorAccess() {
+  const payload = await fetchJson(appUrl("/api/runtime/access"));
+  renderOperatorAccess(payload);
 }
 
 async function loadBridgeSessions() {
   const payload = await fetchJson(`${appUrl("/api/bridge/sessions")}?limit=12`);
   renderBridgeSessions(payload.items);
+}
+
+async function loadDashboardSummary() {
+  const payload = await fetchJson(appUrl("/api/dashboard/summary"));
+  renderDashboardSummary(payload);
 }
 
 async function refreshThreadList() {
@@ -388,6 +531,24 @@ async function loadTaskDetail() {
   renderTaskDetail(payload);
 }
 
+function setRefreshStatus(status, message) {
+  const element = document.getElementById("refresh-status");
+  if (!element) {
+    return;
+  }
+  element.className = `status-note ${status}`;
+  element.textContent = message;
+}
+
+function setRefreshButtonBusy(isBusy) {
+  const button = document.getElementById("refresh-dashboard");
+  if (!button) {
+    return;
+  }
+  button.disabled = isBusy;
+  button.textContent = isBusy ? "Refreshing..." : "Refresh now";
+}
+
 async function submitPrompt(event) {
   event.preventDefault();
   const status = document.getElementById("prompt-submit-status");
@@ -411,40 +572,58 @@ async function submitPrompt(event) {
       headers: apiHeaders(),
       body: JSON.stringify(body),
     });
-    document.getElementById("prompt-submit-status").textContent =
-      `Queued ${payload.requestId} for ${username}.`;
+    status.textContent = `Queued ${payload.requestId} for ${username}.`;
     document.getElementById("prompt-text").value = "";
     state.selectedThreadKey = payload.threadKey;
     document.getElementById("thread-bridge-filter").value = payload.bridgeTarget;
-    await Promise.all([loadRuntimeStatus(), refreshThreadList(), loadThreadDetail()]);
+    await Promise.all([loadRuntimeStatus(), loadOperatorAccess(), refreshThreadList(), loadThreadDetail()]);
   } catch (error) {
     status.textContent = error.message;
   }
 }
 
 async function refreshAll() {
+  if (state.refreshInFlight) {
+    return;
+  }
+  state.refreshInFlight = true;
+  setRefreshButtonBusy(true);
   try {
     await Promise.all([
       loadRuntimeStatus(),
+      loadOperatorAccess(),
+      loadDashboardSummary(),
       loadBridgeSessions(),
       refreshThreadList(),
       refreshTaskList(),
       loadThreadDetail(),
       loadTaskDetail(),
     ]);
+    state.lastSuccessfulRefreshAt = new Date().toISOString();
+    setRefreshStatus("success", `Live sync OK | ${formatDate(state.lastSuccessfulRefreshAt)}`);
   } catch (error) {
     console.error(error);
+    const staleAt = state.lastSuccessfulRefreshAt
+      ? ` Last successful sync ${formatDate(state.lastSuccessfulRefreshAt)}.`
+      : "";
+    setRefreshStatus("error", `Dashboard data is stale. ${error.message}.${staleAt}`);
+  } finally {
+    state.refreshInFlight = false;
+    setRefreshButtonBusy(false);
   }
 }
 
 document.getElementById("prompt-form")?.addEventListener("submit", submitPrompt);
+document.getElementById("refresh-dashboard")?.addEventListener("click", refreshAll);
 document.getElementById("repo-path")?.addEventListener("change", () => renderRepoSelectionMeta(selectedRepo()));
 document.getElementById("bridge-target")?.addEventListener("change", () => renderRepoSelectionMeta(selectedRepo()));
 document.getElementById("thread-bridge-filter")?.addEventListener("change", refreshThreadList);
 document.getElementById("task-project-filter")?.addEventListener("change", refreshTaskList);
 document.getElementById("task-status-filter")?.addEventListener("change", refreshTaskList);
 
+setRefreshStatus("warning", "Loading operator surface and runtime state...");
 loadRepoCatalog().then(refreshAll).catch((error) => {
   console.error(error);
+  setRefreshStatus("error", `Unable to load the dashboard. ${error.message}.`);
 });
-setInterval(refreshAll, 5000);
+setInterval(refreshAll, 10000);
