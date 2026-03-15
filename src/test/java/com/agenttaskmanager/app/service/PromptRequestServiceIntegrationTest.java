@@ -1,0 +1,48 @@
+package com.agenttaskmanager.app.service;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.agenttaskmanager.app.model.PromptRequestSummary;
+import com.agenttaskmanager.app.orchestration.PromptMemoryLookupService;
+import com.agenttaskmanager.app.support.IntegrationTestSupport;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
+
+@TestPropertySource(properties = {
+    "app.qdrant.project-collection-prefix=agent_task_manager_prompt_request_test",
+    "app.embedding.provider-order=hash",
+    "app.embedding.dimensions=32"
+})
+class PromptRequestServiceIntegrationTest extends IntegrationTestSupport {
+
+  @Autowired
+  private PromptRequestService promptRequestService;
+
+  @Autowired
+  private PromptMemoryLookupService promptMemoryLookupService;
+
+  @Test
+  void shouldCapturePromptRequestsIntoProjectMemoryAutomatically() {
+    String suffix = UUID.randomUUID().toString();
+    String projectKey = "prompt-request-test";
+    String promptText = "Remember this prompt memory " + suffix;
+
+    PromptRequestSummary summary = promptRequestService.create(
+        projectKey,
+        "/srv/AgentTaskManager",
+        "remote-headless",
+        "edit",
+        promptText,
+        "integration-test",
+        "integration-suite"
+    );
+
+    PromptMemoryLookupService.PromptMemorySnapshot snapshot = promptMemoryLookupService.lookup(projectKey, promptText);
+
+    assertTrue(summary.requestId().startsWith("pr_"));
+    assertTrue(snapshot.summary().contains("Memory lookup completed."));
+    assertTrue(snapshot.section().contains(promptText));
+  }
+}

@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+workspace="$(pwd)"
+output_file=""
+prompt=""
+
+while (($# > 0)); do
+  case "$1" in
+    -C)
+      workspace="$2"
+      shift 2
+      ;;
+    -m| -s| --output-last-message)
+      if [[ "$1" == "--output-last-message" ]]; then
+        output_file="$2"
+      fi
+      shift 2
+      ;;
+    exec|--json|--skip-git-repo-check)
+      shift
+      ;;
+    *)
+      prompt="$1"
+      shift
+      ;;
+  esac
+done
+
+mkdir -p "$workspace"
+cd "$workspace"
+
+printf '{"type":"thread.started","thread_id":"fake-thread"}\n'
+printf '{"type":"item.completed","item":{"type":"agent_message","text":"fake-codex processed prompt"}}\n'
+
+if [[ -f README.md ]]; then
+  printf '\nAutonomous update from fake codex.\n' >> README.md
+else
+  mkdir -p src/main/java/example
+  cat <<'EOF' > src/main/java/example/AutonomousNote.java
+package example;
+
+public class AutonomousNote {
+}
+EOF
+fi
+
+if [[ -n "$output_file" ]]; then
+  printf 'Completed autonomous worker run for %s\n' "${prompt:-prompt}" > "$output_file"
+fi

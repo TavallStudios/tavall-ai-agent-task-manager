@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+
+import json
+import math
+import sys
+
+
+def normalize(values):
+    magnitude = math.sqrt(sum(value * value for value in values))
+    if magnitude == 0.0:
+        return values
+    return [value / magnitude for value in values]
+
+
+def main():
+    payload = json.load(sys.stdin)
+    dimensions = int(payload.get("dimensions") or 8)
+    text = ((payload.get("title") or "") + "\n" + (payload.get("text") or "")).strip()
+    values = [0.0] * dimensions
+    for index, character in enumerate(text):
+        bucket = index % dimensions
+        values[bucket] += (ord(character) % 97) / 97.0
+    json.dump(
+        {
+            "provider": "local",
+            "model": payload.get("model") or "fake-local-model",
+            "vector": normalize(values),
+        },
+        sys.stdout,
+    )
+
+
+if __name__ == "__main__":
+    main()
