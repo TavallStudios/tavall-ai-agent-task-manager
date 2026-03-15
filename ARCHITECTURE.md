@@ -1,0 +1,55 @@
+# ARCHITECTURE
+
+## Boundaries
+
+- `web`
+  HTTP delivery and dashboard APIs.
+- `mcp`
+  MCP prompts, resources, tools, and server bootstrap.
+- `orchestration`
+  Overseer flow, task pool, worker lifecycle, cleanup review, artifacts, shared context, and Codex worker transport.
+- `validation`
+  ArchUnit and Spoon validators, integration-test runner, scoring, and report storage.
+- `persistence`
+  Store-specific adapters for Postgres, Redis, MongoDB, and Qdrant.
+- `dashboard`
+  Aggregated read models for UI and remote observers.
+- `loader`
+  Service loader registration and dependency-access contracts.
+- `model`
+  Shared neutral records and exceptions for bridge, orchestration, validation, and API payloads.
+- `cache`
+  Typed TTL-aware caches shared by orchestration, validation, and dashboard code.
+
+`loader` is the explicit exception to the normal cycle rule. Dependency-access interfaces call into the service loader by design, so ArchUnit cycle checks focus on the runtime slices that should remain clean: `bridge`, `cli`, `dashboard`, `mcp`, `orchestration`, `persistence`, `service`, `validation`, and `web`.
+
+## Main Flow
+
+1. The overseer creates a batch and queues worker tasks.
+2. A worker session claims and receives a lease.
+3. `LocalCodexWorkerTransport` executes `codex exec` inside an isolated worktree.
+4. Worker output and diff artifacts are stored.
+5. Cleanup review runs against the diff.
+6. ArchUnit and Spoon validation run, with integration tests available through the same pipeline.
+7. The overseer stores decisions and patch outcomes.
+8. The dashboard and MCP tools expose the latest state.
+
+## Semantic Retrieval
+
+- `QdrantContextStore` keeps `app.qdrant.collection` as a legacy fallback, but the runtime now writes project-scoped vectors into `app.qdrant.project-collection-prefix` collections and knowledge vectors into `app.qdrant.knowledge-collection-prefix` collections.
+- `EmbeddingProviderChain` keeps one Qdrant vector size across providers.
+- `GeminiEmbeddingProvider` is the primary path with `gemini-embedding-001`.
+- `LocalCommandEmbeddingProvider` is the remote-safe fallback and defaults to the bundled FastEmbed runner.
+- `HashEmbeddingService` remains the final fail-safe so retrieval tools do not hard-fail when the external providers are unavailable.
+
+## MCP Surfaces
+
+- HTTP streamable transport under `/mcp`
+- stdio MCP via CLI
+- resources for docs
+- prompts for overseer, worker, and cleanup roles
+- tool groups for task pooling, worker state, shared context, validation, artifacts, retrieval, cache, and decisions
+
+## Remote Path
+
+The same Spring Boot app can expose the MCP servlet endpoint remotely. Local stdio and remote HTTP modes share the same tool catalog and internal service boundaries.
