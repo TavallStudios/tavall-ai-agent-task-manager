@@ -1,6 +1,6 @@
 package com.agenttaskmanager.app.web;
 
-import com.agenttaskmanager.app.service.PromptRequestNotFoundException;
+import com.agenttaskmanager.app.model.PromptRequestNotFoundException;
 import com.agenttaskmanager.app.service.TaskNotFoundException;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;

@@ -1,8 +1,8 @@
 package com.agenttaskmanager.app.web;
 
-import com.agenttaskmanager.app.bridge.BridgeClaim;
-import com.agenttaskmanager.app.bridge.BridgeRunHandle;
-import com.agenttaskmanager.app.service.PromptExecutionStore;
+import com.agenttaskmanager.app.model.bridge.BridgeClaim;
+import com.agenttaskmanager.app.model.bridge.BridgeRunHandle;
+import com.agenttaskmanager.app.bridge.BridgeExecutionStore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
@@ -22,10 +22,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/bridge")
 public class BridgeApiController {
 
-  private final PromptExecutionStore executionStore;
+  private final BridgeExecutionStore executionStore;
   private final ObjectMapper objectMapper;
 
-  public BridgeApiController(PromptExecutionStore executionStore, ObjectMapper objectMapper) {
+  public BridgeApiController(BridgeExecutionStore executionStore, ObjectMapper objectMapper) {
     this.executionStore = executionStore;
     this.objectMapper = objectMapper;
   }

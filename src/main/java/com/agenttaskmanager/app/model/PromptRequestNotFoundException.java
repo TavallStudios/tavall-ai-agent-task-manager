@@ -1,4 +1,4 @@
-package com.agenttaskmanager.app.service;
+package com.agenttaskmanager.app.model;
 
 public class PromptRequestNotFoundException extends RuntimeException {
 

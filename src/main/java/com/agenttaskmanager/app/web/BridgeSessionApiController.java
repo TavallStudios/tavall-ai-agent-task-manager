@@ -1,7 +1,7 @@
 package com.agenttaskmanager.app.web;
 
 import com.agenttaskmanager.app.model.BridgeSessionSummary;
-import com.agenttaskmanager.app.service.PromptExecutionStore;
+import com.agenttaskmanager.app.bridge.BridgeExecutionStore;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.util.List;
@@ -16,9 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/bridge/sessions")
 public class BridgeSessionApiController {
 
-  private final PromptExecutionStore executionStore;
+  private final BridgeExecutionStore executionStore;
 
-  public BridgeSessionApiController(PromptExecutionStore executionStore) {
+  public BridgeSessionApiController(BridgeExecutionStore executionStore) {
     this.executionStore = executionStore;
   }
 

@@ -10,12 +10,18 @@ import org.springframework.stereotype.Component;
 public class CodexExecCommandFactory {
 
   private final CodexBridgeProperties properties;
+  private final CodexDeterministicConfigService deterministicConfigService;
 
-  public CodexExecCommandFactory(CodexBridgeProperties properties) {
+  public CodexExecCommandFactory(
+      CodexBridgeProperties properties,
+      CodexDeterministicConfigService deterministicConfigService
+  ) {
     this.properties = properties;
+    this.deterministicConfigService = deterministicConfigService;
   }
 
   public List<String> buildCommand(
+      String projectKey,
       Path repoPath,
       String executionMode,
       Path outputFile,
@@ -23,6 +29,7 @@ public class CodexExecCommandFactory {
   ) {
     List<String> command = new ArrayList<>();
     command.add(properties.getCommand());
+    deterministicConfigService.appendDeterministicArguments(command, projectKey);
     command.add("-C");
     command.add(repoPath.toString());
     command.add("-s");
@@ -41,15 +48,36 @@ public class CodexExecCommandFactory {
   }
 
   public String buildPromptEnvelope(String executionMode, String promptText) {
+    return buildPromptEnvelope(executionMode, promptText, "No related memory context was provided.");
+  }
+
+  public String buildPromptEnvelope(String executionMode, String promptText, String memoryContext) {
+    String normalizedMemory = memoryContext == null || memoryContext.isBlank()
+        ? "No related memory context was provided."
+        : memoryContext.strip();
     return """
         Execution mode: %s
 
         Mode policy:
         %s
 
+        Deterministic execution policy:
+        Tool access is configured by AgentTaskManager before the run starts.
+        Use the configured MCP servers for repository inspection and semantic retrieval first.
+        Treat direct shell searching as a fallback only if the required MCP tool cannot satisfy the operation.
+
+        Memory policy:
+        Review the memory context before analyzing the user request.
+        Keep that memory in working context while planning and while checking the prompt.
+        Re-check the memory context before finalizing your answer.
+        If the memory conflicts with fresher repository evidence, prefer the repository evidence and mention the conflict.
+
+        Memory context:
+        %s
+
         User request:
         %s
-        """.formatted(executionMode, modeInstructions(executionMode), promptText.strip());
+        """.formatted(executionMode, modeInstructions(executionMode), normalizedMemory, promptText.strip());
   }
 
   private static String resolveSandboxMode(String executionMode) {

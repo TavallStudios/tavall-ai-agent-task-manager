@@ -1,6 +1,6 @@
 package com.agenttaskmanager.app.service;
 
-import com.agenttaskmanager.app.bridge.BridgeStatusSnapshot;
+import com.agenttaskmanager.app.model.bridge.BridgeStatusSnapshot;
 import com.agenttaskmanager.app.bridge.CodexBridgeService;
 import com.agenttaskmanager.app.config.TaskRuntimeProperties;
 import com.agenttaskmanager.app.model.RuntimeStatus;

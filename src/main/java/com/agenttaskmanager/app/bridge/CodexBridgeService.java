@@ -1,7 +1,10 @@
 package com.agenttaskmanager.app.bridge;
 
 import com.agenttaskmanager.app.config.CodexBridgeProperties;
-import com.agenttaskmanager.app.service.PromptExecutionStore;
+import com.agenttaskmanager.app.model.bridge.BridgeClaim;
+import com.agenttaskmanager.app.model.bridge.BridgeRunHandle;
+import com.agenttaskmanager.app.model.bridge.BridgeStatusSnapshot;
+import com.agenttaskmanager.app.orchestration.PromptMemoryCaptureService;
 import jakarta.annotation.PreDestroy;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -12,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -31,9 +35,11 @@ public class CodexBridgeService {
   private static final Logger LOGGER = LoggerFactory.getLogger(CodexBridgeService.class);
 
   private final CodexBridgeProperties properties;
-  private final PromptExecutionStore executionStore;
+  private final BridgeExecutionStore executionStore;
   private final CodexExecCommandFactory commandFactory;
   private final CodexJsonEventParser eventParser;
+  private final BridgePromptMemoryService promptMemoryService;
+  private final PromptMemoryCaptureService promptMemoryCaptureService;
   private final ExecutorService worker = Executors.newSingleThreadExecutor();
   private final AtomicReference<ActiveRun> activeRun = new AtomicReference<>();
 
@@ -43,14 +49,18 @@ public class CodexBridgeService {
 
   public CodexBridgeService(
       CodexBridgeProperties properties,
-      PromptExecutionStore executionStore,
+      BridgeExecutionStore executionStore,
       CodexExecCommandFactory commandFactory,
-      CodexJsonEventParser eventParser
+      CodexJsonEventParser eventParser,
+      BridgePromptMemoryService promptMemoryService,
+      PromptMemoryCaptureService promptMemoryCaptureService
   ) {
     this.properties = properties;
     this.executionStore = executionStore;
     this.commandFactory = commandFactory;
     this.eventParser = eventParser;
+    this.promptMemoryService = promptMemoryService;
+    this.promptMemoryCaptureService = promptMemoryCaptureService;
   }
 
   @EventListener(ApplicationReadyEvent.class)
@@ -74,9 +84,7 @@ public class CodexBridgeService {
     if (sessionId == null || !properties.isEnabled()) {
       return;
     }
-
     executionStore.heartbeatAgentSession(sessionId, "online");
-
     ActiveRun current = activeRun.get();
     if (current != null && !current.future().isDone()) {
       return;
@@ -84,12 +92,10 @@ public class CodexBridgeService {
     if (current != null && current.future().isDone()) {
       activeRun.compareAndSet(current, null);
     }
-
     Optional<BridgeClaim> claim = executionStore.claimNextQueued(agentId, "remote-headless");
     if (claim.isEmpty()) {
       return;
     }
-
     BridgeClaim next = claim.get();
     BridgeRunHandle runHandle = executionStore.startRun(
         next.requestId(),
@@ -116,19 +122,44 @@ public class CodexBridgeService {
 
   private void executeClaim(BridgeClaim claim, BridgeRunHandle runHandle) {
     Path outputFile = null;
+    AtomicReference<String> threadSessionId = new AtomicReference<>(claim.resumeSessionId());
     try {
       outputFile = Files.createTempFile("agent-task-manager-codex-", ".txt");
-      AtomicReference<String> threadSessionId = new AtomicReference<>(claim.resumeSessionId());
+      BridgePromptMemoryService.PreparedPrompt preparedPrompt = promptMemoryService.preparePrompt(
+          claim.projectKey(),
+          claim.executionMode(),
+          claim.promptText()
+      );
+      executionStore.appendPromptMessage(
+          claim.requestId(),
+          runHandle.runId(),
+          "memory-lookup",
+          "qdrant-memory",
+          truncate(preparedPrompt.memorySummary())
+      );
+      promptMemoryCaptureService.captureProjectMemory(
+          claim.projectKey(),
+          claim.requestId(),
+          null,
+          "memory-lookup",
+          preparedPrompt.memorySummary(),
+          Map.of(
+              "requestId", claim.requestId(),
+              "runId", runHandle.runId(),
+              "repoPath", claim.repoPath(),
+              "bridgeTarget", claim.bridgeTarget()
+          )
+      );
       List<String> command = commandFactory.buildCommand(
+          claim.projectKey(),
           Path.of(claim.repoPath()),
           claim.executionMode(),
           outputFile,
           claim.resumeSessionId()
       );
-      command.add(commandFactory.buildPromptEnvelope(claim.executionMode(), claim.promptText()));
+      command.add(preparedPrompt.envelope());
       ProcessBuilder processBuilder = new ProcessBuilder(command);
       processBuilder.redirectErrorStream(false);
-
       Process process = processBuilder.start();
       executionStore.appendPromptMessage(
           claim.requestId(),
@@ -144,7 +175,6 @@ public class CodexBridgeService {
       consumeStdout(process.getInputStream(), claim, runHandle, threadSessionId);
       int exitCode = process.waitFor();
       stderrThread.join();
-
       String finalMessage = Files.exists(outputFile) ? Files.readString(outputFile, StandardCharsets.UTF_8).strip() : "";
       if (!finalMessage.isBlank()) {
         executionStore.appendPromptMessage(
@@ -154,12 +184,25 @@ public class CodexBridgeService {
             "codex",
             truncate(finalMessage)
         );
+        promptMemoryCaptureService.captureProjectMemory(
+            claim.projectKey(),
+            claim.requestId(),
+            null,
+            "final-response",
+            finalMessage,
+            Map.of(
+                "requestId", claim.requestId(),
+                "runId", runHandle.runId(),
+                "repoPath", claim.repoPath(),
+                "bridgeTarget", claim.bridgeTarget(),
+                "sender", "codex"
+            )
+        );
       }
 
       String summary = finalMessage.isBlank()
           ? "Codex run completed with exit code " + exitCode
           : truncate(finalMessage);
-
       if (exitCode == 0) {
         executionStore.completeRun(claim.requestId(), runHandle.runId(), summary, threadSessionId.get());
       } else {
@@ -178,7 +221,8 @@ public class CodexBridgeService {
           claim.requestId(),
           runHandle.runId(),
           -1,
-          "Bridge failure: " + truncate(exception.getMessage() == null ? exception.toString() : exception.getMessage())
+          "Bridge failure: " + truncate(exception.getMessage() == null ? exception.toString() : exception.getMessage()),
+          threadSessionId.get()
       );
     } finally {
       if (outputFile != null) {
@@ -301,6 +345,5 @@ public class CodexBridgeService {
     worker.shutdownNow();
   }
 
-  private record ActiveRun(String requestId, Long runId, Future<?> future) {
-  }
+  private record ActiveRun(String requestId, Long runId, Future<?> future) {}
 }

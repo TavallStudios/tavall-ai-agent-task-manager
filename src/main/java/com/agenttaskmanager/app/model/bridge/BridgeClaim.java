@@ -1,4 +1,4 @@
-package com.agenttaskmanager.app.bridge;
+package com.agenttaskmanager.app.model.bridge;
 
 public record BridgeClaim(
     String requestId,
