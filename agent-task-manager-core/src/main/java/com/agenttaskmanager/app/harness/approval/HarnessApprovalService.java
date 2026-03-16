@@ -1,15 +1,17 @@
 package com.agenttaskmanager.app.harness.approval;
 
+import com.agenttaskmanager.app.harness.cleanjava.CleanJavaDeterministicHarnessService;
+import com.agenttaskmanager.app.harness.cleanjava.CleanJavaHarnessRunResult;
 import com.agenttaskmanager.app.model.orchestration.CleanupReviewResult;
 import com.agenttaskmanager.app.model.orchestration.CleanupReviewTask;
 import com.agenttaskmanager.app.model.orchestration.TaskLifecycleStatus;
 import com.agenttaskmanager.app.model.orchestration.WorkerTask;
+import com.agenttaskmanager.app.model.validation.ValidationReport;
 import com.agenttaskmanager.app.orchestration.ArtifactService;
 import com.agenttaskmanager.app.orchestration.CleanupReviewService;
 import com.agenttaskmanager.app.orchestration.TaskPoolService;
 import com.agenttaskmanager.app.persistence.postgres.WorkerTaskRepository;
 import com.agenttaskmanager.app.validation.ValidationPipelineService;
-import com.agenttaskmanager.app.model.validation.ValidationReport;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,6 +23,7 @@ public class HarnessApprovalService {
 
   private final ArtifactService artifactService;
   private final CleanupReviewService cleanupReviewService;
+  private final CleanJavaDeterministicHarnessService cleanJavaDeterministicHarnessService;
   private final TaskPoolService taskPoolService;
   private final ValidationPipelineService validationPipelineService;
   private final WorkerTaskRepository workerTaskRepository;
@@ -28,12 +31,14 @@ public class HarnessApprovalService {
   public HarnessApprovalService(
       ArtifactService artifactService,
       CleanupReviewService cleanupReviewService,
+      CleanJavaDeterministicHarnessService cleanJavaDeterministicHarnessService,
       TaskPoolService taskPoolService,
       ValidationPipelineService validationPipelineService,
       WorkerTaskRepository workerTaskRepository
   ) {
     this.artifactService = artifactService;
     this.cleanupReviewService = cleanupReviewService;
+    this.cleanJavaDeterministicHarnessService = cleanJavaDeterministicHarnessService;
     this.taskPoolService = taskPoolService;
     this.validationPipelineService = validationPipelineService;
     this.workerTaskRepository = workerTaskRepository;
@@ -96,17 +101,30 @@ public class HarnessApprovalService {
 
   private HarnessValidationSummary validationSummary(String taskId, WorkerTask workerTask, Path repoPath) {
     if (!workerTask.workerType().validationRequired()) {
-      return new HarnessValidationSummary(null, "skipped", "Validation skipped for non-code work.");
+      return new HarnessValidationSummary(
+          null,
+          "skipped",
+          "Validation skipped for non-code work.",
+          null,
+          null,
+          null
+      );
     }
-    ValidationReport validationReport = validationPipelineService.runValidationPipeline(
+    CleanJavaHarnessRunResult harnessRun = cleanJavaDeterministicHarnessService.run(
         taskId,
         workerTask.workerTaskId(),
-        repoPath
+        null,
+        repoPath,
+        null
     );
+    ValidationReport validationReport = harnessRun.storedReport();
     return new HarnessValidationSummary(
         validationReport.reportId(),
         validationReport.status(),
-        validationReport.summary()
+        validationReport.summary(),
+        harnessRun.sourceShape(),
+        harnessRun.architecture(),
+        harnessRun.cycles()
     );
   }
 
