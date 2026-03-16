@@ -25,6 +25,10 @@ class McpCatalogIntegrationTest extends IntegrationTestSupport {
     assertTrue(toolNames.contains("mergeWorkerOutputs"));
     assertTrue(toolNames.contains("loadDashboardSummary"));
     assertTrue(toolNames.contains("warmDashboardCache"));
+    assertTrue(toolNames.contains("intakeHarnessTask"));
+    assertTrue(toolNames.contains("routeHarnessTask"));
+    assertTrue(toolNames.contains("loadHarnessState"));
+    assertTrue(toolNames.contains("runHarnessApprovalGate"));
     assertTrue(toolNames.contains("loadCleanJavaRules"));
     assertTrue(toolNames.contains("runCleanJavaArchUnit"));
     assertTrue(toolNames.contains("runCleanJavaSpoon"));

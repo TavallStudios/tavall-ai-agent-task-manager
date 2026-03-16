@@ -1,0 +1,80 @@
+package com.agenttaskmanager.app.harness;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.agenttaskmanager.app.harness.approval.HarnessApprovalGateResult;
+import com.agenttaskmanager.app.harness.approval.HarnessApprovalService;
+import com.agenttaskmanager.app.harness.routing.HarnessWorkerPlan;
+import com.agenttaskmanager.app.model.orchestration.TaskLifecycleStatus;
+import com.agenttaskmanager.app.model.orchestration.WorkerType;
+import com.agenttaskmanager.app.orchestration.TaskPoolService;
+import com.agenttaskmanager.app.support.IntegrationTestSupport;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.simple.JdbcClient;
+
+class HarnessApprovalServiceIntegrationTest extends IntegrationTestSupport {
+
+  @Autowired
+  private HarnessApprovalService harnessApprovalService;
+
+  @Autowired
+  private JdbcClient jdbcClient;
+
+  @Autowired
+  private TaskPoolService taskPoolService;
+
+  @BeforeEach
+  void cleanup() {
+    jdbcClient.sql("DELETE FROM agent_task_manager.validation_violations").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.validation_reports").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.patch_decisions").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.cleanup_reviews").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.shared_task_context").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.task_artifacts").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.worker_checkins").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.worker_task_leases").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.worker_tasks").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.overseer_decisions").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.agent_tasks WHERE task_kind = 'orchestration-batch'").update();
+  }
+
+  @Test
+  void shouldSkipCodeOnlyApprovalGatesForRetrievalWorkers() {
+    String taskId = taskPoolService.createPlannedTaskBatch(
+        "agent-task-manager",
+        "/srv/AgentTaskManager",
+        "Retrieval batch",
+        true,
+        List.of(new HarnessWorkerPlan(
+            WorkerType.RETRIEVAL,
+            "retrieval",
+            "Retrieval worker for Retrieval batch",
+            false,
+            false,
+            false,
+            false
+        ))
+    ).taskId();
+    String workerTaskId = taskPoolService.listWorkerTasks(taskId).getFirst().workerTaskId();
+
+    HarnessApprovalGateResult result = harnessApprovalService.runApprovalGate(
+        taskId,
+        workerTaskId,
+        Path.of("/srv/AgentTaskManager"),
+        null,
+        0,
+        false
+    );
+
+    assertTrue(result.approved());
+    assertEquals(TaskLifecycleStatus.COMPLETED, result.taskStatus());
+    assertEquals("skipped", result.cleanup().status());
+    assertEquals("skipped", result.validation().status());
+    assertEquals("skipped", result.integrationTests().get("status"));
+  }
+}

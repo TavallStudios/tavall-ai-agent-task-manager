@@ -82,6 +82,10 @@ public class SharedTaskContextService {
     );
   }
 
+  public List<SharedTaskContext> listSharedTaskContext(String taskId) {
+    return sharedTaskContextRepository.listByTask(taskId);
+  }
+
   public List<Map<String, Object>> loadSiblingTaskSummaries(String taskId, String workerTaskId) {
     return workerTaskRepository.listWorkerTasks(taskId).stream()
         .filter(workerTask -> !workerTask.workerTaskId().equals(workerTaskId))

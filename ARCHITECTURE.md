@@ -11,7 +11,7 @@ Build modules:
 - `agent-task-manager-clean-java-mcp`
   The dedicated stdio MCP module for clean Java rule loading and source-shape validation tools.
 - `agent-task-manager-clean-java-harness`
-  The dedicated stdio MCP module for the deterministic clean Java harness and integration harness tools without the servlet web surface on its classpath.
+  The dedicated stdio MCP module for the harness-core intake, routing, state, approval, and clean Java harness tools without the servlet web surface on its classpath.
 - `agent-task-manager-app`
   The final app module that assembles the shared runtime, `spring-webview`, and both clean Java modules into one executable.
 
@@ -22,6 +22,8 @@ Build modules:
   Clean Java validation and harness tool implementations live under a dedicated `mcp.cleanjava` subpackage while preserving the existing MCP handler surface.
 - `orchestration`
   Overseer flow, task pool, worker lifecycle, cleanup review, artifacts, shared context, and Codex worker transport.
+- `harness`
+  Parent-task intake, typed worker routing, shared task and agent schemas, shared persistence and dashboard models, and approval gating.
 - `validation`
   ArchUnit and Spoon validators, integration-test runner, scoring, and report storage.
 - `persistence`
@@ -39,14 +41,15 @@ Build modules:
 
 ## Main Flow
 
-1. The overseer creates a batch and queues worker tasks.
-2. A worker session claims and receives a lease.
-3. `LocalCodexWorkerTransport` executes `codex exec` inside an isolated worktree.
-4. Worker output and diff artifacts are stored.
-5. Cleanup review runs against the diff.
-6. ArchUnit and Spoon validation run, with integration tests available through the same pipeline.
-7. The overseer stores decisions and patch outcomes.
-8. The dashboard and MCP tools expose the latest state.
+1. The harness intake accepts parent work and resolves repository context.
+2. The routing layer creates typed worker plans for code, cleanup, computer-use, and retrieval work.
+3. The overseer creates a batch and queues those worker tasks.
+4. A worker session claims and receives a lease.
+5. `LocalCodexWorkerTransport` executes `codex exec` inside an isolated worktree.
+6. Worker output and diff artifacts are stored.
+7. The shared harness approval gate runs cleanup review, validation, integration tests when required, and patch-scope checks.
+8. The overseer stores decisions and patch outcomes.
+9. The shared harness state model plus dashboard and MCP surfaces expose the latest state.
 
 ## Semantic Retrieval
 
@@ -63,6 +66,7 @@ Build modules:
 - resources for docs
 - prompts for overseer, worker, and cleanup roles
 - tool groups for task pooling, worker state, shared context, validation, artifacts, retrieval, cache, and decisions
+- the dedicated `clean-java-harness` group now exposes a single harness surface for intake, routing, state, approval, and deterministic clean Java validation
 
 ## Remote Path
 

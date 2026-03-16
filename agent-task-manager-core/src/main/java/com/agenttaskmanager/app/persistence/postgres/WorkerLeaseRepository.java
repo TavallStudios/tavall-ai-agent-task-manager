@@ -125,4 +125,35 @@ public class WorkerLeaseRepository {
         ))
         .list();
   }
+
+  public List<WorkerLease> listByTask(String taskId) {
+    return jdbcClient.sql("""
+            SELECT
+              worker_task_id,
+              task_id,
+              agent_id,
+              session_id,
+              lease_token,
+              transport_kind,
+              acquired_at,
+              heartbeat_at,
+              expires_at
+            FROM agent_task_manager.worker_task_leases
+            WHERE task_id = :taskId
+            ORDER BY expires_at DESC
+            """)
+        .param("taskId", taskId)
+        .query((rs, rowNum) -> new WorkerLease(
+            rs.getString("worker_task_id"),
+            rs.getString("task_id"),
+            rs.getString("agent_id"),
+            rs.getString("session_id"),
+            rs.getString("lease_token"),
+            WorkerTransportKind.valueOf(rs.getString("transport_kind")),
+            rs.getObject("acquired_at", OffsetDateTime.class),
+            rs.getObject("heartbeat_at", OffsetDateTime.class),
+            rs.getObject("expires_at", OffsetDateTime.class)
+        ))
+        .list();
+  }
 }

@@ -42,6 +42,16 @@ class CleanJavaHarnessCatalogIntegrationTest {
         .map(specification -> specification.tool().name())
         .collect(Collectors.toSet());
 
-    assertEquals(Set.of("runCleanJavaHarness", "runJavaIntegrationHarness"), toolNames);
+    assertEquals(
+        Set.of(
+            "intakeHarnessTask",
+            "routeHarnessTask",
+            "loadHarnessState",
+            "runHarnessApprovalGate",
+            "runCleanJavaHarness",
+            "runJavaIntegrationHarness"
+        ),
+        toolNames
+    );
   }
 }

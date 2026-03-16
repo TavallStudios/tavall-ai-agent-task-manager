@@ -107,4 +107,33 @@ public class WorkerCheckInRepository {
         ))
         .list();
   }
+
+  public List<WorkerCheckIn> listByTask(String taskId) {
+    return jdbcClient.sql("""
+            SELECT
+              check_in_id,
+              worker_task_id,
+              task_id,
+              agent_id,
+              status,
+              summary,
+              details,
+              created_at
+            FROM agent_task_manager.worker_checkins
+            WHERE task_id = :taskId
+            ORDER BY created_at DESC
+            """)
+        .param("taskId", taskId)
+        .query((rs, rowNum) -> new WorkerCheckIn(
+            rs.getLong("check_in_id"),
+            rs.getString("worker_task_id"),
+            rs.getString("task_id"),
+            rs.getString("agent_id"),
+            TaskLifecycleStatus.valueOf(rs.getString("status")),
+            rs.getString("summary"),
+            jsonSupport.readMap(rs.getString("details")),
+            rs.getObject("created_at", OffsetDateTime.class)
+        ))
+        .list();
+  }
 }

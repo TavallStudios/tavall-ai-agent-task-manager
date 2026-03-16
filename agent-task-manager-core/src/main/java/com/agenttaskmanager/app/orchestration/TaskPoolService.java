@@ -2,12 +2,14 @@ package com.agenttaskmanager.app.orchestration;
 
 import com.agenttaskmanager.app.config.OrchestrationProperties;
 import com.agenttaskmanager.app.dashboard.DashboardSummaryService;
+import com.agenttaskmanager.app.harness.routing.HarnessWorkerPlan;
 import com.agenttaskmanager.app.model.orchestration.CleanupReviewTask;
 import com.agenttaskmanager.app.model.orchestration.OverseerTaskBatch;
 import com.agenttaskmanager.app.model.orchestration.TaskAssignment;
 import com.agenttaskmanager.app.model.orchestration.TaskLifecycleStatus;
 import com.agenttaskmanager.app.model.orchestration.WorkerTask;
 import com.agenttaskmanager.app.model.orchestration.WorkerTransportKind;
+import com.agenttaskmanager.app.model.orchestration.WorkerType;
 import com.agenttaskmanager.app.persistence.postgres.CleanupReviewRepository;
 import com.agenttaskmanager.app.persistence.postgres.TaskBatchRepository;
 import com.agenttaskmanager.app.persistence.postgres.WorkerLeaseRepository;
@@ -55,6 +57,27 @@ public class TaskPoolService {
       boolean multiAgentEnabled,
       List<String> workerRoles
   ) {
+    List<HarnessWorkerPlan> workerPlans = workerRoles.stream()
+        .map(workerRole -> new HarnessWorkerPlan(
+            WorkerType.fromTaskRole(workerRole),
+            workerRole,
+            workerRole + " worker for " + title,
+            WorkerType.fromTaskRole(workerRole).cleanupReviewRequired(),
+            WorkerType.fromTaskRole(workerRole).validationRequired(),
+            false,
+            WorkerType.fromTaskRole(workerRole).patchArtifactRequired()
+        ))
+        .toList();
+    return createPlannedTaskBatch(projectKey, sourceRepo, title, multiAgentEnabled, workerPlans);
+  }
+
+  public OverseerTaskBatch createPlannedTaskBatch(
+      String projectKey,
+      String sourceRepo,
+      String title,
+      boolean multiAgentEnabled,
+      List<HarnessWorkerPlan> workerPlans
+  ) {
     OverseerTaskBatch batch = taskBatchRepository.createBatch(
         projectKey,
         sourceRepo,
@@ -63,14 +86,15 @@ public class TaskPoolService {
         multiAgentEnabled
     );
     taskBatchRepository.updateStatus(batch.taskId(), TaskLifecycleStatus.QUEUED, batch.overseerAgentId());
-    for (String workerRole : workerRoles) {
+    for (HarnessWorkerPlan workerPlan : workerPlans) {
       WorkerTask workerTask = workerTaskRepository.createWorkerTask(
           batch.taskId(),
           null,
-          workerRole,
-          workerRole + " worker for " + title,
+          workerPlan.workerType(),
+          workerPlan.taskRole(),
+          workerPlan.title(),
           3,
-          Map.of("sourceRepo", sourceRepo)
+          workerPlan.metadata(sourceRepo)
       );
       orchestrationHotStateStore.queueWorkerTask(batch.taskId(), workerTask.workerTaskId());
     }

@@ -26,6 +26,11 @@ public class OrchestrationHotStateStore {
     return redisTemplate.opsForList().leftPop(workerQueueKey(taskId));
   }
 
+  public long workerQueueDepth(String taskId) {
+    Long size = redisTemplate.opsForList().size(workerQueueKey(taskId));
+    return size == null ? 0L : size;
+  }
+
   public void recordWorkerHeartbeat(String workerTaskId, String agentId, Duration ttl) {
     Map<String, String> values = new LinkedHashMap<>();
     values.put("agentId", agentId);

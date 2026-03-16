@@ -2,6 +2,7 @@ package com.agenttaskmanager.app.persistence.postgres;
 
 import com.agenttaskmanager.app.model.orchestration.TaskLifecycleStatus;
 import com.agenttaskmanager.app.model.orchestration.WorkerTask;
+import com.agenttaskmanager.app.model.orchestration.WorkerType;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,7 @@ public class WorkerTaskRepository {
   public WorkerTask createWorkerTask(
       String taskId,
       String parentWorkerTaskId,
+      WorkerType workerType,
       String taskRole,
       String title,
       int maxAttempts,
@@ -35,6 +37,7 @@ public class WorkerTaskRepository {
               worker_task_id,
               task_id,
               parent_worker_task_id,
+              worker_type,
               task_role,
               title,
               status,
@@ -44,6 +47,7 @@ public class WorkerTaskRepository {
               :workerTaskId,
               :taskId,
               NULLIF(:parentWorkerTaskId, ''),
+              :workerType,
               :taskRole,
               :title,
               'QUEUED',
@@ -54,6 +58,7 @@ public class WorkerTaskRepository {
         .param("workerTaskId", workerTaskId)
         .param("taskId", taskId)
         .param("parentWorkerTaskId", parentWorkerTaskId == null ? "" : parentWorkerTaskId)
+        .param("workerType", workerType.name())
         .param("taskRole", taskRole)
         .param("title", title)
         .param("maxAttempts", maxAttempts)
@@ -83,6 +88,7 @@ public class WorkerTaskRepository {
               worker_task.worker_task_id AS worker_task_id,
               worker_task.task_id AS task_id,
               worker_task.parent_worker_task_id AS parent_worker_task_id,
+              worker_task.worker_type AS worker_type,
               worker_task.task_role AS task_role,
               worker_task.title AS title,
               worker_task.status AS status,
@@ -91,6 +97,7 @@ public class WorkerTaskRepository {
               worker_task.attempt_count AS attempt_count,
               worker_task.max_attempts AS max_attempts,
               worker_task.latest_summary AS latest_summary,
+              worker_task.metadata AS metadata,
               worker_task.created_at AS created_at,
               worker_task.updated_at AS updated_at,
               worker_task.last_check_in_at AS last_check_in_at,
@@ -141,6 +148,7 @@ public class WorkerTaskRepository {
               worker_task_id,
               task_id,
               parent_worker_task_id,
+              worker_type,
               task_role,
               title,
               status,
@@ -149,6 +157,7 @@ public class WorkerTaskRepository {
               attempt_count,
               max_attempts,
               latest_summary,
+              metadata,
               created_at,
               updated_at,
               last_check_in_at,
@@ -168,6 +177,7 @@ public class WorkerTaskRepository {
               worker_task_id,
               task_id,
               parent_worker_task_id,
+              worker_type,
               task_role,
               title,
               status,
@@ -176,6 +186,7 @@ public class WorkerTaskRepository {
               attempt_count,
               max_attempts,
               latest_summary,
+              metadata,
               created_at,
               updated_at,
               last_check_in_at,
@@ -194,6 +205,7 @@ public class WorkerTaskRepository {
         rs.getString("worker_task_id"),
         rs.getString("task_id"),
         rs.getString("parent_worker_task_id"),
+        WorkerType.valueOf(rs.getString("worker_type")),
         rs.getString("task_role"),
         rs.getString("title"),
         TaskLifecycleStatus.valueOf(rs.getString("status")),
@@ -202,6 +214,7 @@ public class WorkerTaskRepository {
         rs.getInt("attempt_count"),
         rs.getInt("max_attempts"),
         rs.getString("latest_summary"),
+        jsonSupport.readMap(rs.getString("metadata")),
         rs.getObject("created_at", OffsetDateTime.class),
         rs.getObject("updated_at", OffsetDateTime.class),
         rs.getObject("last_check_in_at", OffsetDateTime.class),

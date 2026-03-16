@@ -319,6 +319,7 @@ CREATE TABLE IF NOT EXISTS agent_task_manager.worker_tasks (
   worker_task_id text PRIMARY KEY,
   task_id text NOT NULL REFERENCES agent_task_manager.agent_tasks(task_id) ON DELETE CASCADE,
   parent_worker_task_id text REFERENCES agent_task_manager.worker_tasks(worker_task_id) ON DELETE SET NULL,
+  worker_type text NOT NULL DEFAULT 'CODE',
   task_role text NOT NULL,
   title text NOT NULL,
   status text NOT NULL,
@@ -333,6 +334,9 @@ CREATE TABLE IF NOT EXISTS agent_task_manager.worker_tasks (
   last_check_in_at timestamptz,
   completed_at timestamptz
 );
+
+ALTER TABLE agent_task_manager.worker_tasks
+  ADD COLUMN IF NOT EXISTS worker_type text NOT NULL DEFAULT 'CODE';
 
 CREATE INDEX IF NOT EXISTS worker_tasks_task_status_idx
   ON agent_task_manager.worker_tasks (task_id, status, updated_at DESC);
@@ -523,11 +527,14 @@ CREATE TABLE IF NOT EXISTS agent_task_manager.task_artifacts (
 CREATE INDEX IF NOT EXISTS task_artifacts_task_kind_idx
   ON agent_task_manager.task_artifacts (task_id, artifact_kind, created_at DESC);
 
+DROP VIEW IF EXISTS agent_task_manager.worker_task_overview;
+
 CREATE OR REPLACE VIEW agent_task_manager.worker_task_overview AS
 SELECT
   worker_task.worker_task_id,
   worker_task.task_id,
   worker_task.parent_worker_task_id,
+  worker_task.worker_type,
   worker_task.task_role,
   worker_task.title,
   worker_task.status,

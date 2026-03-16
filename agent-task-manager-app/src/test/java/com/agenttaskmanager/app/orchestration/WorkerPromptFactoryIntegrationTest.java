@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.agenttaskmanager.app.model.orchestration.TaskLifecycleStatus;
 import com.agenttaskmanager.app.model.orchestration.WorkerTask;
 import com.agenttaskmanager.app.model.orchestration.WorkerTransportKind;
+import com.agenttaskmanager.app.model.orchestration.WorkerType;
 import com.agenttaskmanager.app.support.IntegrationTestSupport;
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -43,6 +44,7 @@ class WorkerPromptFactoryIntegrationTest extends IntegrationTestSupport {
         "worker-" + suffix,
         "task-" + suffix,
         null,
+        WorkerType.CODE,
         "implementer",
         "Investigate prompt handling " + suffix,
         TaskLifecycleStatus.QUEUED,
@@ -51,6 +53,7 @@ class WorkerPromptFactoryIntegrationTest extends IntegrationTestSupport {
         0,
         3,
         "check memory first",
+        Map.of("requiresIntegrationTests", true),
         OffsetDateTime.now(),
         OffsetDateTime.now(),
         null,
@@ -61,9 +64,11 @@ class WorkerPromptFactoryIntegrationTest extends IntegrationTestSupport {
 
     assertTrue(prompt.contains("Deterministic execution policy:"));
     assertTrue(prompt.contains("Memory policy:"));
+    assertTrue(prompt.contains("Worker type: CODE"));
     assertTrue(prompt.contains("Worker prompt should check memory first " + suffix));
     assertTrue(prompt.contains("before the final response"));
     assertTrue(prompt.contains("Tool combination patterns:"));
+    assertTrue(prompt.contains("Worker focus:"));
     assertTrue(prompt.contains("loadCleanJavaRules + runCleanJavaHarness"));
     assertTrue(prompt.contains("Final response contract:"));
   }

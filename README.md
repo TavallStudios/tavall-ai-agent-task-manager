@@ -3,7 +3,8 @@
 AgentTaskManager is a multi-module Spring Boot control plane for local and remote Codex orchestration. It now includes:
 
 - a Java MCP server built with the official MCP Java SDK
-- a multi-agent task pool with overseer, worker, and cleanup roles
+- a harness core that accepts parent work, routes typed workers, assembles shared state, and gates approvals
+- specialized worker types for code, cleanup, computer-use, and retrieval jobs
 - ArchUnit and Spoon validation pipelines with a shared report model
 - Postgres, Redis, MongoDB, and Qdrant persistence boundaries
 - an AbstractCache-derived `cache` package for hot orchestration, validation, and dashboard caching
@@ -19,7 +20,7 @@ AgentTaskManager is a multi-module Spring Boot control plane for local and remot
 - `agent-task-manager-clean-java-mcp`
   Dedicated stdio MCP executable for clean Java rules and validation tools.
 - `agent-task-manager-clean-java-harness`
-  Dedicated stdio MCP executable for the deterministic clean Java harness and integration harness tools.
+  Dedicated stdio MCP executable for the harness-core intake, routing, state, approval, and clean Java harness tools.
 - `agent-task-manager-app`
   Final executable assembly that depends on the headless runtime, `spring-webview`, and both clean Java modules.
 
@@ -42,6 +43,8 @@ AgentTaskManager is a multi-module Spring Boot control plane for local and remot
   Servlet controllers and page delivery now live in the `spring-webview` module instead of `agent-task-manager-core`.
 - `com.agenttaskmanager.app.orchestration`
   Task pooling, worker lifecycle, artifacts, cleanup review, and Codex worker transport.
+- `com.agenttaskmanager.app.harness`
+  Parent-task intake, typed worker routing, shared task and agent schemas, shared persistence and dashboard models, and approval gating.
 - `com.agenttaskmanager.app.persistence`
   Postgres, Redis, MongoDB, and Qdrant adapters.
 - `com.agenttaskmanager.app.validation`
@@ -61,6 +64,19 @@ AgentTaskManager is a multi-module Spring Boot control plane for local and remot
   Semantic context storage and similarity search using a shared-dimension embedding chain: Gemini first, local FastEmbed runner second, hash fallback last.
 - `cache`
   Memory-first TTL caches in front of dashboard, validation, worker, and context reads.
+
+## Harness Core
+
+- task intake
+  Accept parent work, resolve repository context, and persist intake state.
+- routing
+  Split parent work into `CODE`, `CLEANUP`, `COMPUTER_USE`, and `RETRIEVAL` workers.
+- orchestration
+  Reuse the overseer and worker pool to schedule typed workers.
+- state
+  Build one shared task schema, agent schema, persistence model, and dashboard model for each harness task.
+- approval
+  Run the shared cleanup, validation, integration-test, and patch-scope gate before any worker result is accepted.
 
 ## CLI
 
@@ -121,6 +137,15 @@ python3 -m pip install fastembed
 - resources: `README.md`, `AGENTS.md`, `RULES.md`, `ARCHITECTURE.md`, `EXAMPLES.md`
 - tools: task pool, worker lifecycle, context, validation, artifact, retrieval, cache, and decision tools
 
+The dedicated `clean-java-harness` stdio server exposes the curated harness surface:
+
+- `intakeHarnessTask`
+- `routeHarnessTask`
+- `loadHarnessState`
+- `runHarnessApprovalGate`
+- `runCleanJavaHarness`
+- `runJavaIntegrationHarness`
+
 Remote MCP smoke test:
 
 ```bash
@@ -147,4 +172,4 @@ The smoke flow covers:
 
 ## Current Status
 
-The v1 platform now builds as a multi-module Maven project with a dedicated `spring-webview` servlet module and separate clean Java MCP and harness executables. Worker execution still runs through `codex exec` with model `gpt-5.3-codex` by default when available, while the MCP and dashboard surfaces expose the orchestration state for local and remote use.
+The platform now builds as a multi-module Maven project with a dedicated `spring-webview` servlet module and separate clean Java MCP and harness executables. Worker execution still runs through `codex exec` with model `gpt-5.3-codex` by default when available, while the harness core, MCP surfaces, and dashboard expose one shared task and approval model for local and remote use.

@@ -2,6 +2,7 @@ package com.agenttaskmanager.app.orchestration;
 
 import com.agenttaskmanager.app.config.OrchestrationProperties;
 import com.agenttaskmanager.app.dashboard.DashboardSummaryService;
+import com.agenttaskmanager.app.harness.routing.HarnessWorkerPlan;
 import com.agenttaskmanager.app.model.orchestration.DeadWorkerRecord;
 import com.agenttaskmanager.app.model.orchestration.OverseerDecisionRecord;
 import com.agenttaskmanager.app.model.orchestration.OverseerTaskBatch;
@@ -85,6 +86,37 @@ public class OverseerOrchestrationService {
         TaskLifecycleStatus.QUEUED,
         "Created orchestration batch with " + workerRoles.size() + " worker tasks.",
         Map.of("workerRoles", workerRoles)
+    );
+    return batch;
+  }
+
+  public OverseerTaskBatch createPlannedTaskBatch(
+      String projectKey,
+      String sourceRepo,
+      String title,
+      boolean multiAgentEnabled,
+      List<HarnessWorkerPlan> workerPlans,
+      Map<String, Object> details
+  ) {
+    OverseerTaskBatch batch = taskPoolService.createPlannedTaskBatch(
+        projectKey,
+        sourceRepo,
+        title,
+        multiAgentEnabled,
+        workerPlans
+    );
+    overseerDecisionRepository.storeDecision(
+        batch.taskId(),
+        null,
+        "create-batch",
+        TaskLifecycleStatus.QUEUED,
+        "Created harness batch with " + workerPlans.size() + " worker tasks.",
+        Map.of(
+            "workerTypes",
+            workerPlans.stream().map(plan -> plan.workerType().name()).toList(),
+            "details",
+            details
+        )
     );
     return batch;
   }

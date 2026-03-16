@@ -3,10 +3,10 @@ package com.agenttaskmanager.app.orchestration;
 import com.agenttaskmanager.app.bridge.CodexDeterministicConfigService;
 import com.agenttaskmanager.app.bridge.CodexJsonEventParser;
 import com.agenttaskmanager.app.config.OrchestrationProperties;
+import com.agenttaskmanager.app.harness.approval.HarnessApprovalGateResult;
+import com.agenttaskmanager.app.harness.approval.HarnessApprovalService;
 import com.agenttaskmanager.app.model.KnownRepo;
 import com.agenttaskmanager.app.model.orchestration.ArtifactRecord;
-import com.agenttaskmanager.app.model.orchestration.CleanupReviewResult;
-import com.agenttaskmanager.app.model.orchestration.CleanupReviewTask;
 import com.agenttaskmanager.app.model.orchestration.TaskLifecycleStatus;
 import com.agenttaskmanager.app.model.orchestration.WorkerExecutionRequest;
 import com.agenttaskmanager.app.model.orchestration.WorkerExecutionResult;
@@ -14,8 +14,6 @@ import com.agenttaskmanager.app.model.orchestration.WorkerRunSummary;
 import com.agenttaskmanager.app.model.orchestration.WorkerTask;
 import com.agenttaskmanager.app.model.orchestration.WorkerTransportKind;
 import com.agenttaskmanager.app.persistence.postgres.WorkerTaskRepository;
-import com.agenttaskmanager.app.validation.ValidationPipelineService;
-import com.agenttaskmanager.app.model.validation.ValidationReport;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -31,11 +29,10 @@ import org.springframework.stereotype.Service;
 public class LocalCodexWorkerTransport implements WorkerTransport {
 
   private final ArtifactService artifactService;
-  private final CleanupReviewService cleanupReviewService;
   private final GitWorktreeManager gitWorktreeManager;
+  private final HarnessApprovalService harnessApprovalService;
   private final OrchestrationProperties orchestrationProperties;
   private final TaskPoolService taskPoolService;
-  private final ValidationPipelineService validationPipelineService;
   private final WorkerLifecycleService workerLifecycleService;
   private final PromptMemoryCaptureService promptMemoryCaptureService;
   private final com.agenttaskmanager.app.service.RepoCatalogService repoCatalogService;
@@ -46,11 +43,10 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
 
   public LocalCodexWorkerTransport(
       ArtifactService artifactService,
-      CleanupReviewService cleanupReviewService,
       GitWorktreeManager gitWorktreeManager,
+      HarnessApprovalService harnessApprovalService,
       OrchestrationProperties orchestrationProperties,
       TaskPoolService taskPoolService,
-      ValidationPipelineService validationPipelineService,
       WorkerLifecycleService workerLifecycleService,
       PromptMemoryCaptureService promptMemoryCaptureService,
       com.agenttaskmanager.app.service.RepoCatalogService repoCatalogService,
@@ -60,11 +56,10 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
       CodexDeterministicConfigService codexDeterministicConfigService
   ) {
     this.artifactService = artifactService;
-    this.cleanupReviewService = cleanupReviewService;
     this.gitWorktreeManager = gitWorktreeManager;
+    this.harnessApprovalService = harnessApprovalService;
     this.orchestrationProperties = orchestrationProperties;
     this.taskPoolService = taskPoolService;
-    this.validationPipelineService = validationPipelineService;
     this.workerLifecycleService = workerLifecycleService;
     this.promptMemoryCaptureService = promptMemoryCaptureService;
     this.repoCatalogService = repoCatalogService;
@@ -112,21 +107,17 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
     );
     ArtifactRecord diffArtifact = artifactService.storeDiffArtifact(request.taskId(), request.workerTaskId(), diff, Map.of("exitCode", exitCode));
 
-    CleanupReviewTask cleanupReviewTask = taskPoolService.createCleanupReviewTask(
-        request.taskId(),
-        request.workerTaskId(),
-        diffArtifact.artifactId()
-    );
-    CleanupReviewResult cleanupReviewResult = cleanupReviewService.runCleanupDiffReview(cleanupReviewTask.cleanupReviewId());
-    ValidationReport validationReport = validationPipelineService.runValidationPipeline(
+    HarnessApprovalGateResult gateResult = harnessApprovalService.runApprovalGate(
         request.taskId(),
         request.workerTaskId(),
         workspacePath
+            ,
+        diffArtifact.artifactId(),
+        exitCode,
+        null
     );
-    boolean patchScopeAllowed = validationPipelineService.validatePatchScope(diff);
-
-    TaskLifecycleStatus taskStatus = resolveTaskStatus(exitCode, validationReport, cleanupReviewResult, patchScopeAllowed);
-    String summary = buildSummary(finalMessage, exitCode, validationReport, cleanupReviewResult, patchScopeAllowed);
+    TaskLifecycleStatus taskStatus = gateResult.taskStatus();
+    String summary = buildSummary(finalMessage, gateResult);
     promptMemoryCaptureService.captureProjectMemory(
         repo.projectKey(),
         request.taskId(),
@@ -136,9 +127,9 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
         Map.of(
             "repoPath", request.repoPath().toString(),
             "exitCode", exitCode,
-            "cleanupReviewStatus", cleanupReviewResult.status().name(),
-            "validationStatus", validationReport.status(),
-            "patchScopeAllowed", patchScopeAllowed,
+            "cleanupReviewStatus", gateResult.cleanup().status(),
+            "validationStatus", gateResult.validation().status(),
+            "patchScopeAllowed", gateResult.patchScopeAllowed(),
             "summary", summary
         )
     );
@@ -161,64 +152,30 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
         runSummary,
         outputArtifact.artifactId(),
         diffArtifact.artifactId(),
-        cleanupReviewTask.cleanupReviewId(),
-        validationReport.reportId(),
-        patchScopeAllowed,
-        cleanupReviewResult.status(),
-        validationReport.status(),
+        gateResult.cleanup().cleanupReviewId(),
+        gateResult.validation().reportId(),
+        gateResult.patchScopeAllowed(),
+        parseCleanupStatus(gateResult.cleanup().status()),
+        gateResult.validation().status(),
         exitCode
     );
   }
 
-  private TaskLifecycleStatus resolveTaskStatus(
-      int exitCode,
-      ValidationReport validationReport,
-      CleanupReviewResult cleanupReviewResult,
-      boolean patchScopeAllowed
-  ) {
-    if (exitCode != 0) {
-      return TaskLifecycleStatus.FAILED;
-    }
-    if (!"passed".equals(validationReport.status())) {
-      return TaskLifecycleStatus.NEEDS_REWORK;
-    }
-    if (cleanupReviewResult.status() != TaskLifecycleStatus.APPROVED) {
-      return TaskLifecycleStatus.NEEDS_REWORK;
-    }
-    if (!patchScopeAllowed) {
-      return TaskLifecycleStatus.NEEDS_REWORK;
-    }
-    return TaskLifecycleStatus.COMPLETED;
-  }
-
-  private String buildSummary(
-      String finalMessage,
-      int exitCode,
-      ValidationReport validationReport,
-      CleanupReviewResult cleanupReviewResult,
-      boolean patchScopeAllowed
-  ) {
+  private String buildSummary(String finalMessage, HarnessApprovalGateResult gateResult) {
     String baseSummary = finalMessage.isBlank()
-        ? "Worker finished with exit code " + exitCode
+        ? gateResult.summary()
         : finalMessage;
-    List<String> gateNotes = new ArrayList<>();
-
-    if (exitCode != 0) {
-      gateNotes.add("worker process failed");
-    }
-    if (!"passed".equals(validationReport.status())) {
-      gateNotes.add("validation did not pass");
-    }
-    if (cleanupReviewResult.status() != TaskLifecycleStatus.APPROVED) {
-      gateNotes.add("cleanup review requires rework");
-    }
-    if (!patchScopeAllowed) {
-      gateNotes.add("patch scope is not allowed");
-    }
-    if (gateNotes.isEmpty()) {
+    if (gateResult.summary().equals(baseSummary)) {
       return baseSummary;
     }
-    return baseSummary + " Gate result: " + String.join("; ", gateNotes) + ".";
+    return baseSummary + " " + gateResult.summary();
+  }
+
+  private TaskLifecycleStatus parseCleanupStatus(String status) {
+    if (status == null || status.isBlank() || "skipped".equalsIgnoreCase(status)) {
+      return TaskLifecycleStatus.APPROVED;
+    }
+    return TaskLifecycleStatus.valueOf(status);
   }
 
   private List<String> buildCommand(String projectKey, Path workspacePath, Path outputFile, String prompt) {
