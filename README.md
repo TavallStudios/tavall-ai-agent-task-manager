@@ -187,3 +187,5 @@ The smoke flow covers:
 ## Current Status
 
 The platform now builds as a multi-module Maven project with a dedicated `spring-webview` servlet module and separate clean Java MCP and harness executables. Worker execution still runs through `codex exec` with model `gpt-5.3-codex` by default when available, but Codex now depends on the harness MCP surface by default while the harness brokers downstream repository tools in parallel and exposes one shared task and approval model for local and remote use.
+
+The MCP surface now also exposes canonical semantic/context tool names that match the orchestration contract directly: `storeTaskEmbedding`, `searchRelatedContexts`, `searchPriorFixes`, `loadRelatedSemanticContext`, and `attachSemanticContextToTask`. Live dashboard state is also available as MCP resources under `state://dashboard/summary`, `state://dashboard/workers`, `state://dashboard/chats`, and `state://dashboard/batches`.

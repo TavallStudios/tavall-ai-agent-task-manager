@@ -38,6 +38,11 @@ class McpCatalogIntegrationTest extends IntegrationTestSupport {
     assertTrue(toolNames.contains("validateCleanJavaPatchScope"));
     assertTrue(toolNames.contains("runCleanJavaHarness"));
     assertTrue(toolNames.contains("runJavaIntegrationHarness"));
+    assertTrue(toolNames.contains("storeTaskEmbedding"));
+    assertTrue(toolNames.contains("searchRelatedContexts"));
+    assertTrue(toolNames.contains("searchPriorFixes"));
+    assertTrue(toolNames.contains("loadRelatedSemanticContext"));
+    assertTrue(toolNames.contains("attachSemanticContextToTask"));
 
     Set<String> resourceNames = mcpSyncServer.listResources().stream()
         .map(resource -> resource.name())
@@ -45,6 +50,10 @@ class McpCatalogIntegrationTest extends IntegrationTestSupport {
 
     assertTrue(resourceNames.contains("AGENTS.md"));
     assertTrue(resourceNames.contains("RULES.md"));
+    assertTrue(resourceNames.contains("ARCHITECTURE.md"));
+    assertTrue(resourceNames.contains("EXAMPLES.md"));
+    assertTrue(resourceNames.contains("state://dashboard/summary"));
+    assertTrue(resourceNames.contains("state://dashboard/workers"));
 
     Set<String> promptNames = mcpSyncServer.listPrompts().stream()
         .map(prompt -> prompt.name())
