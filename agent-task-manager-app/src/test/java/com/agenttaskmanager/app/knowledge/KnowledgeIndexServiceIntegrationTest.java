@@ -20,11 +20,12 @@ import org.springframework.test.context.TestPropertySource;
     "app.qdrant.collection=agent_task_manager_knowledge_index_test",
     "app.embedding.provider-order=hash",
     "app.embedding.dimensions=32",
+    "app.semantic-index.max-chunk-chars=600",
+    "app.semantic-index.code-target-chunk-lines=20",
+    "app.semantic-index.doc-target-chunk-lines=20",
+    "app.semantic-index.overlap-lines=5",
     "app.knowledge-index.enabled=true",
     "app.knowledge-index.knowledge-base=knowledge-test",
-    "app.knowledge-index.max-chunk-chars=600",
-    "app.knowledge-index.target-chunk-lines=20",
-    "app.knowledge-index.overlap-lines=5",
     "app.knowledge-index.prompt-result-limit=2"
 })
 class KnowledgeIndexServiceIntegrationTest extends IntegrationTestSupport {
@@ -61,5 +62,7 @@ class KnowledgeIndexServiceIntegrationTest extends IntegrationTestSupport {
     assertTrue(summary.indexedChunks() >= 1);
     assertTrue(results.stream().anyMatch(item -> "knowledge-test".equals(item.payload().get("knowledgeBase"))));
     assertTrue(results.stream().anyMatch(item -> String.valueOf(item.payload().get("sourcePath")).contains("ExamplePacket.java")));
+    assertTrue(results.stream().anyMatch(item -> "CODE".equals(item.payload().get("contentType"))));
+    assertTrue(results.stream().anyMatch(item -> String.valueOf(item.payload().get("chunkText")).contains("disconnect cleanup payload")));
   }
 }

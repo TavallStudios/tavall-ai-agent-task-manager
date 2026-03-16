@@ -33,7 +33,8 @@ class AgentPromptProviderIntegrationTest extends IntegrationTestSupport {
     assertTrue(body.contains("Memory policy:"));
     assertTrue(body.contains("Tool combination patterns:"));
     assertTrue(body.contains("runHarnessToolBundle(worker-context)"));
-    assertTrue(body.contains("runHarnessToolBundle(java-context) + runCleanJavaHarness"));
+    assertTrue(body.contains("loadCleanJavaTaskContext + runHarnessToolBundle(java-context)"));
+    assertTrue(body.contains("runCleanJavaHarness: run Spoon source-shape checks first"));
     assertTrue(body.contains("Final response contract:"));
   }
 

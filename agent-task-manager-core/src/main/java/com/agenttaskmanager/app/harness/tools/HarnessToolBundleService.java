@@ -1,6 +1,7 @@
 package com.agenttaskmanager.app.harness.tools;
 
 import com.agenttaskmanager.app.dashboard.DashboardSummaryService;
+import com.agenttaskmanager.app.harness.cleanjava.CleanJavaTaskContextService;
 import com.agenttaskmanager.app.harness.state.HarnessStateService;
 import com.agenttaskmanager.app.mcp.DownstreamMcpToolCall;
 import com.agenttaskmanager.app.mcp.DownstreamMcpToolClientService;
@@ -23,17 +24,20 @@ import org.springframework.stereotype.Service;
 public class HarnessToolBundleService {
 
   private final DashboardSummaryService dashboardSummaryService;
+  private final CleanJavaTaskContextService cleanJavaTaskContextService;
   private final DownstreamMcpToolClientService downstreamMcpToolClientService;
   private final HarnessStateService harnessStateService;
   private final SharedTaskContextService sharedTaskContextService;
 
   public HarnessToolBundleService(
       DashboardSummaryService dashboardSummaryService,
+      CleanJavaTaskContextService cleanJavaTaskContextService,
       DownstreamMcpToolClientService downstreamMcpToolClientService,
       HarnessStateService harnessStateService,
       SharedTaskContextService sharedTaskContextService
   ) {
     this.dashboardSummaryService = dashboardSummaryService;
+    this.cleanJavaTaskContextService = cleanJavaTaskContextService;
     this.downstreamMcpToolClientService = downstreamMcpToolClientService;
     this.harnessStateService = harnessStateService;
     this.sharedTaskContextService = sharedTaskContextService;
@@ -118,6 +122,19 @@ public class HarnessToolBundleService {
           () -> Map.entry("cleanJavaRules", readDoc("RULES.md")),
           executor
       ));
+      futures.add(CompletableFuture.supplyAsync(
+          () -> Map.entry(
+              "cleanJavaContext",
+              cleanJavaTaskContextService.buildContext(
+                  request.taskId(),
+                  request.workerTaskId(),
+                  request.projectKey(),
+                  Path.of(normalizeRepoPath(request.repoPath())),
+                  request.queryText()
+              )
+          ),
+          executor
+      ));
     }
 
     return futures;
@@ -179,9 +196,10 @@ public class HarnessToolBundleService {
   }
 
   private Object semanticContext(String projectKey, String queryText, int limit) {
-    return projectKey == null || projectKey.isBlank()
-        ? sharedTaskContextService.searchRelatedContexts(queryText, limit)
-        : sharedTaskContextService.searchProjectRelatedContexts(projectKey, queryText, limit);
+    if (projectKey == null || projectKey.isBlank()) {
+      return List.of();
+    }
+    return sharedTaskContextService.searchProjectRelatedContexts(projectKey, queryText, limit);
   }
 
   private String readDoc(String fileName) {

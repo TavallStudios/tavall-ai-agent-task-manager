@@ -25,13 +25,9 @@ public class HashEmbeddingService implements EmbeddingProvider {
   }
 
   @Override
-  public EmbeddingVectorResult embedDocument(String title, String text) {
-    return new EmbeddingVectorResult(providerId(), "hash-fallback-v1", embedText(joinText(title, text)));
-  }
-
-  @Override
-  public EmbeddingVectorResult embedQuery(String text) {
-    return new EmbeddingVectorResult(providerId(), "hash-fallback-v1", embedText(text));
+  public EmbeddingVectorResult embed(String title, String text, EmbeddingPurpose purpose) {
+    String joined = purpose == EmbeddingPurpose.RETRIEVAL_DOCUMENT ? joinText(title, text) : text;
+    return new EmbeddingVectorResult(providerId(), "hash-fallback-v1", embedText(joined));
   }
 
   private List<Double> embedText(String text) {

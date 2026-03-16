@@ -54,11 +54,13 @@ Build modules:
 
 ## Semantic Retrieval
 
-- `QdrantContextStore` keeps `app.qdrant.collection` as a legacy fallback, but the runtime now writes project-scoped vectors into `app.qdrant.project-collection-prefix` collections and knowledge vectors into `app.qdrant.knowledge-collection-prefix` collections.
+- New semantic storage is chunk-first. The runtime splits docs, chats, code, diffs, and run summaries before embedding, then stores the vector together with the original chunk payload and metadata in Qdrant.
+- `app.qdrant.collection` is migration-only for old data cleanup, while new runtime writes go to `app.qdrant.project-collection-prefix` collections and knowledge vectors go to `app.qdrant.knowledge-collection-prefix` collections.
 - `EmbeddingProviderChain` keeps one Qdrant vector size across providers.
-- `GeminiEmbeddingProvider` is the primary path with `gemini-embedding-001`.
+- `GeminiEmbeddingProvider` is the primary path with `gemini-embedding-2-preview`.
 - `LocalCommandEmbeddingProvider` is the remote-safe fallback and defaults to the bundled FastEmbed runner.
 - `HashEmbeddingService` remains the final fail-safe so retrieval tools do not hard-fail when the external providers are unavailable.
+- Query routing uses retrieval-purpose-specific embeddings: `RETRIEVAL_DOCUMENT` for stored chunks, `RETRIEVAL_QUERY` for general search, and `CODE_RETRIEVAL_QUERY` for natural-language code lookup.
 
 ## MCP Surfaces
 
@@ -68,6 +70,7 @@ Build modules:
 - prompts for overseer, worker, and cleanup roles
 - tool groups for task pooling, worker state, shared context, validation, artifacts, retrieval, cache, and decisions
 - the dedicated `clean-java-harness` group now exposes a single harness surface for intake, routing, state, brokered tool bundles, approval, and deterministic clean Java validation
+- deterministic Java work now follows one staged loop: build clean-Java task context, draft the patch, run Spoon source-shape checks, run ArchUnit architecture and cycle checks, then pass cleanup review and approval gates
 
 ## Remote Path
 

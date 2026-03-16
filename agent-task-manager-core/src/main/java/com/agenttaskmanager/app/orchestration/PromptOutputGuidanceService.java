@@ -12,7 +12,9 @@ public class PromptOutputGuidanceService {
     return """
         - tool access is configured by AgentTaskManager before the run starts
         - clean-java-harness is the primary MCP surface for Codex worker runs
+        - the harness builds task context before code is drafted, including rules, examples, retrieval hits, package dependencies, and validation history
         - use the harness bundle tools to broker repository inspection and retrieval before reaching for individual tool calls
+        - workers do not self-approve; they must pass cleanup review, staged validation, and approval gates
         - treat direct shell searching as fallback-only when the MCP tools cannot satisfy the operation
         - verify repository state before claiming that work is complete
         """;
@@ -37,7 +39,8 @@ public class PromptOutputGuidanceService {
     return """
         - runHarnessToolBundle(worker-context): load shared task state, retrieval context, git status, filesystem listing, and search results in one brokered call before editing
         - runHarnessToolBundle(repo-context): fan out filesystem, ripgrep, and git calls in parallel on the harness server instead of chaining them from Codex
-        - runHarnessToolBundle(java-context) + runCleanJavaHarness: load clean Java rules plus repo context before editing, then run the deterministic harness after the diff is ready
+        - loadCleanJavaTaskContext + runHarnessToolBundle(java-context): build deterministic Java context with rules, examples, prior fixes, package dependencies, and repo state before editing
+        - runCleanJavaHarness: run Spoon source-shape checks first, then ArchUnit architecture checks, then cycle feedback before approval
         - use direct shell search only when the brokered harness bundle cannot satisfy the operation
         """;
   }

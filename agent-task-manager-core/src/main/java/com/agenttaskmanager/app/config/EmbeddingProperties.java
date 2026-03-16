@@ -9,9 +9,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class EmbeddingProperties {
 
   private List<String> providerOrder = new ArrayList<>(List.of("gemini", "local", "hash"));
-  private int dimensions = 384;
+  private int dimensions = 1536;
   private String geminiApiKey = "";
-  private String geminiModel = "gemini-embedding-001";
+  private String geminiModel = "gemini-embedding-2-preview";
   private String localCommand = "python3 " + Path.of(System.getProperty("user.dir", "."), "scripts", "fastembed_embed.py");
   private String localModel = "BAAI/bge-small-en-v1.5";
   private int localTimeoutSeconds = 30;

@@ -33,13 +33,8 @@ public class LocalCommandEmbeddingProvider implements EmbeddingProvider {
   }
 
   @Override
-  public EmbeddingVectorResult embedDocument(String title, String text) {
-    return embedText(title, text, EmbeddingPurpose.RETRIEVAL_DOCUMENT);
-  }
-
-  @Override
-  public EmbeddingVectorResult embedQuery(String text) {
-    return embedText(null, text, EmbeddingPurpose.RETRIEVAL_QUERY);
+  public EmbeddingVectorResult embed(String title, String text, EmbeddingPurpose purpose) {
+    return embedText(title, text, purpose);
   }
 
   private EmbeddingVectorResult embedText(String title, String text, EmbeddingPurpose embeddingPurpose) {

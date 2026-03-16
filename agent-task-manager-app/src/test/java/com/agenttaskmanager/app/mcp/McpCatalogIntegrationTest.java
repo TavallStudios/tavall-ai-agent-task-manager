@@ -31,6 +31,8 @@ class McpCatalogIntegrationTest extends IntegrationTestSupport {
     assertTrue(toolNames.contains("runHarnessToolBundle"));
     assertTrue(toolNames.contains("runHarnessApprovalGate"));
     assertTrue(toolNames.contains("loadCleanJavaRules"));
+    assertTrue(toolNames.contains("loadCleanJavaMcpTaskContext"));
+    assertTrue(toolNames.contains("loadCleanJavaTaskContext"));
     assertTrue(toolNames.contains("runCleanJavaArchUnit"));
     assertTrue(toolNames.contains("runCleanJavaSpoon"));
     assertTrue(toolNames.contains("validateCleanJavaPatchScope"));

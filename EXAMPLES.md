@@ -47,10 +47,24 @@ Reason:
 worker diff -> artifact store -> cleanup review -> validation -> overseer decision -> patch outcome
 ```
 
+## Good Semantic Retrieval Flow
+
+```text
+raw content -> chunk by content type -> embed each chunk -> store vector + metadata + raw chunk in Qdrant
+query text -> query embedding -> nearest chunks -> return original payload text/code to the worker
+```
+
 ## Bad Cleanup Flow
 
 ```text
 worker says "done" -> patch applied with no diff review or validation
+```
+
+## Good Deterministic Clean Java Flow
+
+```text
+loadCleanJavaTaskContext -> draft patch -> runCleanJavaHarness
+  spoon source-shape feedback -> archunit architecture feedback -> cycle feedback -> approval gate
 ```
 
 ## Good CLI Usage

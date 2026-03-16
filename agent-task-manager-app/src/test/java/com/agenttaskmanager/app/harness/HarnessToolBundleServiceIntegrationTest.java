@@ -3,6 +3,7 @@ package com.agenttaskmanager.app.harness;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.agenttaskmanager.app.harness.cleanjava.CleanJavaTaskContext;
 import com.agenttaskmanager.app.harness.tools.HarnessToolBundleRequest;
 import com.agenttaskmanager.app.harness.tools.HarnessToolBundleResult;
 import com.agenttaskmanager.app.support.IntegrationTestSupport;
@@ -44,6 +45,11 @@ class HarnessToolBundleServiceIntegrationTest extends IntegrationTestSupport {
     assertEquals("java-context", result.bundleName());
     assertEquals(5, result.summary().get("downstreamCalls"));
     assertTrue(String.valueOf(result.sections().get("cleanJavaRules")).contains("No top-level class or interface over 300 lines."));
+    CleanJavaTaskContext cleanJavaContext = (CleanJavaTaskContext) result.sections().get("cleanJavaContext");
+    assertTrue(cleanJavaContext.rules().contains("Fixture rule"));
+    assertTrue(cleanJavaContext.examples().contains("Fixture example"));
+    assertTrue(cleanJavaContext.architecture().contains("Fixture architecture"));
+    assertEquals(1, ((Number) cleanJavaContext.packageDependencyMap().get("javaFileCount")).intValue());
 
     @SuppressWarnings("unchecked")
     Map<String, Object> downstream = (Map<String, Object>) result.sections().get("downstream");
@@ -62,6 +68,21 @@ class HarnessToolBundleServiceIntegrationTest extends IntegrationTestSupport {
     Files.writeString(
         repoPath.resolve("README.md"),
         "# Harness Bundle Fixture\n",
+        StandardCharsets.UTF_8
+    );
+    Files.writeString(
+        repoPath.resolve("RULES.md"),
+        "# Rules\n\nFixture rule\n",
+        StandardCharsets.UTF_8
+    );
+    Files.writeString(
+        repoPath.resolve("EXAMPLES.md"),
+        "# Examples\n\nFixture example\n",
+        StandardCharsets.UTF_8
+    );
+    Files.writeString(
+        repoPath.resolve("ARCHITECTURE.md"),
+        "# Architecture\n\nFixture architecture\n",
         StandardCharsets.UTF_8
     );
     Files.writeString(

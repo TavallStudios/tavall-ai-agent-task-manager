@@ -56,7 +56,8 @@ class CodexExecCommandFactoryIntegrationTest extends IntegrationTestSupport {
     assertTrue(envelope.contains("Tool combination patterns:"));
     assertTrue(envelope.contains("runHarnessToolBundle(worker-context)"));
     assertTrue(envelope.contains("runHarnessToolBundle(repo-context)"));
-    assertTrue(envelope.contains("runHarnessToolBundle(java-context) + runCleanJavaHarness"));
+    assertTrue(envelope.contains("loadCleanJavaTaskContext + runHarnessToolBundle(java-context)"));
+    assertTrue(envelope.contains("runCleanJavaHarness: run Spoon source-shape checks first"));
     assertTrue(envelope.contains("Final response contract:"));
     assertTrue(envelope.contains("report verification status explicitly"));
   }

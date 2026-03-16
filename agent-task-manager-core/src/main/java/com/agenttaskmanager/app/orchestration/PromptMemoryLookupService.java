@@ -78,7 +78,7 @@ public class PromptMemoryLookupService {
           .append(", source=")
           .append(describeSource(context.payload()))
           .append("\n   ")
-          .append(snippet(readPayloadValue(context.payload(), "body"), 220))
+          .append(snippet(readChunkText(context.payload()), 220))
           .append("\n");
     }
     return builder.toString().strip();
@@ -102,8 +102,8 @@ public class PromptMemoryLookupService {
       if (!sourcePath.isBlank()) {
         builder.append(", sourcePath=").append(sourcePath);
       }
-      builder.append("\n   body: ")
-          .append(snippet(readPayloadValue(payload, "body"), 400))
+      builder.append("\n   chunk: ")
+          .append(snippet(readChunkText(payload), 400))
           .append("\n");
     }
     return builder.toString().strip();
@@ -124,6 +124,14 @@ public class PromptMemoryLookupService {
   private static String readPayloadValue(Map<String, Object> payload, String key) {
     Object value = payload == null ? null : payload.get(key);
     return value == null ? "" : String.valueOf(value).strip();
+  }
+
+  private static String readChunkText(Map<String, Object> payload) {
+    String chunkText = readPayloadValue(payload, "chunkText");
+    if (!chunkText.isBlank()) {
+      return chunkText;
+    }
+    return readPayloadValue(payload, "body");
   }
 
   private static String snippet(String value, int maxLength) {

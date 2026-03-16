@@ -2,22 +2,22 @@ package com.agenttaskmanager.app.mcp.cleanjava;
 
 import com.agenttaskmanager.app.harness.approval.HarnessApprovalGateResult;
 import com.agenttaskmanager.app.harness.approval.HarnessApprovalService;
+import com.agenttaskmanager.app.harness.cleanjava.CleanJavaDeterministicHarnessService;
+import com.agenttaskmanager.app.harness.cleanjava.CleanJavaHarnessRunResult;
+import com.agenttaskmanager.app.harness.cleanjava.CleanJavaTaskContext;
+import com.agenttaskmanager.app.harness.cleanjava.CleanJavaTaskContextService;
 import com.agenttaskmanager.app.harness.intake.HarnessTaskIntakeService;
 import com.agenttaskmanager.app.harness.intake.ParentTaskRequest;
 import com.agenttaskmanager.app.harness.intake.ParentTaskType;
-import com.agenttaskmanager.app.harness.routing.HarnessRoutingPlan;
 import com.agenttaskmanager.app.harness.routing.HarnessRoutingService;
 import com.agenttaskmanager.app.harness.state.HarnessStateService;
-import com.agenttaskmanager.app.harness.state.HarnessStateSnapshot;
 import com.agenttaskmanager.app.harness.tools.HarnessToolBundleRequest;
-import com.agenttaskmanager.app.harness.tools.HarnessToolBundleResult;
 import com.agenttaskmanager.app.harness.tools.HarnessToolBundleService;
 import com.agenttaskmanager.app.mcp.McpJsonSchemaFactory;
 import com.agenttaskmanager.app.mcp.McpResultFactory;
 import com.agenttaskmanager.app.mcp.McpToolPayloadMapper;
 import com.agenttaskmanager.app.mcp.McpToolProvider;
 import com.agenttaskmanager.app.mcp.McpToolSupport;
-import com.agenttaskmanager.app.model.validation.ValidationReport;
 import com.agenttaskmanager.app.validation.ValidationPipelineService;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import java.nio.file.Path;
@@ -28,6 +28,8 @@ import java.util.Map;
 public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProvider {
 
   private final HarnessApprovalService harnessApprovalService;
+  private final CleanJavaDeterministicHarnessService cleanJavaDeterministicHarnessService;
+  private final CleanJavaTaskContextService cleanJavaTaskContextService;
   private final HarnessRoutingService harnessRoutingService;
   private final HarnessStateService harnessStateService;
   private final HarnessTaskIntakeService harnessTaskIntakeService;
@@ -38,6 +40,8 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
 
   public CleanJavaHarnessTools(
       HarnessApprovalService harnessApprovalService,
+      CleanJavaDeterministicHarnessService cleanJavaDeterministicHarnessService,
+      CleanJavaTaskContextService cleanJavaTaskContextService,
       HarnessRoutingService harnessRoutingService,
       HarnessStateService harnessStateService,
       HarnessTaskIntakeService harnessTaskIntakeService,
@@ -49,6 +53,8 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
   ) {
     super(schemaFactory);
     this.harnessApprovalService = harnessApprovalService;
+    this.cleanJavaDeterministicHarnessService = cleanJavaDeterministicHarnessService;
+    this.cleanJavaTaskContextService = cleanJavaTaskContextService;
     this.harnessRoutingService = harnessRoutingService;
     this.harnessStateService = harnessStateService;
     this.harnessTaskIntakeService = harnessTaskIntakeService;
@@ -117,23 +123,30 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
             arguments -> new HarnessApprovalResponse(runApprovalGate(arguments))
         ),
         spec(
-            "runCleanJavaHarness",
-            "Run the deterministic clean Java harness across ArchUnit and Spoon.",
+            "loadCleanJavaTaskContext",
+            "Build deterministic clean Java task context with rules, examples, semantic recall, package dependencies, and current validation state.",
             Map.of(
                 "taskId", stringProperty("Task id."),
                 "workerTaskId", stringProperty("Worker task id."),
-                "repoPath", stringProperty("Repo path.")
+                "projectKey", stringProperty("Project key for semantic retrieval."),
+                "repoPath", stringProperty("Repo path."),
+                "queryText", stringProperty("Optional retrieval query override.")
+            ),
+            List.of("repoPath"),
+            arguments -> new CleanJavaTaskContextResponse(loadCleanJavaTaskContext(arguments))
+        ),
+        spec(
+            "runCleanJavaHarness",
+            "Run the deterministic clean Java harness: build task context, then Spoon source-shape feedback, then ArchUnit architecture and cycle feedback.",
+            Map.of(
+                "taskId", stringProperty("Task id."),
+                "workerTaskId", stringProperty("Worker task id."),
+                "projectKey", stringProperty("Project key for semantic retrieval."),
+                "repoPath", stringProperty("Repo path."),
+                "queryText", stringProperty("Optional retrieval query override.")
             ),
             List.of("taskId", "repoPath"),
-            arguments -> {
-              CleanJavaHarnessRequest request = map(arguments, CleanJavaHarnessRequest.class);
-              ValidationReport report = validationPipelineService.runValidationPipeline(
-                  request.taskId(),
-                  request.workerTaskId(),
-                  Path.of(request.repoPath())
-              );
-              return validationPipelineService.storeValidationReport(request.taskId(), request.workerTaskId(), report);
-            }
+            arguments -> new CleanJavaHarnessRunResponse(runCleanJavaHarness(arguments))
         ),
         spec(
             "runJavaIntegrationHarness",
@@ -179,6 +192,28 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
         request.diffArtifactId(),
         request.workerExitCode(),
         request.requiresIntegrationTests()
+    );
+  }
+
+  private CleanJavaTaskContext loadCleanJavaTaskContext(Map<String, Object> arguments) {
+    CleanJavaHarnessRequest request = map(arguments, CleanJavaHarnessRequest.class);
+    return cleanJavaTaskContextService.buildContext(
+        request.taskId(),
+        request.workerTaskId(),
+        request.projectKey(),
+        Path.of(request.repoPath()),
+        request.queryText()
+    );
+  }
+
+  private CleanJavaHarnessRunResult runCleanJavaHarness(Map<String, Object> arguments) {
+    CleanJavaHarnessRequest request = map(arguments, CleanJavaHarnessRequest.class);
+    return cleanJavaDeterministicHarnessService.run(
+        request.taskId(),
+        request.workerTaskId(),
+        request.projectKey(),
+        Path.of(request.repoPath()),
+        request.queryText()
     );
   }
 
@@ -238,58 +273,4 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
   private interface ToolCall {
     Object run(Map<String, Object> arguments);
   }
-}
-
-record CleanJavaHarnessRequest(String taskId, String workerTaskId, String repoPath) {
-}
-
-record CleanJavaHarnessRepoPathRequest(String repoPath) {
-}
-
-record HarnessTaskRequest(
-    String taskId,
-    String type,
-    String title,
-    String description,
-    String repoRef,
-    String priority,
-    String requestedBy,
-    boolean requiresCleanupReview,
-    boolean requiresIntegrationTests,
-    boolean multiAgentEnabled,
-    List<String> requestedWorkerTypes,
-    List<String> changedFiles,
-    String gitBase,
-    String gitHead,
-    Map<String, Object> codebaseInput,
-    Map<String, Object> storedContextInput,
-    Map<String, Object> ruleInput,
-    Map<String, Object> liveDebugInput,
-    Map<String, Object> metadata
-) {
-}
-
-record HarnessTaskIdRequest(String taskId) {
-}
-
-record HarnessApprovalRequest(
-    String taskId,
-    String workerTaskId,
-    String repoPath,
-    String diffArtifactId,
-    Integer workerExitCode,
-    Boolean requiresIntegrationTests
-) {
-}
-
-record HarnessRoutingResponse(HarnessRoutingPlan routingPlan) {
-}
-
-record HarnessStateResponse(HarnessStateSnapshot harnessState) {
-}
-
-record HarnessToolBundleResponse(HarnessToolBundleResult bundleResult) {
-}
-
-record HarnessApprovalResponse(HarnessApprovalGateResult gateResult) {
 }

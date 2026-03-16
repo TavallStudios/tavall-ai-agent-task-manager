@@ -65,7 +65,7 @@ public class McpServerProcessConfigurationService {
 
   private String resolveQdrantCollection(String projectKey) {
     if (projectKey == null || projectKey.isBlank()) {
-      return collectionNameResolver.legacyCollection();
+      return collectionNameResolver.projectCollection("default");
     }
     return collectionNameResolver.projectCollection(projectKey);
   }

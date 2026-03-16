@@ -1,5 +1,7 @@
 package com.agenttaskmanager.app.mcp.cleanjava;
 
+import com.agenttaskmanager.app.harness.cleanjava.CleanJavaTaskContext;
+import com.agenttaskmanager.app.harness.cleanjava.CleanJavaTaskContextService;
 import com.agenttaskmanager.app.mcp.McpJsonSchemaFactory;
 import com.agenttaskmanager.app.mcp.McpResultFactory;
 import com.agenttaskmanager.app.mcp.McpToolPayloadMapper;
@@ -16,17 +18,20 @@ import java.util.Map;
 
 public class CleanJavaMcpTools extends McpToolSupport implements McpToolProvider {
 
+  private final CleanJavaTaskContextService cleanJavaTaskContextService;
   private final ValidationPipelineService validationPipelineService;
   private final McpResultFactory resultFactory;
   private final McpToolPayloadMapper payloadMapper;
 
   public CleanJavaMcpTools(
+      CleanJavaTaskContextService cleanJavaTaskContextService,
       ValidationPipelineService validationPipelineService,
       McpJsonSchemaFactory schemaFactory,
       McpResultFactory resultFactory,
       McpToolPayloadMapper payloadMapper
   ) {
     super(schemaFactory);
+    this.cleanJavaTaskContextService = cleanJavaTaskContextService;
     this.validationPipelineService = validationPipelineService;
     this.resultFactory = resultFactory;
     this.payloadMapper = payloadMapper;
@@ -42,14 +47,35 @@ public class CleanJavaMcpTools extends McpToolSupport implements McpToolProvider
     return List.of(
         spec("loadCleanJavaRules", "Load AgentTaskManager clean Java rules.", Map.of(), List.of(), arguments -> new CleanJavaRulesResponse(readDoc("RULES.md"))),
         spec(
+            "loadCleanJavaMcpTaskContext",
+            "Build deterministic clean Java task context with rules, examples, semantic recall, package dependencies, and current validation state.",
+            Map.of(
+                "taskId", stringProperty("Task id."),
+                "workerTaskId", stringProperty("Worker task id."),
+                "projectKey", stringProperty("Project key for semantic retrieval."),
+                "repoPath", stringProperty("Repo path."),
+                "queryText", stringProperty("Optional retrieval query override.")
+            ),
+            List.of("repoPath"),
+            arguments -> new CleanJavaMcpTaskContextResponse(loadTaskContext(arguments))
+        ),
+        spec(
             "runCleanJavaArchUnit",
-            "Run ArchUnit clean Java rules.",
-            Map.of("taskId", stringProperty("Task id."), "workerTaskId", stringProperty("Worker task id.")),
-            List.of("taskId"),
-            arguments -> validationPipelineService.runArchUnitValidation(
-                map(arguments, CleanJavaValidationRequest.class).taskId(),
-                map(arguments, CleanJavaValidationRequest.class).workerTaskId()
-            )
+            "Run ArchUnit clean Java rules against the requested repository root.",
+            Map.of(
+                "taskId", stringProperty("Task id."),
+                "workerTaskId", stringProperty("Worker task id."),
+                "repoPath", stringProperty("Repo path.")
+            ),
+            List.of("taskId", "repoPath"),
+            arguments -> {
+              CleanJavaRepoRequest request = map(arguments, CleanJavaRepoRequest.class);
+              return validationPipelineService.runArchUnitValidation(
+                  request.taskId(),
+                  request.workerTaskId(),
+                  Path.of(request.repoPath())
+              );
+            }
         ),
         spec(
             "runCleanJavaSpoon",
@@ -74,6 +100,17 @@ public class CleanJavaMcpTools extends McpToolSupport implements McpToolProvider
                 map(arguments, CleanJavaPatchScopeRequest.class).diffBody()
             ))
         )
+    );
+  }
+
+  private CleanJavaTaskContext loadTaskContext(Map<String, Object> arguments) {
+    CleanJavaContextRequest request = map(arguments, CleanJavaContextRequest.class);
+    return cleanJavaTaskContextService.buildContext(
+        request.taskId(),
+        request.workerTaskId(),
+        request.projectKey(),
+        Path.of(request.repoPath()),
+        request.queryText()
     );
   }
 
@@ -103,7 +140,13 @@ public class CleanJavaMcpTools extends McpToolSupport implements McpToolProvider
   }
 }
 
-record CleanJavaValidationRequest(String taskId, String workerTaskId) {
+record CleanJavaContextRequest(
+    String taskId,
+    String workerTaskId,
+    String projectKey,
+    String repoPath,
+    String queryText
+) {
 }
 
 record CleanJavaRepoRequest(String taskId, String workerTaskId, String repoPath) {
@@ -113,6 +156,9 @@ record CleanJavaPatchScopeRequest(String diffBody) {
 }
 
 record CleanJavaRulesResponse(String body) {
+}
+
+record CleanJavaMcpTaskContextResponse(CleanJavaTaskContext taskContext) {
 }
 
 record CleanJavaPatchScopeResponse(boolean allowed) {

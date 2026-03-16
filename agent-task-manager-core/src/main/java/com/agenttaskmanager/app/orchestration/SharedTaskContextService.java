@@ -10,8 +10,10 @@ import com.agenttaskmanager.app.model.orchestration.SharedTaskContext;
 import com.agenttaskmanager.app.model.orchestration.WorkerTask;
 import com.agenttaskmanager.app.persistence.postgres.SharedTaskContextRepository;
 import com.agenttaskmanager.app.persistence.postgres.WorkerTaskRepository;
-import com.agenttaskmanager.app.persistence.qdrant.QdrantCollectionNameResolver;
-import com.agenttaskmanager.app.persistence.qdrant.QdrantContextStore;
+import com.agenttaskmanager.app.retrieval.SemanticCollectionDomain;
+import com.agenttaskmanager.app.retrieval.SemanticContentType;
+import com.agenttaskmanager.app.retrieval.SemanticDocumentRequest;
+import com.agenttaskmanager.app.retrieval.SemanticVectorStoreService;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,27 +23,24 @@ import org.springframework.stereotype.Service;
 @Service
 public class SharedTaskContextService {
 
-  private final SharedTaskContextRepository sharedTaskContextRepository;
-  private final WorkerTaskRepository workerTaskRepository;
-  private final QdrantContextStore qdrantContextStore;
-  private final QdrantCollectionNameResolver collectionNameResolver;
-  private final TaskContextCache taskContextCache;
   private final SemanticContextCache semanticContextCache;
+  private final SemanticVectorStoreService semanticVectorStoreService;
+  private final SharedTaskContextRepository sharedTaskContextRepository;
+  private final TaskContextCache taskContextCache;
+  private final WorkerTaskRepository workerTaskRepository;
 
   public SharedTaskContextService(
+      SemanticContextCache semanticContextCache,
+      SemanticVectorStoreService semanticVectorStoreService,
       SharedTaskContextRepository sharedTaskContextRepository,
-      WorkerTaskRepository workerTaskRepository,
-      QdrantContextStore qdrantContextStore,
-      QdrantCollectionNameResolver collectionNameResolver,
       TaskContextCache taskContextCache,
-      SemanticContextCache semanticContextCache
+      WorkerTaskRepository workerTaskRepository
   ) {
-    this.sharedTaskContextRepository = sharedTaskContextRepository;
-    this.workerTaskRepository = workerTaskRepository;
-    this.qdrantContextStore = qdrantContextStore;
-    this.collectionNameResolver = collectionNameResolver;
-    this.taskContextCache = taskContextCache;
     this.semanticContextCache = semanticContextCache;
+    this.semanticVectorStoreService = semanticVectorStoreService;
+    this.sharedTaskContextRepository = sharedTaskContextRepository;
+    this.taskContextCache = taskContextCache;
+    this.workerTaskRepository = workerTaskRepository;
   }
 
   public SharedTaskContext storeSharedTaskContext(
@@ -71,12 +70,10 @@ public class SharedTaskContextService {
         CacheType.TASK_CONTEXT,
         CacheSource.POSTGRES,
         () -> {
-          List<SharedTaskContext> contexts = sharedTaskContextRepository.listByTask(taskId);
-          List<WorkerTask> workerTasks = workerTaskRepository.listWorkerTasks(taskId);
           Map<String, Object> payload = new LinkedHashMap<>();
           payload.put("taskId", taskId);
-          payload.put("contexts", contexts);
-          payload.put("workerTasks", workerTasks);
+          payload.put("contexts", sharedTaskContextRepository.listByTask(taskId));
+          payload.put("workerTasks", workerTaskRepository.listWorkerTasks(taskId));
           return payload;
         }
     );
@@ -98,101 +95,64 @@ public class SharedTaskContextService {
         .toList();
   }
 
-  public String storeTaskEmbedding(
+  public List<String> storeProjectSemanticDocument(
       String projectKey,
       String taskId,
       String workerTaskId,
       String kind,
-      String body,
+      String title,
+      String content,
+      SemanticCollectionDomain domain,
+      SemanticContentType contentType,
       Map<String, Object> payload
   ) {
-    String pointId = qdrantContextStore.storeContext(
-        collectionNameResolver.projectCollection(projectKey),
-        taskId,
-        workerTaskId,
-        kind,
-        body,
-        mergeScopePayload(payload, "projectKey", projectKey)
+    List<String> pointIds = semanticVectorStoreService.storeProjectDocument(
+        projectKey,
+        new SemanticDocumentRequest(null, taskId, workerTaskId, kind, title, content, domain, contentType, payload)
     );
     semanticContextCache.clear();
-    return pointId;
+    return pointIds;
   }
 
-  public String storeTaskEmbedding(
-      String taskId,
-      String workerTaskId,
-      String kind,
-      String body,
-      Map<String, Object> payload
-  ) {
-    String pointId = qdrantContextStore.storeContext(taskId, workerTaskId, kind, body, payload);
-    semanticContextCache.clear();
-    return pointId;
-  }
-
-  public String upsertProjectSemanticContext(
-      String projectKey,
-      String pointId,
-      String kind,
-      String body,
-      Map<String, Object> payload
-  ) {
-    String storedPointId = qdrantContextStore.upsertContext(
-        collectionNameResolver.projectCollection(projectKey),
-        pointId,
-        kind,
-        body,
-        mergeScopePayload(payload, "projectKey", projectKey)
-    );
-    semanticContextCache.clear();
-    return storedPointId;
-  }
-
-  public String upsertKnowledgeContext(
+  public List<String> upsertKnowledgeDocument(
       String knowledgeBase,
-      String pointId,
+      String documentId,
       String kind,
-      String body,
+      String title,
+      String content,
+      SemanticContentType contentType,
       Map<String, Object> payload
   ) {
-    String storedPointId = qdrantContextStore.upsertContext(
-        collectionNameResolver.knowledgeCollection(knowledgeBase),
-        pointId,
-        kind,
-        body,
-        mergeScopePayload(payload, "knowledgeBase", knowledgeBase)
+    List<String> pointIds = semanticVectorStoreService.upsertKnowledgeDocument(
+        knowledgeBase,
+        new SemanticDocumentRequest(
+            documentId,
+            null,
+            null,
+            kind,
+            title,
+            content,
+            SemanticCollectionDomain.KNOWLEDGE_RULES,
+            contentType,
+            payload
+        )
     );
     semanticContextCache.clear();
-    return storedPointId;
-  }
-
-  public String upsertSemanticContext(String pointId, String kind, String body, Map<String, Object> payload) {
-    String storedPointId = qdrantContextStore.upsertContext(pointId, kind, body, payload);
-    semanticContextCache.clear();
-    return storedPointId;
+    return pointIds;
   }
 
   public void deleteProjectSemanticContexts(String projectKey, Map<String, Object> payloadFilter) {
-    deleteScopedContexts(
-        collectionNameResolver.projectCollection(projectKey),
-        mergeScopePayload(payloadFilter, "projectKey", projectKey)
-    );
+    semanticVectorStoreService.deleteProject(projectKey, payloadFilter);
+    semanticContextCache.clear();
   }
 
   public void deleteKnowledgeContexts(String knowledgeBase, Map<String, Object> payloadFilter) {
-    deleteScopedContexts(
-        collectionNameResolver.knowledgeCollection(knowledgeBase),
-        mergeScopePayload(payloadFilter, "knowledgeBase", knowledgeBase)
-    );
-  }
-
-  public void deleteSemanticContexts(Map<String, Object> payloadFilter) {
-    qdrantContextStore.deleteContexts(payloadFilter);
+    semanticVectorStoreService.deleteKnowledge(knowledgeBase, payloadFilter);
     semanticContextCache.clear();
   }
 
   public void deleteLegacySemanticCollection() {
-    qdrantContextStore.deleteCollection(collectionNameResolver.legacyCollection());
+    semanticVectorStoreService.deleteLegacyCollection();
     semanticContextCache.clear();
   }
 
@@ -206,12 +166,8 @@ public class SharedTaskContextService {
       int limit,
       Map<String, Object> payloadFilter
   ) {
-    return searchCollection(
-        collectionNameResolver.projectCollection(projectKey),
-        queryText,
-        limit,
-        mergeScopePayload(payloadFilter, "projectKey", projectKey)
-    );
+    return searchCollection("project:" + projectKey, queryText, limit, payloadFilter, () ->
+        semanticVectorStoreService.searchProject(projectKey, queryText, limit, payloadFilter));
   }
 
   public List<RetrievedSemanticContext> searchKnowledgeContexts(String knowledgeBase, String queryText, int limit) {
@@ -224,44 +180,28 @@ public class SharedTaskContextService {
       int limit,
       Map<String, Object> payloadFilter
   ) {
-    return searchCollection(
-        collectionNameResolver.knowledgeCollection(knowledgeBase),
-        queryText,
-        limit,
-        mergeScopePayload(payloadFilter, "knowledgeBase", knowledgeBase)
-    );
-  }
-
-  public List<RetrievedSemanticContext> searchRelatedContexts(String queryText, int limit) {
-    return searchRelatedContexts(queryText, limit, Map.of());
-  }
-
-  public List<RetrievedSemanticContext> searchRelatedContexts(String queryText, int limit, Map<String, Object> payloadFilter) {
-    return searchCollection(collectionNameResolver.legacyCollection(), queryText, limit, payloadFilter);
+    return searchCollection("knowledge:" + knowledgeBase, queryText, limit, payloadFilter, () ->
+        semanticVectorStoreService.searchKnowledge(knowledgeBase, queryText, limit, payloadFilter));
   }
 
   public void invalidateTaskCache(String taskId) {
-    taskContextCache.invalidate(
-        taskId,
-        CacheDomain.ORCHESTRATION,
-        CacheType.TASK_CONTEXT,
-        CacheSource.POSTGRES
-    );
+    taskContextCache.invalidate(taskId, CacheDomain.ORCHESTRATION, CacheType.TASK_CONTEXT, CacheSource.POSTGRES);
   }
 
   private List<RetrievedSemanticContext> searchCollection(
-      String collectionName,
+      String collectionKey,
       String queryText,
       int limit,
-      Map<String, Object> payloadFilter
+      Map<String, Object> payloadFilter,
+      SemanticSearchLoader loader
   ) {
     Map<String, Object> normalizedFilter = payloadFilter == null ? Map.of() : new TreeMap<>(payloadFilter);
     List<Map<String, Object>> cached = semanticContextCache.getOrLoad(
-        buildSemanticCacheKey(collectionName, queryText, limit, normalizedFilter),
+        collectionKey + ":" + queryText + ":" + limit + ":" + normalizedFilter,
         CacheDomain.RETRIEVAL,
         CacheType.SEMANTIC_CONTEXT,
         CacheSource.QDRANT,
-        () -> qdrantContextStore.searchRelatedContexts(collectionName, queryText, limit, normalizedFilter).stream()
+        () -> loader.load().stream()
             .map(context -> Map.<String, Object>of(
                 "id", context.id(),
                 "score", context.score(),
@@ -278,32 +218,8 @@ public class SharedTaskContextService {
         .toList();
   }
 
-  private void deleteScopedContexts(String collectionName, Map<String, Object> payloadFilter) {
-    if (payloadFilter == null || payloadFilter.isEmpty()) {
-      qdrantContextStore.deleteCollection(collectionName);
-    } else {
-      qdrantContextStore.deleteContexts(collectionName, payloadFilter);
-    }
-    semanticContextCache.clear();
-  }
-
-  private static String buildSemanticCacheKey(
-      String collectionName,
-      String queryText,
-      int limit,
-      Map<String, Object> payloadFilter
-  ) {
-    return collectionName + ":" + queryText + ":" + limit + ":" + payloadFilter;
-  }
-
-  private static Map<String, Object> mergeScopePayload(Map<String, Object> payload, String scopeKey, String scopeValue) {
-    Map<String, Object> merged = new LinkedHashMap<>();
-    if (payload != null) {
-      merged.putAll(payload);
-    }
-    if (scopeValue != null && !scopeValue.isBlank()) {
-      merged.putIfAbsent(scopeKey, scopeValue);
-    }
-    return merged;
+  @FunctionalInterface
+  private interface SemanticSearchLoader {
+    List<RetrievedSemanticContext> load();
   }
 }

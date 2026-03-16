@@ -66,20 +66,22 @@ public class ContextToolHandler extends McpToolSupport implements McpToolProvide
             arguments -> new ChatStateResponse(promptThreadService.getDetail(map(arguments, ThreadKeyRequest.class).threadKey()))
         ),
         spec(
-            "loadRelatedSemanticContext",
-            "Load semantic context by query.",
+            "searchSemanticContext",
+            "Search semantic context and return stored chunk payloads by query.",
             Map.of(
-                "projectKey", stringProperty("Project key. Leave blank only for legacy collection access."),
+                "projectKey", stringProperty("Project key."),
                 "queryText", stringProperty("Search query."),
                 "limit", integerProperty("Result limit.")
             ),
-            List.of("queryText"),
+            List.of("projectKey", "queryText"),
             arguments -> {
               SemanticContextRequest request = map(arguments, SemanticContextRequest.class);
               int limit = request.limit() == null ? 5 : request.limit();
-              List<RetrievedSemanticContext> items = request.projectKey() == null || request.projectKey().isBlank()
-                  ? sharedTaskContextService.searchRelatedContexts(request.queryText(), limit)
-                  : sharedTaskContextService.searchProjectRelatedContexts(request.projectKey(), request.queryText(), limit);
+              List<RetrievedSemanticContext> items = sharedTaskContextService.searchProjectRelatedContexts(
+                  requireProjectKey(request.projectKey()),
+                  request.queryText(),
+                  limit
+              );
               return new SemanticContextResponse(items);
             }
         ),
@@ -163,6 +165,13 @@ public class ContextToolHandler extends McpToolSupport implements McpToolProvide
 
   private Map<String, Object> integerProperty(String description) {
     return schemaFactory.integerProperty(description);
+  }
+
+  private String requireProjectKey(String projectKey) {
+    if (projectKey == null || projectKey.isBlank()) {
+      throw new IllegalArgumentException("projectKey is required for semantic project search.");
+    }
+    return projectKey.strip();
   }
 
   @FunctionalInterface

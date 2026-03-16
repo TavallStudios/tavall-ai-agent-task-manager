@@ -1,6 +1,7 @@
 package com.agenttaskmanager.app.persistence.qdrant;
 
 import com.agenttaskmanager.app.config.QdrantProperties;
+import com.agenttaskmanager.app.retrieval.SemanticCollectionDomain;
 import java.util.Locale;
 import org.springframework.stereotype.Component;
 
@@ -21,8 +22,16 @@ public class QdrantCollectionNameResolver {
     return properties.getProjectCollectionPrefix() + "_" + sanitize(projectKey);
   }
 
+  public String projectCollection(String projectKey, SemanticCollectionDomain domain) {
+    return projectCollection(projectKey) + "_" + domain.collectionSuffix();
+  }
+
   public String knowledgeCollection(String knowledgeBase) {
     return properties.getKnowledgeCollectionPrefix() + "_" + sanitize(knowledgeBase);
+  }
+
+  public String knowledgeCollection(String knowledgeBase, SemanticCollectionDomain domain) {
+    return knowledgeCollection(knowledgeBase) + "_" + domain.collectionSuffix();
   }
 
   private static String sanitize(String rawValue) {

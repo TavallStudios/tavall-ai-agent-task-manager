@@ -4,6 +4,10 @@ import com.agenttaskmanager.app.dashboard.DashboardSummaryService;
 import com.agenttaskmanager.app.knowledge.KnowledgeIndexService;
 import com.agenttaskmanager.app.model.orchestration.RetrievedSemanticContext;
 import com.agenttaskmanager.app.orchestration.SharedTaskContextService;
+import com.agenttaskmanager.app.retrieval.ProjectSemanticIndexService;
+import com.agenttaskmanager.app.retrieval.SemanticCollectionDomain;
+import com.agenttaskmanager.app.retrieval.SemanticContextClassifier;
+import com.agenttaskmanager.app.retrieval.SemanticContentType;
 import com.agenttaskmanager.app.validation.ValidationPipelineService;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import java.util.List;
@@ -17,6 +21,8 @@ public class RetrievalCacheToolHandler extends McpToolSupport implements McpTool
   private final ValidationPipelineService validationPipelineService;
   private final DashboardSummaryService dashboardSummaryService;
   private final KnowledgeIndexService knowledgeIndexService;
+  private final ProjectSemanticIndexService projectSemanticIndexService;
+  private final SemanticContextClassifier semanticContextClassifier;
   private final McpResultFactory resultFactory;
   private final McpToolPayloadMapper payloadMapper;
 
@@ -25,6 +31,8 @@ public class RetrievalCacheToolHandler extends McpToolSupport implements McpTool
       ValidationPipelineService validationPipelineService,
       DashboardSummaryService dashboardSummaryService,
       KnowledgeIndexService knowledgeIndexService,
+      ProjectSemanticIndexService projectSemanticIndexService,
+      SemanticContextClassifier semanticContextClassifier,
       McpJsonSchemaFactory schemaFactory,
       McpResultFactory resultFactory,
       McpToolPayloadMapper payloadMapper
@@ -34,6 +42,8 @@ public class RetrievalCacheToolHandler extends McpToolSupport implements McpTool
     this.validationPipelineService = validationPipelineService;
     this.dashboardSummaryService = dashboardSummaryService;
     this.knowledgeIndexService = knowledgeIndexService;
+    this.projectSemanticIndexService = projectSemanticIndexService;
+    this.semanticContextClassifier = semanticContextClassifier;
     this.resultFactory = resultFactory;
     this.payloadMapper = payloadMapper;
   }
@@ -42,58 +52,46 @@ public class RetrievalCacheToolHandler extends McpToolSupport implements McpTool
   public List<SyncToolSpecification> toolSpecifications() {
     return List.of(
         spec(
-            "storeTaskEmbedding",
-            "Store vector context for a task.",
+            "storeSemanticDocument",
+            "Chunk content, embed each chunk, and store semantic payloads for a task.",
             Map.of(
-                "projectKey", stringProperty("Project key. Leave blank only for legacy collection access."),
+                "projectKey", stringProperty("Project key."),
                 "taskId", stringProperty("Task id."),
                 "workerTaskId", stringProperty("Worker task id."),
                 "kind", stringProperty("Context kind."),
+                "title", stringProperty("Document title."),
                 "body", stringProperty("Text body."),
+                "domain", stringProperty("Semantic domain. Optional: KNOWLEDGE_RULES, TASK_HISTORY, CODE_REPO, CHAT_ARTIFACT."),
+                "contentType", stringProperty("Chunking content type. Optional: DOCUMENTATION, CHAT, CODE, DIFF, RUN_SUMMARY, GENERIC."),
                 "payload", Map.of("type", "object", "description", "Payload.")
             ),
-            List.of("taskId", "kind", "body"),
+            List.of("projectKey", "taskId", "kind", "body"),
             arguments -> {
               StoreEmbeddingRequest request = map(arguments, StoreEmbeddingRequest.class);
-              String embeddingId = request.projectKey() == null || request.projectKey().isBlank()
-                  ? sharedTaskContextService.storeTaskEmbedding(
-                      request.taskId(),
-                      request.workerTaskId(),
-                      request.kind(),
-                      request.body(),
-                      request.payload() == null ? Map.of() : request.payload()
-                  )
-                  : sharedTaskContextService.storeTaskEmbedding(
-                      request.projectKey(),
-                      request.taskId(),
-                      request.workerTaskId(),
-                      request.kind(),
-                      request.body(),
-                      request.payload() == null ? Map.of() : request.payload()
-                  );
+              String embeddingId = storeProjectEmbedding(request);
               return new EmbeddingResponse(embeddingId);
             }
         ),
         spec(
-            "searchRelatedContexts",
-            "Search semantic contexts.",
+            "searchSemanticChunks",
+            "Search semantic chunks and return stored payload text/code, not vectors.",
             Map.of(
-                "projectKey", stringProperty("Project key. Leave blank only for legacy collection access."),
+                "projectKey", stringProperty("Project key."),
                 "queryText", stringProperty("Query text."),
                 "limit", integerProperty("Result limit.")
             ),
-            List.of("queryText"),
+            List.of("projectKey", "queryText"),
             arguments -> new SemanticContextResponse(search(arguments))
         ),
         spec(
-            "searchPriorFixes",
-            "Search prior fixes from semantic context.",
+            "searchSemanticHistory",
+            "Search stored semantic history for related fixes, reviews, or summaries.",
             Map.of(
-                "projectKey", stringProperty("Project key. Leave blank only for legacy collection access."),
+                "projectKey", stringProperty("Project key."),
                 "queryText", stringProperty("Query text."),
                 "limit", integerProperty("Result limit.")
             ),
-            List.of("queryText"),
+            List.of("projectKey", "queryText"),
             arguments -> new SemanticContextResponse(search(arguments))
         ),
         spec(
@@ -108,42 +106,46 @@ public class RetrievalCacheToolHandler extends McpToolSupport implements McpTool
             }
         ),
         spec(
-            "reindexKnowledgeIndex",
-            "Rebuild the configured semantic knowledge index.",
+            "reindexSemanticKnowledge",
+            "Rebuild the configured semantic knowledge index with chunk-first storage.",
             Map.of(),
             List.of(),
             arguments -> knowledgeIndexService.reindex()
         ),
         spec(
-            "attachSemanticContextToTask",
-            "Attach semantic context to a task via shared storage.",
+            "reindexConfiguredCodebases",
+            "Rebuild semantic code/doc indexes for the configured repo allowlist.",
+            Map.of(),
+            List.of(),
+            arguments -> projectSemanticIndexService.reindexConfiguredRepos()
+        ),
+        spec(
+            "attachSemanticDocumentToTask",
+            "Attach a semantic document to a task and index its chunked payload.",
             Map.of(
-                "projectKey", stringProperty("Project key. Leave blank only for legacy collection access."),
+                "projectKey", stringProperty("Project key."),
                 "taskId", stringProperty("Task id."),
                 "workerTaskId", stringProperty("Worker task id."),
                 "contextKey", stringProperty("Context key."),
                 "summary", stringProperty("Summary."),
-                "body", stringProperty("Text body.")
+                "body", stringProperty("Text body."),
+                "domain", stringProperty("Semantic domain override."),
+                "contentType", stringProperty("Chunking content type override.")
             ),
-            List.of("taskId", "contextKey", "summary", "body"),
+            List.of("projectKey", "taskId", "contextKey", "summary", "body"),
             arguments -> {
               AttachSemanticContextRequest request = map(arguments, AttachSemanticContextRequest.class);
-              String embeddingId = request.projectKey() == null || request.projectKey().isBlank()
-                  ? sharedTaskContextService.storeTaskEmbedding(
-                      request.taskId(),
-                      request.workerTaskId(),
-                      request.contextKey(),
-                      request.body(),
-                      Map.of("summary", request.summary())
-                  )
-                  : sharedTaskContextService.storeTaskEmbedding(
-                      request.projectKey(),
-                      request.taskId(),
-                      request.workerTaskId(),
-                      request.contextKey(),
-                      request.body(),
-                      Map.of("summary", request.summary())
-                  );
+              String embeddingId = sharedTaskContextService.storeProjectSemanticDocument(
+                  requireProjectKey(request.projectKey()),
+                  request.taskId(),
+                  request.workerTaskId(),
+                  request.contextKey(),
+                  request.summary(),
+                  request.body(),
+                  parseDomain(request.domain(), SemanticCollectionDomain.TASK_HISTORY),
+                  parseContentType(request.contentType(), SemanticContentType.RUN_SUMMARY),
+                  Map.of("summary", request.summary())
+              ).stream().findFirst().orElse("");
               return new EmbeddingResponse(embeddingId);
             }
         ),
@@ -193,8 +195,8 @@ public class RetrievalCacheToolHandler extends McpToolSupport implements McpTool
             }
         ),
         spec(
-            "dropLegacyVectorCollection",
-            "Delete the legacy shared Qdrant collection now that project collections are in place.",
+            "purgeLegacySemanticCollection",
+            "Delete the legacy shared Qdrant collection after migrating to chunked project and knowledge collections.",
             Map.of(),
             List.of(),
             arguments -> {
@@ -209,9 +211,54 @@ public class RetrievalCacheToolHandler extends McpToolSupport implements McpTool
   private List<RetrievedSemanticContext> search(Map<String, Object> arguments) {
     SemanticContextRequest request = map(arguments, SemanticContextRequest.class);
     int limit = request.limit() == null ? 5 : request.limit();
-    return request.projectKey() == null || request.projectKey().isBlank()
-        ? sharedTaskContextService.searchRelatedContexts(request.queryText(), limit)
-        : sharedTaskContextService.searchProjectRelatedContexts(request.projectKey(), request.queryText(), limit);
+    return sharedTaskContextService.searchProjectRelatedContexts(
+        requireProjectKey(request.projectKey()),
+        request.queryText(),
+        limit
+    );
+  }
+
+  private String storeProjectEmbedding(StoreEmbeddingRequest request) {
+    Map<String, Object> payload = request.payload() == null ? Map.of() : request.payload();
+    SemanticCollectionDomain domain = parseDomain(request.domain(), null);
+    SemanticContentType contentType = parseContentType(request.contentType(), null);
+    if (domain == null || contentType == null) {
+      var classification = semanticContextClassifier.classify(request.kind(), request.body(), payload);
+      domain = classification.domain();
+      contentType = classification.contentType();
+    }
+    return sharedTaskContextService.storeProjectSemanticDocument(
+        requireProjectKey(request.projectKey()),
+        request.taskId(),
+        request.workerTaskId(),
+        request.kind(),
+        request.title() == null || request.title().isBlank() ? request.kind() : request.title(),
+        request.body(),
+        domain,
+        contentType,
+        payload
+    ).stream().findFirst().orElse("");
+  }
+
+  private String requireProjectKey(String projectKey) {
+    if (projectKey == null || projectKey.isBlank()) {
+      throw new IllegalArgumentException("projectKey is required for chunked semantic retrieval.");
+    }
+    return projectKey.strip();
+  }
+
+  private SemanticCollectionDomain parseDomain(String rawValue, SemanticCollectionDomain fallback) {
+    if (rawValue == null || rawValue.isBlank()) {
+      return fallback;
+    }
+    return SemanticCollectionDomain.valueOf(rawValue.strip().toUpperCase(java.util.Locale.ROOT));
+  }
+
+  private SemanticContentType parseContentType(String rawValue, SemanticContentType fallback) {
+    if (rawValue == null || rawValue.isBlank()) {
+      return fallback;
+    }
+    return SemanticContentType.valueOf(rawValue.strip().toUpperCase(java.util.Locale.ROOT));
   }
 
   private SyncToolSpecification spec(String name, String description, Map<String, Object> properties, List<String> required, ToolCall call) {
@@ -234,16 +281,4 @@ public class RetrievalCacheToolHandler extends McpToolSupport implements McpTool
   private interface ToolCall {
     Object run(Map<String, Object> arguments);
   }
-}
-
-record StoreEmbeddingRequest(String projectKey, String taskId, String workerTaskId, String kind, String body, Map<String, Object> payload) {
-}
-
-record AttachSemanticContextRequest(String projectKey, String taskId, String workerTaskId, String contextKey, String summary, String body) {
-}
-
-record EmbeddingResponse(String embeddingId) {
-}
-
-record ValidationSummaryCacheResponse(Map<String, Object> payload) {
 }

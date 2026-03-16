@@ -3,6 +3,8 @@ package com.agenttaskmanager.app.knowledge;
 import com.agenttaskmanager.app.config.KnowledgeIndexProperties;
 import com.agenttaskmanager.app.model.orchestration.RetrievedSemanticContext;
 import com.agenttaskmanager.app.orchestration.SharedTaskContextService;
+import com.agenttaskmanager.app.retrieval.SemanticContentType;
+import com.agenttaskmanager.app.retrieval.SemanticVectorStoreService;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -10,7 +12,6 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
@@ -20,16 +21,13 @@ public class KnowledgeIndexService {
 
   private static final String KNOWLEDGE_KIND = "knowledge-index";
   private final KnowledgeIndexProperties properties;
-  private final KnowledgeChunker chunker;
   private final SharedTaskContextService sharedTaskContextService;
 
   public KnowledgeIndexService(
       KnowledgeIndexProperties properties,
-      KnowledgeChunker chunker,
       SharedTaskContextService sharedTaskContextService
   ) {
     this.properties = properties;
-    this.chunker = chunker;
     this.sharedTaskContextService = sharedTaskContextService;
   }
 
@@ -64,7 +62,7 @@ public class KnowledgeIndexService {
       for (Path file : files) {
         indexedFiles++;
         String sourcePath = root.relativize(file).toString().replace('\\', '/');
-        indexedChunks += indexChunks("source-root", sourcePath, Files.readString(file, StandardCharsets.UTF_8));
+        indexedChunks += indexDocument("source-root", sourcePath, Files.readString(file, StandardCharsets.UTF_8));
       }
       return new KnowledgeIndexSummary(true, indexedFiles, indexedChunks, "source-root");
     } catch (IOException exception) {
@@ -80,33 +78,36 @@ public class KnowledgeIndexService {
           .sorted()
           .reduce((left, right) -> left + "\n" + right)
           .orElse("");
-      int indexedChunks = indexChunks("jar-entry", jarPath.getFileName().toString(), entries);
+      int indexedChunks = indexDocument("jar-entry", jarPath.getFileName().toString(), entries);
       return new KnowledgeIndexSummary(true, 1, indexedChunks, "jar-entry");
     } catch (IOException exception) {
       throw new IllegalStateException("Failed to index configured knowledge jar entries.", exception);
     }
   }
 
-  private int indexChunks(String sourceKind, String sourcePath, String content) {
-    int indexedChunks = 0;
-    for (KnowledgeChunk chunk : chunker.chunk(sourcePath, content)) {
-      sharedTaskContextService.upsertKnowledgeContext(
-          properties.getKnowledgeBase(),
-          deterministicPointId(chunk.sourcePath(), chunk.chunkIndex()),
-          KNOWLEDGE_KIND,
-          chunk.text(),
-          Map.of(
-              "knowledgeBase", properties.getKnowledgeBase(),
-              "sourceKind", sourceKind,
-              "sourcePath", chunk.sourcePath(),
-              "chunkIndex", chunk.chunkIndex(),
-              "startLine", chunk.startLine(),
-              "endLine", chunk.endLine()
-          )
-      );
-      indexedChunks++;
+  private int indexDocument(String sourceKind, String sourcePath, String content) {
+    return sharedTaskContextService.upsertKnowledgeDocument(
+        properties.getKnowledgeBase(),
+        SemanticVectorStoreService.deterministicDocumentId(properties.getKnowledgeBase() + ":" + sourcePath),
+        KNOWLEDGE_KIND,
+        sourcePath,
+        content,
+        classifyContentType(sourcePath),
+        Map.of(
+            "knowledgeBase", properties.getKnowledgeBase(),
+            "sourceKind", sourceKind,
+            "sourcePath", sourcePath,
+            "contentType", classifyContentType(sourcePath).name()
+        )
+    ).size();
+  }
+
+  private SemanticContentType classifyContentType(String sourcePath) {
+    String lower = sourcePath.toLowerCase();
+    if (lower.endsWith(".java") || lower.endsWith(".kt")) {
+      return SemanticContentType.CODE;
     }
-    return indexedChunks;
+    return SemanticContentType.DOCUMENTATION;
   }
 
   private boolean isKnowledgeFile(Path path) {
@@ -120,11 +121,6 @@ public class KnowledgeIndexService {
         || name.endsWith(".xml")
         || name.endsWith(".properties")
         || name.endsWith(".md");
-  }
-
-  private String deterministicPointId(String sourcePath, int chunkIndex) {
-    String key = properties.getKnowledgeBase() + ":" + sourcePath + ":" + chunkIndex;
-    return UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
   }
 
   private static Path resolvePath(String value) {

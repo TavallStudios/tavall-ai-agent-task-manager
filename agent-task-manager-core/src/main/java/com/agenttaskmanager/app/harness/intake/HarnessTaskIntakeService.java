@@ -7,9 +7,12 @@ import com.agenttaskmanager.app.harness.state.HarnessStateSnapshot;
 import com.agenttaskmanager.app.model.KnownRepo;
 import com.agenttaskmanager.app.orchestration.OverseerOrchestrationService;
 import com.agenttaskmanager.app.orchestration.SharedTaskContextService;
+import com.agenttaskmanager.app.retrieval.SemanticCollectionDomain;
+import com.agenttaskmanager.app.retrieval.SemanticContentType;
 import com.agenttaskmanager.app.service.RepoCatalogService;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 
@@ -48,29 +51,96 @@ public class HarnessTaskIntakeService {
         routingPlan.workerPlans(),
         Map.of("routingSummary", routingPlan.summary(), "parentTaskType", request.type().name())
     ).taskId();
-    storeContext(taskId, "harness-parent-task", request.title(), parentTaskPayload(request, repo));
-    storeContext(taskId, "harness-routing-plan", routingPlan.summary(), Map.of("workerPlans", routingPlan.workerPlans()));
+    storeContext(
+        repo.projectKey(),
+        taskId,
+        "harness-parent-task",
+        request.title(),
+        parentTaskPayload(request, repo),
+        SemanticCollectionDomain.TASK_HISTORY,
+        SemanticContentType.RUN_SUMMARY
+    );
+    storeContext(
+        repo.projectKey(),
+        taskId,
+        "harness-routing-plan",
+        routingPlan.summary(),
+        Map.of("workerPlans", routingPlan.workerPlans()),
+        SemanticCollectionDomain.TASK_HISTORY,
+        SemanticContentType.RUN_SUMMARY
+    );
     if (!request.codebaseInput().isEmpty() || !request.changedFiles().isEmpty()) {
       Map<String, Object> payload = new LinkedHashMap<>(request.codebaseInput());
       payload.put("changedFiles", request.changedFiles());
       payload.put("gitBase", request.gitBase());
       payload.put("gitHead", request.gitHead());
-      storeContext(taskId, "harness-codebase-input", "Codebase and diff input.", payload);
+      storeContext(
+          repo.projectKey(),
+          taskId,
+          "harness-codebase-input",
+          "Codebase and diff input.",
+          payload,
+          SemanticCollectionDomain.CODE_REPO,
+          SemanticContentType.DIFF
+      );
     }
     if (!request.storedContextInput().isEmpty()) {
-      storeContext(taskId, "harness-stored-context", "Stored task and run context.", request.storedContextInput());
+      storeContext(
+          repo.projectKey(),
+          taskId,
+          "harness-stored-context",
+          "Stored task and run context.",
+          request.storedContextInput(),
+          SemanticCollectionDomain.TASK_HISTORY,
+          SemanticContentType.RUN_SUMMARY
+      );
     }
     if (!request.ruleInput().isEmpty()) {
-      storeContext(taskId, "harness-rule-input", "Architecture and rule input.", request.ruleInput());
+      storeContext(
+          repo.projectKey(),
+          taskId,
+          "harness-rule-input",
+          "Architecture and rule input.",
+          request.ruleInput(),
+          SemanticCollectionDomain.KNOWLEDGE_RULES,
+          SemanticContentType.DOCUMENTATION
+      );
     }
     if (!request.liveDebugInput().isEmpty()) {
-      storeContext(taskId, "harness-live-debug-input", "Live debug and computer-use input.", request.liveDebugInput());
+      storeContext(
+          repo.projectKey(),
+          taskId,
+          "harness-live-debug-input",
+          "Live debug and computer-use input.",
+          request.liveDebugInput(),
+          SemanticCollectionDomain.CHAT_ARTIFACT,
+          SemanticContentType.CHAT
+      );
     }
     return harnessStateService.loadState(taskId);
   }
 
-  private void storeContext(String taskId, String contextKey, String summary, Map<String, Object> payload) {
+  private void storeContext(
+      String projectKey,
+      String taskId,
+      String contextKey,
+      String summary,
+      Map<String, Object> payload,
+      SemanticCollectionDomain domain,
+      SemanticContentType contentType
+  ) {
     sharedTaskContextService.storeSharedTaskContext(taskId, null, contextKey, "team", summary, payload);
+    sharedTaskContextService.storeProjectSemanticDocument(
+        projectKey,
+        taskId,
+        null,
+        contextKey,
+        summary,
+        renderSemanticBody(summary, payload),
+        domain,
+        contentType,
+        payload
+    );
   }
 
   private Path resolveRepoPath(String repoRef) {
@@ -94,5 +164,16 @@ public class HarnessTaskIntakeService {
     payload.put("requestedWorkerTypes", request.requestedWorkerTypes());
     payload.put("metadata", request.metadata());
     return payload;
+  }
+
+  private String renderSemanticBody(String summary, Map<String, Object> payload) {
+    List<String> lines = new java.util.ArrayList<>();
+    if (summary != null && !summary.isBlank()) {
+      lines.add(summary.strip());
+    }
+    if (payload != null) {
+      payload.forEach((key, value) -> lines.add(key + ": " + String.valueOf(value)));
+    }
+    return String.join("\n", lines).strip();
   }
 }

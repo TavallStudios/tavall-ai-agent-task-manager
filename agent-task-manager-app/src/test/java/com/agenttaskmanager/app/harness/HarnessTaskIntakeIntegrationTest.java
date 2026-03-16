@@ -7,6 +7,7 @@ import com.agenttaskmanager.app.harness.intake.HarnessTaskIntakeService;
 import com.agenttaskmanager.app.harness.intake.ParentTaskRequest;
 import com.agenttaskmanager.app.harness.intake.ParentTaskType;
 import com.agenttaskmanager.app.harness.state.HarnessStateSnapshot;
+import com.agenttaskmanager.app.orchestration.SharedTaskContextService;
 import com.agenttaskmanager.app.support.IntegrationTestSupport;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,9 @@ class HarnessTaskIntakeIntegrationTest extends IntegrationTestSupport {
 
   @Autowired
   private JdbcClient jdbcClient;
+
+  @Autowired
+  private SharedTaskContextService sharedTaskContextService;
 
   @BeforeEach
   void cleanup() {
@@ -75,5 +79,15 @@ class HarnessTaskIntakeIntegrationTest extends IntegrationTestSupport {
         .collect(Collectors.toSet())
         .containsAll(Set.of("harness-parent-task", "harness-routing-plan", "harness-codebase-input")));
     assertTrue(snapshot.dashboardModel().workerTypeCounts().containsKey("CODE"));
+    assertTrue(sharedTaskContextService.searchProjectRelatedContexts(
+        snapshot.taskSchema().batch().projectKey(),
+        "cleanup review state",
+        10
+    ).stream().anyMatch(item -> "TASK_HISTORY".equals(item.payload().get("semanticDomain"))));
+    assertTrue(sharedTaskContextService.searchProjectRelatedContexts(
+        snapshot.taskSchema().batch().projectKey(),
+        "LocalCodexWorkerTransport",
+        10
+    ).stream().anyMatch(item -> "CODE_REPO".equals(item.payload().get("semanticDomain"))));
   }
 }

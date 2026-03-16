@@ -7,6 +7,7 @@ import com.agenttaskmanager.app.model.orchestration.AutonomousCycleReport;
 import com.agenttaskmanager.app.model.orchestration.TaskAssignment;
 import com.agenttaskmanager.app.model.orchestration.WorkerExecutionRequest;
 import com.agenttaskmanager.app.model.orchestration.WorkerTransportKind;
+import com.agenttaskmanager.app.retrieval.ProjectSemanticIndexService;
 import com.agenttaskmanager.app.model.validation.ValidationReport;
 import com.agenttaskmanager.app.orchestration.AutonomousCycleService;
 import com.agenttaskmanager.app.orchestration.LocalCodexWorkerTransport;
@@ -36,6 +37,7 @@ public class CliCommandService {
   private final McpJsonMapper mcpJsonMapper;
   private final ObjectMapper objectMapper;
   private final OverseerOrchestrationService overseerOrchestrationService;
+  private final ProjectSemanticIndexService projectSemanticIndexService;
   private final RemoteMcpSmokeService remoteMcpSmokeService;
   private final ValidationPipelineService validationPipelineService;
 
@@ -48,6 +50,7 @@ public class CliCommandService {
       McpJsonMapper mcpJsonMapper,
       ObjectMapper objectMapper,
       OverseerOrchestrationService overseerOrchestrationService,
+      ProjectSemanticIndexService projectSemanticIndexService,
       RemoteMcpSmokeService remoteMcpSmokeService,
       ValidationPipelineService validationPipelineService
   ) {
@@ -59,13 +62,14 @@ public class CliCommandService {
     this.mcpJsonMapper = mcpJsonMapper;
     this.objectMapper = objectMapper;
     this.overseerOrchestrationService = overseerOrchestrationService;
+    this.projectSemanticIndexService = projectSemanticIndexService;
     this.remoteMcpSmokeService = remoteMcpSmokeService;
     this.validationPipelineService = validationPipelineService;
   }
 
   public int execute(List<String> args) {
     if (args.isEmpty()) {
-      print("Commands: validate, scan, patch-check, run-agent, run-workers, run-autonomy-cycle, print-rule-report, example-report, serve-mcp-stdio, remote-mcp-smoke, reindex-knowledge, search-knowledge");
+      print("Commands: validate, scan, patch-check, run-agent, run-workers, run-autonomy-cycle, print-rule-report, example-report, serve-mcp-stdio, remote-mcp-smoke, reindex-knowledge, reindex-codebases, search-knowledge");
       return 0;
     }
 
@@ -81,6 +85,7 @@ public class CliCommandService {
       case "serve-mcp-stdio" -> serveMcpStdio();
       case "remote-mcp-smoke" -> remoteMcpSmoke(args);
       case "reindex-knowledge" -> reindexKnowledge();
+      case "reindex-codebases" -> reindexCodebases();
       case "search-knowledge" -> searchKnowledge(args);
       default -> {
         print("Unknown command: " + args.getFirst());
@@ -235,6 +240,11 @@ public class CliCommandService {
 
   private int reindexKnowledge() {
     printJson(knowledgeIndexService.reindex());
+    return 0;
+  }
+
+  private int reindexCodebases() {
+    printJson(projectSemanticIndexService.reindexConfiguredRepos());
     return 0;
   }
 

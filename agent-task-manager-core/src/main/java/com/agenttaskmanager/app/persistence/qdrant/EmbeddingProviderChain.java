@@ -33,11 +33,19 @@ public class EmbeddingProviderChain {
   }
 
   public EmbeddingVectorResult embedDocument(String title, String text) {
-    return embedWithFallback(provider -> provider.embedDocument(title, text));
+    return embed(title, text, EmbeddingPurpose.RETRIEVAL_DOCUMENT);
   }
 
   public EmbeddingVectorResult embedQuery(String text) {
-    return embedWithFallback(provider -> provider.embedQuery(text));
+    return embed(null, text, EmbeddingPurpose.RETRIEVAL_QUERY);
+  }
+
+  public EmbeddingVectorResult embedCodeQuery(String text) {
+    return embed(null, text, EmbeddingPurpose.CODE_RETRIEVAL_QUERY);
+  }
+
+  public EmbeddingVectorResult embed(String title, String text, EmbeddingPurpose purpose) {
+    return embedWithFallback(provider -> provider.embed(title, text, purpose));
   }
 
   public int dimensions() {
@@ -53,7 +61,7 @@ public class EmbeddingProviderChain {
       try {
         EmbeddingVectorResult result = embeddingOperation.run(provider);
         if (result.vector().size() == dimensions) {
-          return result;
+          return normalize(result);
         }
         throw new IllegalStateException("Embedding provider returned a vector with the wrong size.");
       } catch (RuntimeException exception) {
@@ -86,6 +94,20 @@ public class EmbeddingProviderChain {
       ordered.add(hashEmbeddingService);
     }
     return ordered;
+  }
+
+  private EmbeddingVectorResult normalize(EmbeddingVectorResult result) {
+    if (dimensions == 3072) {
+      return result;
+    }
+    double magnitude = Math.sqrt(result.vector().stream().mapToDouble(value -> value * value).sum());
+    if (magnitude == 0.0D) {
+      return result;
+    }
+    List<Double> normalized = result.vector().stream()
+        .map(value -> value / magnitude)
+        .toList();
+    return new EmbeddingVectorResult(result.providerId(), result.modelName(), normalized);
   }
 
   @FunctionalInterface

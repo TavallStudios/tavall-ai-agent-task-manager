@@ -62,7 +62,7 @@ AgentTaskManager is a multi-module Spring Boot control plane for local and remot
 - MongoDB
   Artifact bodies and chat snapshots.
 - Qdrant
-  Semantic context storage and similarity search using a shared-dimension embedding chain: Gemini first, local FastEmbed runner second, hash fallback last.
+  Semantic context storage and similarity search using a chunk-first flow: raw content is chunked, each chunk is embedded, and Qdrant stores the vector together with the original chunk payload and metadata.
 - `cache`
   Memory-first TTL caches in front of dashboard, validation, worker, and context reads.
 
@@ -122,13 +122,21 @@ Embedding overrides:
 - `AGENT_TASK_MANAGER_LOCAL_EMBEDDING_MODEL`
 - `AGENT_TASK_MANAGER_LOCAL_EMBEDDING_TIMEOUT_SECONDS`
 
-Default embedding order is `gemini,local,hash`. The local runner points at `scripts/fastembed_embed.py`, which expects `fastembed` to be installed on the host:
+Default embedding order is `gemini,local,hash`. The Gemini default model is `gemini-embedding-2-preview`, the runtime default dimension is `1536`, and the local runner points at `scripts/fastembed_embed.py`, which expects `fastembed` to be installed on the host:
 
 ```bash
 python3 -m pip install fastembed
 ```
 
-`app.qdrant.collection` remains the legacy fallback collection for older flows, while new project-scoped memory now lands in `app.qdrant.project-collection-prefix` collections and optional indexed knowledge lands in `app.qdrant.knowledge-collection-prefix` collections.
+`app.qdrant.collection` is now migration-only for purging old data. New semantic writes land in project-scoped collections under `app.qdrant.project-collection-prefix`, and indexed knowledge lands in `app.qdrant.knowledge-collection-prefix`.
+
+Semantic retrieval flow:
+
+- raw content is chunked by content type before embedding
+- each chunk is embedded with the retrieval-purpose-specific Gemini task type
+- Qdrant stores the embedding together with the original chunk text/code and metadata
+- query text is embedded separately and searches Qdrant
+- workers and harness services consume the retrieved payload chunk text, not the raw vectors
 
 ## MCP
 
@@ -145,10 +153,12 @@ The dedicated `clean-java-harness` stdio server exposes the curated harness surf
 - `loadHarnessState`
 - `runHarnessApprovalGate`
 - `runHarnessToolBundle`
+- `loadCleanJavaTaskContext`
 - `runCleanJavaHarness`
 - `runJavaIntegrationHarness`
 
 Codex worker runs now inject `clean-java-harness` as the default required MCP server. Repository inspection and retrieval should flow through `runHarnessToolBundle`, which fans out to filesystem, ripgrep, and git on the harness host in parallel and returns one merged payload.
+For Java work, the harness should build deterministic context first with `loadCleanJavaTaskContext`, then the worker should draft code, then `runCleanJavaHarness` applies Spoon source-shape checks first and ArchUnit plus cycle checks second before approval.
 
 Remote MCP smoke test:
 

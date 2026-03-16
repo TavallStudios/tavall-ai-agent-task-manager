@@ -6,6 +6,8 @@ import com.agenttaskmanager.app.model.orchestration.TaskLifecycleStatus;
 import com.agenttaskmanager.app.model.orchestration.WorkerTask;
 import com.agenttaskmanager.app.model.orchestration.WorkerTransportKind;
 import com.agenttaskmanager.app.model.orchestration.WorkerType;
+import com.agenttaskmanager.app.retrieval.SemanticCollectionDomain;
+import com.agenttaskmanager.app.retrieval.SemanticContentType;
 import com.agenttaskmanager.app.support.IntegrationTestSupport;
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -31,12 +33,15 @@ class WorkerPromptFactoryIntegrationTest extends IntegrationTestSupport {
   void shouldInjectRetrievedMemoryIntoWorkerPrompts() {
     String suffix = UUID.randomUUID().toString();
     sharedTaskContextService.deleteProjectSemanticContexts("worker-test", Map.of());
-    sharedTaskContextService.storeTaskEmbedding(
+    sharedTaskContextService.storeProjectSemanticDocument(
         "worker-test",
         "task-" + suffix,
         "worker-" + suffix,
         "worker-memory",
+        "worker-memory",
         "Worker prompt should check memory first " + suffix,
+        SemanticCollectionDomain.TASK_HISTORY,
+        SemanticContentType.RUN_SUMMARY,
         Map.of("scope", "worker-prompt")
     );
 
@@ -70,7 +75,8 @@ class WorkerPromptFactoryIntegrationTest extends IntegrationTestSupport {
     assertTrue(prompt.contains("Tool combination patterns:"));
     assertTrue(prompt.contains("Worker focus:"));
     assertTrue(prompt.contains("runHarnessToolBundle(worker-context)"));
-    assertTrue(prompt.contains("runHarnessToolBundle(java-context) + runCleanJavaHarness"));
+    assertTrue(prompt.contains("loadCleanJavaTaskContext + runHarnessToolBundle(java-context)"));
+    assertTrue(prompt.contains("runCleanJavaHarness: run Spoon source-shape checks first"));
     assertTrue(prompt.contains("Final response contract:"));
   }
 }

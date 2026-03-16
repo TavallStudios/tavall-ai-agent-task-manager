@@ -28,13 +28,8 @@ public class GeminiEmbeddingProvider implements EmbeddingProvider {
   }
 
   @Override
-  public EmbeddingVectorResult embedDocument(String title, String text) {
-    return embedText(title, text, EmbeddingPurpose.RETRIEVAL_DOCUMENT);
-  }
-
-  @Override
-  public EmbeddingVectorResult embedQuery(String text) {
-    return embedText(null, text, EmbeddingPurpose.RETRIEVAL_QUERY);
+  public EmbeddingVectorResult embed(String title, String text, EmbeddingPurpose purpose) {
+    return embedText(title, text, purpose);
   }
 
   @PreDestroy
@@ -55,11 +50,29 @@ public class GeminiEmbeddingProvider implements EmbeddingProvider {
         embeddingProperties.getDimensions(),
         embeddingPurpose.name()
     );
-    List<Double> vector = response.vector();
+    List<Double> vector = normalize(response.vector());
     if (vector.size() != embeddingProperties.getDimensions()) {
       throw new IllegalStateException("Gemini embedding dimensions did not match the configured Qdrant vector size.");
     }
     return new EmbeddingVectorResult(providerId(), response.model(), vector);
+  }
+
+  private List<Double> normalize(List<Double> vector) {
+    if (vector == null || vector.isEmpty() || embeddingProperties.getDimensions() == 3072) {
+      return vector;
+    }
+    double magnitude = 0.0D;
+    for (Double value : vector) {
+      double component = value == null ? 0.0D : value;
+      magnitude += component * component;
+    }
+    if (magnitude <= 0.0D) {
+      return vector;
+    }
+    double divisor = Math.sqrt(magnitude);
+    return vector.stream()
+        .map(value -> (value == null ? 0.0D : value) / divisor)
+        .toList();
   }
 
   private synchronized GeminiEmbeddingClient buildClient() {

@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.agenttaskmanager.app.model.orchestration.RetrievedSemanticContext;
+import com.agenttaskmanager.app.retrieval.SemanticCollectionDomain;
+import com.agenttaskmanager.app.retrieval.SemanticContentType;
 import com.agenttaskmanager.app.support.IntegrationTestSupport;
 import java.util.List;
 import java.util.Map;
@@ -28,16 +30,21 @@ class HashFallbackEmbeddingIntegrationTest extends IntegrationTestSupport {
   @Test
   void shouldUseHashEmbeddingWhenTheLocalRunnerFails() {
     String suffix = UUID.randomUUID().toString();
-    sharedTaskContextService.deleteLegacySemanticCollection();
-    String storedId = sharedTaskContextService.storeTaskEmbedding(
+    sharedTaskContextService.deleteProjectSemanticContexts("hash-test", Map.of());
+    String storedId = sharedTaskContextService.storeProjectSemanticDocument(
+        "hash-test",
         "task-" + suffix,
         "worker-" + suffix,
         "diff-review",
+        "diff-review",
         "Hash fallback integration text " + suffix,
+        SemanticCollectionDomain.CODE_REPO,
+        SemanticContentType.DIFF,
         Map.of("scope", "integration")
-    );
+    ).getFirst();
 
-    List<RetrievedSemanticContext> contexts = sharedTaskContextService.searchRelatedContexts(
+    List<RetrievedSemanticContext> contexts = sharedTaskContextService.searchProjectRelatedContexts(
+        "hash-test",
         "Hash fallback integration text " + suffix,
         5
     );
@@ -49,5 +56,7 @@ class HashFallbackEmbeddingIntegrationTest extends IntegrationTestSupport {
         .orElseThrow();
     assertEquals("hash", match.payload().get("embeddingProvider"));
     assertEquals("hash-fallback-v1", match.payload().get("embeddingModel"));
+    assertEquals("Hash fallback integration text " + suffix, match.payload().get("chunkText"));
+    assertEquals("CODE_REPO", match.payload().get("semanticDomain"));
   }
 }

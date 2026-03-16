@@ -45,7 +45,7 @@ public class WorkerPromptFactory {
         - follow AGENTS.md, RULES.md, and ARCHITECTURE.md
         - produce a concrete artifact or diff
         - keep code changes scoped and architecture-safe
-        - use the clean Java rules plus harness when the task changes Java code
+        - when the task changes Java code, load the deterministic clean Java task context before editing and use the staged harness feedback before approval
         - keep the work inside the assigned worker type instead of doing other workers' jobs
         - expect cleanup review and validation before approval
         """.formatted(

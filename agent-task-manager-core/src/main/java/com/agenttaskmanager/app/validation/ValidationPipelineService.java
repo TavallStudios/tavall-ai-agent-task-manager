@@ -44,6 +44,14 @@ public class ValidationPipelineService {
     return buildReport(taskId, workerTaskId, archUnitValidationService.runValidation());
   }
 
+  public ValidationReport runArchUnitValidation(String taskId, String workerTaskId, Path repoRoot) {
+    Path normalizedRepoRoot = repoRoot.toAbsolutePath().normalize();
+    if (!supportsArchUnitValidation(normalizedRepoRoot)) {
+      return skippedReport(taskId, workerTaskId, "ArchUnit skipped because the repository is outside the AgentTaskManager layout.");
+    }
+    return runArchUnitValidation(taskId, workerTaskId);
+  }
+
   public ValidationReport runSpoonValidation(String taskId, String workerTaskId, Path repoRoot) {
     return buildReport(taskId, workerTaskId, spoonValidationService.runValidation(repoRoot));
   }
@@ -56,6 +64,13 @@ public class ValidationPipelineService {
     }
     violations.addAll(spoonValidationService.runValidation(normalizedRepoRoot));
     return storeValidationReport(taskId, workerTaskId, buildReport(taskId, workerTaskId, violations));
+  }
+
+  public ValidationReport mergeReports(String taskId, String workerTaskId, List<ValidationReport> reports) {
+    List<ValidationViolation> violations = reports.stream()
+        .flatMap(report -> report.violations().stream())
+        .toList();
+    return buildReport(taskId, workerTaskId, violations);
   }
 
   public boolean validatePatchScope(String diffBody) {
@@ -128,6 +143,19 @@ public class ValidationPipelineService {
         complianceScore,
         summary,
         violations,
+        OffsetDateTime.now()
+    );
+  }
+
+  private ValidationReport skippedReport(String taskId, String workerTaskId, String summary) {
+    return new ValidationReport(
+        "vr_" + UUID.randomUUID(),
+        taskId,
+        workerTaskId,
+        "skipped",
+        100.0D,
+        summary,
+        List.of(),
         OffsetDateTime.now()
     );
   }

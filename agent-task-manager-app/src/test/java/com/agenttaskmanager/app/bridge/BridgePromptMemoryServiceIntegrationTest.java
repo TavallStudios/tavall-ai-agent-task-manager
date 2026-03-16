@@ -3,6 +3,8 @@ package com.agenttaskmanager.app.bridge;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agenttaskmanager.app.orchestration.SharedTaskContextService;
+import com.agenttaskmanager.app.retrieval.SemanticCollectionDomain;
+import com.agenttaskmanager.app.retrieval.SemanticContentType;
 import com.agenttaskmanager.app.support.IntegrationTestSupport;
 import java.util.Map;
 import java.util.UUID;
@@ -27,12 +29,15 @@ class BridgePromptMemoryServiceIntegrationTest extends IntegrationTestSupport {
   void shouldInjectRetrievedMemoryIntoThePromptEnvelope() {
     String suffix = UUID.randomUUID().toString();
     sharedTaskContextService.deleteProjectSemanticContexts("bridge-test", Map.of());
-    sharedTaskContextService.storeTaskEmbedding(
+    sharedTaskContextService.storeProjectSemanticDocument(
         "bridge-test",
         "task-" + suffix,
         "worker-" + suffix,
         "prompt-memory",
+        "prompt-memory",
         "Always check memory first for prompt " + suffix,
+        SemanticCollectionDomain.TASK_HISTORY,
+        SemanticContentType.RUN_SUMMARY,
         Map.of("scope", "bridge-memory")
     );
 

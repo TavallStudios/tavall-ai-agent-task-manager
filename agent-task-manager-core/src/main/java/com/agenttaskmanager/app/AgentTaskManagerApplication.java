@@ -11,6 +11,7 @@ import com.agenttaskmanager.app.config.OrchestrationProperties;
 import com.agenttaskmanager.app.config.QdrantProperties;
 import com.agenttaskmanager.app.config.RepoCatalogProperties;
 import com.agenttaskmanager.app.config.SecurityProperties;
+import com.agenttaskmanager.app.config.SemanticIndexProperties;
 import com.agenttaskmanager.app.config.TaskRuntimeProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -29,6 +30,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     MongoProperties.class,
     QdrantProperties.class,
     EmbeddingProperties.class,
+    SemanticIndexProperties.class,
     KnowledgeIndexProperties.class,
     OrchestrationProperties.class,
     McpServerProperties.class

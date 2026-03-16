@@ -57,28 +57,20 @@ public class QdrantContextStore {
     return pointId;
   }
 
-  public String storeContext(
-      String taskId,
-      String workerTaskId,
-      String kind,
-      String body,
-      Map<String, Object> payload
-  ) {
-    return storeContext(qdrantProperties.getCollection(), taskId, workerTaskId, kind, body, payload);
-  }
-
   public String upsertContext(String collectionName, String pointId, String kind, String body, Map<String, Object> payload) {
     ensureCollection(collectionName);
-    EmbeddingVectorResult embedding = embeddingProviderChain.embedDocument(kind, body);
+    EmbeddingVectorResult embedding = embeddingProviderChain.embed(kind, body, EmbeddingPurpose.RETRIEVAL_DOCUMENT);
     Map<String, Object> fullPayload = new LinkedHashMap<>();
     if (payload != null) {
       fullPayload.putAll(payload);
     }
     fullPayload.put("kind", kind);
     fullPayload.put("body", body);
+    fullPayload.put("chunkText", body);
     fullPayload.put("embeddingProvider", embedding.providerId());
     fullPayload.put("embeddingModel", embedding.modelName());
     fullPayload.put("embeddingDimensions", embedding.vector().size());
+    fullPayload.put("embeddingPurpose", EmbeddingPurpose.RETRIEVAL_DOCUMENT.name());
 
     Map<String, Object> point = Map.of(
         "id", pointId,
@@ -93,17 +85,23 @@ public class QdrantContextStore {
     return pointId;
   }
 
-  public String upsertContext(String pointId, String kind, String body, Map<String, Object> payload) {
-    return upsertContext(qdrantProperties.getCollection(), pointId, kind, body, payload);
-  }
-
   public List<RetrievedSemanticContext> searchRelatedContexts(String collectionName, String queryText, int limit) {
-    return searchRelatedContexts(collectionName, queryText, limit, Map.of());
+    return searchRelatedContexts(collectionName, queryText, limit, Map.of(), EmbeddingPurpose.RETRIEVAL_QUERY);
   }
 
   public List<RetrievedSemanticContext> searchRelatedContexts(String collectionName, String queryText, int limit, Map<String, Object> payloadFilter) {
+    return searchRelatedContexts(collectionName, queryText, limit, payloadFilter, EmbeddingPurpose.RETRIEVAL_QUERY);
+  }
+
+  public List<RetrievedSemanticContext> searchRelatedContexts(
+      String collectionName,
+      String queryText,
+      int limit,
+      Map<String, Object> payloadFilter,
+      EmbeddingPurpose queryPurpose
+  ) {
     ensureCollection(collectionName);
-    EmbeddingVectorResult embedding = embeddingProviderChain.embedQuery(queryText);
+    EmbeddingVectorResult embedding = embeddingProviderChain.embed(null, queryText, queryPurpose);
     Map<String, Object> requestBody = new LinkedHashMap<>();
     requestBody.put("query", embedding.vector());
     requestBody.put("limit", limit);
@@ -134,14 +132,6 @@ public class QdrantContextStore {
         .toList();
   }
 
-  public List<RetrievedSemanticContext> searchRelatedContexts(String queryText, int limit) {
-    return searchRelatedContexts(qdrantProperties.getCollection(), queryText, limit, Map.of());
-  }
-
-  public List<RetrievedSemanticContext> searchRelatedContexts(String queryText, int limit, Map<String, Object> payloadFilter) {
-    return searchRelatedContexts(qdrantProperties.getCollection(), queryText, limit, payloadFilter);
-  }
-
   public void deleteContexts(String collectionName, Map<String, Object> payloadFilter) {
     if (payloadFilter == null || payloadFilter.isEmpty()) {
       return;
@@ -151,10 +141,6 @@ public class QdrantContextStore {
         "/collections/" + collectionName + "/points/delete?wait=true",
         Map.of("filter", buildFilter(payloadFilter))
     );
-  }
-
-  public void deleteContexts(Map<String, Object> payloadFilter) {
-    deleteContexts(qdrantProperties.getCollection(), payloadFilter);
   }
 
   public void deleteCollection(String collectionName) {
@@ -191,7 +177,7 @@ public class QdrantContextStore {
   private Map<String, Object> sendRequest(String path, Object body, String method) {
     try {
       HttpRequest.Builder builder = HttpRequest.newBuilder()
-          .uri(URI.create(qdrantProperties.getBaseUrl() + path))
+          .uri(URI.create(collectionBaseUrl(path)))
           .timeout(Duration.ofSeconds(10));
       if (!"DELETE".equals(method)) {
         builder.header("Content-Type", "application/json");
@@ -221,5 +207,9 @@ public class QdrantContextStore {
       return HttpRequest.BodyPublishers.noBody();
     }
     return HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body));
+  }
+
+  private String collectionBaseUrl(String path) {
+    return qdrantProperties.getBaseUrl() + path;
   }
 }

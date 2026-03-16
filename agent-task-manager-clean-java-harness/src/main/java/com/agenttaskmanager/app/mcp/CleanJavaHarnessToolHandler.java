@@ -1,6 +1,8 @@
 package com.agenttaskmanager.app.mcp;
 
 import com.agenttaskmanager.app.harness.approval.HarnessApprovalService;
+import com.agenttaskmanager.app.harness.cleanjava.CleanJavaDeterministicHarnessService;
+import com.agenttaskmanager.app.harness.cleanjava.CleanJavaTaskContextService;
 import com.agenttaskmanager.app.harness.intake.HarnessTaskIntakeService;
 import com.agenttaskmanager.app.harness.routing.HarnessRoutingService;
 import com.agenttaskmanager.app.harness.state.HarnessStateService;
@@ -14,6 +16,8 @@ public class CleanJavaHarnessToolHandler extends CleanJavaHarnessTools {
 
   public CleanJavaHarnessToolHandler(
       HarnessApprovalService harnessApprovalService,
+      CleanJavaDeterministicHarnessService cleanJavaDeterministicHarnessService,
+      CleanJavaTaskContextService cleanJavaTaskContextService,
       HarnessRoutingService harnessRoutingService,
       HarnessStateService harnessStateService,
       HarnessTaskIntakeService harnessTaskIntakeService,
@@ -25,6 +29,8 @@ public class CleanJavaHarnessToolHandler extends CleanJavaHarnessTools {
   ) {
     super(
         harnessApprovalService,
+        cleanJavaDeterministicHarnessService,
+        cleanJavaTaskContextService,
         harnessRoutingService,
         harnessStateService,
         harnessTaskIntakeService,

@@ -62,7 +62,8 @@ public class AgentPromptProvider implements McpPromptProvider {
           - use MCP tools instead of self-certifying work
           - use runHarnessToolBundle to assemble repository, state, and retrieval context before acting
           - let the harness broker filesystem, ripgrep, and git in parallel instead of calling them one by one
-          - when changing Java code, use the java-context harness bundle before editing and run the clean Java harness before approval
+          - when changing Java code, call loadCleanJavaTaskContext before editing, then use the java-context harness bundle, then run the clean Java harness before approval
+          - treat Spoon and ArchUnit failures as structured remediation that must be fixed before approval
           - keep explicit check-ins and artifacts
           - require cleanup review plus validation before approval
           """.formatted(
