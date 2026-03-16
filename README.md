@@ -1,6 +1,6 @@
 # AgentTaskManager
 
-AgentTaskManager is a Spring Boot control plane for local and remote Codex orchestration. It now includes:
+AgentTaskManager is a multi-module Spring Boot control plane for local and remote Codex orchestration. It now includes:
 
 - a Java MCP server built with the official MCP Java SDK
 - a multi-agent task pool with overseer, worker, and cleanup roles
@@ -9,6 +9,19 @@ AgentTaskManager is a Spring Boot control plane for local and remote Codex orche
 - an AbstractCache-derived `cache` package for hot orchestration, validation, and dashboard caching
 - dashboard APIs and UI panels for chats, workers, batches, validation, and patch outcomes
 - a CLI entrypoint for validation, scan, worker execution, and stdio MCP serving
+
+## Modules
+
+- `agent-task-manager-core`
+  Headless runtime services, MCP catalog wiring, validation, persistence, orchestration, and shared configuration.
+- `spring-webview`
+  Spring MVC delivery for the dashboard, static assets, security, and HTTP MCP transport.
+- `agent-task-manager-clean-java-mcp`
+  Dedicated stdio MCP executable for clean Java rules and validation tools.
+- `agent-task-manager-clean-java-harness`
+  Dedicated stdio MCP executable for the deterministic clean Java harness and integration harness tools.
+- `agent-task-manager-app`
+  Final executable assembly that depends on the headless runtime, `spring-webview`, and both clean Java modules.
 
 ## Package Areas
 
@@ -24,6 +37,9 @@ AgentTaskManager is a Spring Boot control plane for local and remote Codex orche
   Shared bridge, orchestration, validation, and API DTOs that are safe to reuse across layers.
 - `com.agenttaskmanager.app.mcp`
   MCP server bootstrap, resources, prompts, and tool handlers.
+  The dedicated `mcp.cleanjava` subpackage isolates the Clean Java MCP and harness tool implementations behind the existing handler surface.
+- `com.agenttaskmanager.app.web`
+  Servlet controllers and page delivery now live in the `spring-webview` module instead of `agent-task-manager-core`.
 - `com.agenttaskmanager.app.orchestration`
   Task pooling, worker lifecycle, artifacts, cleanup review, and Codex worker transport.
 - `com.agenttaskmanager.app.persistence`
@@ -48,11 +64,17 @@ AgentTaskManager is a Spring Boot control plane for local and remote Codex orche
 
 ## CLI
 
-Run the CLI with:
+Build everything with:
 
 ```bash
-mvn -q -DskipTests package
-java -cp target/classes:target/dependency/* com.agenttaskmanager.app.cli.AgentTaskManagerCli <command>
+mvn -q package
+```
+
+Run the main app jar with no command to start the web server, or pass a CLI command to reuse the same executable:
+
+```bash
+java -jar agent-task-manager-app/target/agent-task-manager-app-0.1.0-SNAPSHOT.jar
+java -jar agent-task-manager-app/target/agent-task-manager-app-0.1.0-SNAPSHOT.jar <command>
 ```
 
 Commands:
@@ -103,8 +125,8 @@ Remote MCP smoke test:
 
 ```bash
 AGENT_TASK_MANAGER_PASSWORD=... ./scripts/test_remote_mcp.sh
-AGENT_TASK_MANAGER_PASSWORD=... java -cp 'target/classes:target/dependency/*' \
-  com.agenttaskmanager.app.cli.AgentTaskManagerCli remote-mcp-smoke
+AGENT_TASK_MANAGER_PASSWORD=... java -jar \
+  agent-task-manager-app/target/agent-task-manager-app-0.1.0-SNAPSHOT.jar remote-mcp-smoke
 ```
 
 The shell script and the CLI smoke command both perform the official streamable HTTP flow against the configured endpoint. The CLI path uses the official Java MCP client and normalizes path-based deployments such as `https://docs.tavall.org/agent-task-manager` plus `/mcp` into `https://docs.tavall.org` plus `/agent-task-manager/mcp`.
@@ -125,4 +147,4 @@ The smoke flow covers:
 
 ## Current Status
 
-The v1 platform builds as one codebase. Worker execution runs through `codex exec` with model `gpt-5.3-codex` by default when available, while the MCP and dashboard surfaces expose the orchestration state for local and remote use.
+The v1 platform now builds as a multi-module Maven project with a dedicated `spring-webview` servlet module and separate clean Java MCP and harness executables. Worker execution still runs through `codex exec` with model `gpt-5.3-codex` by default when available, while the MCP and dashboard surfaces expose the orchestration state for local and remote use.
