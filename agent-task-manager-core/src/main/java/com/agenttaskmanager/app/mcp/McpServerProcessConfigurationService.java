@@ -49,9 +49,6 @@ public class McpServerProcessConfigurationService {
 
   private McpServerProcessConfiguration binaryServer(String serverName, String projectKey) {
     Map<String, String> env = new LinkedHashMap<>();
-    if ("memory".equals(serverName)) {
-      env.put("MEMORY_FILE_PATH", properties.getMemoryFilePath());
-    }
     if ("qdrant".equals(serverName)) {
       env.put("COLLECTION_NAME", resolveQdrantCollection(projectKey));
     }

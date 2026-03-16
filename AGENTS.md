@@ -7,7 +7,7 @@ Follow these rules when editing this repository:
 - Use the official Java MCP SDK for MCP transport, tools, prompts, and resources.
 - Use Codex CLI as the execution backend for worker tasks.
 - AgentTaskManager must configure Codex deterministically in code. Do not rely on user-global Codex config for required MCP servers.
-- Prefer MCP filesystem, ripgrep, git, memory, and Qdrant access for repository inspection and retrieval. Treat direct shell file searching as fallback-only.
+- Prefer MCP filesystem, ripgrep, git, Qdrant, and the harness semantic/context tools for repository inspection and retrieval. Treat direct shell file searching as fallback-only.
 - Optional indexed knowledge lives in Qdrant under the configured `app.knowledge-index.knowledge-base`; keep the index/search path aligned with the CLI and MCP tools.
 - Use Redis, Postgres, MongoDB, and Qdrant through the existing persistence boundaries.
 - Use the `cache` package for caching concerns instead of creating parallel cache abstractions.

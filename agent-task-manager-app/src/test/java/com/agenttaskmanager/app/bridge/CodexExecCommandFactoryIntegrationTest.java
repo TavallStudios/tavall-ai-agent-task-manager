@@ -12,7 +12,6 @@ import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {
     "app.codex.mcp-server-bin-dir=/srv/test-mcp/bin",
-    "app.codex.memory-file-path=/srv/test-memory.jsonl",
     "app.codex.add-directories=/srv,/srv/local-pc-root",
     "app.qdrant.project-collection-prefix=agent_task_manager_project_test"
 })

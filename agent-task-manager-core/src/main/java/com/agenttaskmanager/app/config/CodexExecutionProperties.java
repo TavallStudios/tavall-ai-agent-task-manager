@@ -8,7 +8,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class CodexExecutionProperties {
 
   private String mcpServerBinDir = "/srv/mcp-servers/bin";
-  private String memoryFilePath = "/srv/.codex-memory/global-memory.jsonl";
   private String reasoningEffort = "high";
   private List<String> addDirectories = new ArrayList<>(List.of("/srv", "/srv/local-pc-root"));
   private List<String> requiredMcpServers = new ArrayList<>(
@@ -23,14 +22,6 @@ public class CodexExecutionProperties {
 
   public void setMcpServerBinDir(String mcpServerBinDir) {
     this.mcpServerBinDir = mcpServerBinDir;
-  }
-
-  public String getMemoryFilePath() {
-    return memoryFilePath;
-  }
-
-  public void setMemoryFilePath(String memoryFilePath) {
-    this.memoryFilePath = memoryFilePath;
   }
 
   public String getReasoningEffort() {
