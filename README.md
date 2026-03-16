@@ -4,6 +4,7 @@ AgentTaskManager is a multi-module Spring Boot control plane for local and remot
 
 - a Java MCP server built with the official MCP Java SDK
 - a harness core that accepts parent work, routes typed workers, assembles shared state, and gates approvals
+- a brokered harness tool bundle that fans out downstream MCP calls in parallel and returns one merged response
 - specialized worker types for code, cleanup, computer-use, and retrieval jobs
 - ArchUnit and Spoon validation pipelines with a shared report model
 - Postgres, Redis, MongoDB, and Qdrant persistence boundaries
@@ -20,7 +21,7 @@ AgentTaskManager is a multi-module Spring Boot control plane for local and remot
 - `agent-task-manager-clean-java-mcp`
   Dedicated stdio MCP executable for clean Java rules and validation tools.
 - `agent-task-manager-clean-java-harness`
-  Dedicated stdio MCP executable for the harness-core intake, routing, state, approval, and clean Java harness tools.
+  Dedicated stdio MCP executable for the harness-core intake, routing, state, approval, bundled tool brokering, and clean Java harness tools.
 - `agent-task-manager-app`
   Final executable assembly that depends on the headless runtime, `spring-webview`, and both clean Java modules.
 
@@ -143,8 +144,11 @@ The dedicated `clean-java-harness` stdio server exposes the curated harness surf
 - `routeHarnessTask`
 - `loadHarnessState`
 - `runHarnessApprovalGate`
+- `runHarnessToolBundle`
 - `runCleanJavaHarness`
 - `runJavaIntegrationHarness`
+
+Codex worker runs now inject `clean-java-harness` as the default required MCP server. Repository inspection and retrieval should flow through `runHarnessToolBundle`, which fans out to filesystem, ripgrep, and git on the harness host in parallel and returns one merged payload.
 
 Remote MCP smoke test:
 
@@ -172,4 +176,4 @@ The smoke flow covers:
 
 ## Current Status
 
-The platform now builds as a multi-module Maven project with a dedicated `spring-webview` servlet module and separate clean Java MCP and harness executables. Worker execution still runs through `codex exec` with model `gpt-5.3-codex` by default when available, while the harness core, MCP surfaces, and dashboard expose one shared task and approval model for local and remote use.
+The platform now builds as a multi-module Maven project with a dedicated `spring-webview` servlet module and separate clean Java MCP and harness executables. Worker execution still runs through `codex exec` with model `gpt-5.3-codex` by default when available, but Codex now depends on the harness MCP surface by default while the harness brokers downstream repository tools in parallel and exposes one shared task and approval model for local and remote use.

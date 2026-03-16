@@ -1,0 +1,30 @@
+package com.agenttaskmanager.app.harness.tools;
+
+import java.util.Arrays;
+
+public enum HarnessToolBundleType {
+  REPO_CONTEXT("repo-context"),
+  WORKER_CONTEXT("worker-context"),
+  JAVA_CONTEXT("java-context");
+
+  private final String value;
+
+  HarnessToolBundleType(String value) {
+    this.value = value;
+  }
+
+  public String value() {
+    return value;
+  }
+
+  public static HarnessToolBundleType fromValue(String value) {
+    if (value == null || value.isBlank()) {
+      return WORKER_CONTEXT;
+    }
+    String normalized = value.strip().replace('_', '-').toLowerCase();
+    return Arrays.stream(values())
+        .filter(candidate -> candidate.value.equals(normalized) || candidate.name().toLowerCase().replace('_', '-').equals(normalized))
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("Unknown harness tool bundle: " + value));
+  }
+}

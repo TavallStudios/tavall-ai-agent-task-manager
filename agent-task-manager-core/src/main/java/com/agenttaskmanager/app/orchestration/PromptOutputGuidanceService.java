@@ -11,7 +11,8 @@ public class PromptOutputGuidanceService {
   public String deterministicExecutionPolicy() {
     return """
         - tool access is configured by AgentTaskManager before the run starts
-        - use the configured MCP servers for repository inspection and semantic retrieval first
+        - clean-java-harness is the primary MCP surface for Codex worker runs
+        - use the harness bundle tools to broker repository inspection and retrieval before reaching for individual tool calls
         - treat direct shell searching as fallback-only when the MCP tools cannot satisfy the operation
         - verify repository state before claiming that work is complete
         """;
@@ -34,10 +35,10 @@ public class PromptOutputGuidanceService {
    */
   public String toolCombinationPatterns() {
     return """
-        - filesystem + ripgrep: use ripgrep to narrow files quickly, then open exact files with filesystem tooling to confirm behavior before changing anything
-        - qdrant + filesystem/ripgrep: use semantic memory to form the initial hypothesis, then verify every important claim against the live repository
-        - git + filesystem: inspect the current worktree before editing and review the final diff against the touched files before reporting completion
-        - loadCleanJavaRules + runCleanJavaHarness: when the task changes Java code, load the rules before editing and run the deterministic harness after the diff is ready
+        - runHarnessToolBundle(worker-context): load shared task state, retrieval context, git status, filesystem listing, and search results in one brokered call before editing
+        - runHarnessToolBundle(repo-context): fan out filesystem, ripgrep, and git calls in parallel on the harness server instead of chaining them from Codex
+        - runHarnessToolBundle(java-context) + runCleanJavaHarness: load clean Java rules plus repo context before editing, then run the deterministic harness after the diff is ready
+        - use direct shell search only when the brokered harness bundle cannot satisfy the operation
         """;
   }
 

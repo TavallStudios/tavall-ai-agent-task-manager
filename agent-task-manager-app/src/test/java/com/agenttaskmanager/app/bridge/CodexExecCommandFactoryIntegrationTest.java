@@ -32,12 +32,15 @@ class CodexExecCommandFactoryIntegrationTest extends IntegrationTestSupport {
     );
 
     assertTrue(command.contains("-c"));
-    assertTrue(command.stream().anyMatch(item -> item.contains("mcp_servers.filesystem.command=\"/srv/test-mcp/bin/filesystem\"")));
+    assertFalse(command.stream().anyMatch(item -> item.contains("mcp_servers.filesystem.command=")));
     assertFalse(command.stream().anyMatch(item -> item.contains("mcp_servers.filesystem-localpc.command=")));
-    assertTrue(command.stream().anyMatch(item -> item.contains("mcp_servers.memory.env.MEMORY_FILE_PATH=\"/srv/test-memory.jsonl\"")));
-    assertTrue(command.stream().anyMatch(item -> item.contains("mcp_servers.qdrant.env.COLLECTION_NAME=\"agent_task_manager_project_test_hy_rhythm\"")));
-    assertTrue(command.stream().anyMatch(item -> item.contains("mcp_servers.clean-java-mcp.command=\"/bin/bash\"")));
-    assertTrue(command.stream().anyMatch(item -> item.contains("mcp_servers.clean-java-harness.command=\"/bin/bash\"")));
+    assertFalse(command.stream().anyMatch(item -> item.contains("mcp_servers.memory.env.MEMORY_FILE_PATH=")));
+    assertFalse(command.stream().anyMatch(item -> item.contains("mcp_servers.qdrant.env.COLLECTION_NAME=")));
+    assertFalse(command.stream().anyMatch(item -> item.contains("mcp_servers.clean-java-mcp.command=")));
+    assertTrue(command.stream().anyMatch(item -> item.contains("mcp_servers.clean-java-harness.command=\"java\"")));
+    assertTrue(command.stream().anyMatch(item -> item.contains(
+        "mcp_servers.clean-java-harness.args=[\"-jar\",\"/srv/AgentTaskManager/agent-task-manager-clean-java-harness/target/agent-task-manager-clean-java-harness-0.1.0-SNAPSHOT-exec.jar\"]"
+    )));
     assertTrue(command.contains("--add-dir"));
     assertTrue(command.contains("/srv/local-pc-root"));
   }
@@ -51,9 +54,9 @@ class CodexExecCommandFactoryIntegrationTest extends IntegrationTestSupport {
     );
 
     assertTrue(envelope.contains("Tool combination patterns:"));
-    assertTrue(envelope.contains("filesystem + ripgrep"));
-    assertTrue(envelope.contains("qdrant + filesystem/ripgrep"));
-    assertTrue(envelope.contains("loadCleanJavaRules + runCleanJavaHarness"));
+    assertTrue(envelope.contains("runHarnessToolBundle(worker-context)"));
+    assertTrue(envelope.contains("runHarnessToolBundle(repo-context)"));
+    assertTrue(envelope.contains("runHarnessToolBundle(java-context) + runCleanJavaHarness"));
     assertTrue(envelope.contains("Final response contract:"));
     assertTrue(envelope.contains("report verification status explicitly"));
   }

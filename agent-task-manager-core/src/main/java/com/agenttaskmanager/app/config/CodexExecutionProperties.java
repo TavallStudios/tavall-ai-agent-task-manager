@@ -13,16 +13,6 @@ public class CodexExecutionProperties {
   private List<String> addDirectories = new ArrayList<>(List.of("/srv", "/srv/local-pc-root"));
   private List<String> requiredMcpServers = new ArrayList<>(
       List.of(
-          "filesystem",
-          "ripgrep",
-          "git",
-          "memory",
-          "qdrant",
-          "redis",
-          "postgres",
-          "mongodb",
-          "mcp-catalog",
-          "clean-java-mcp",
           "clean-java-harness"
       )
   );

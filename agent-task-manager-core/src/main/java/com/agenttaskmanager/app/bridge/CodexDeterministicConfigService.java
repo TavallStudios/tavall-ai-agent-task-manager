@@ -1,51 +1,47 @@
 package com.agenttaskmanager.app.bridge;
 
 import com.agenttaskmanager.app.config.CodexExecutionProperties;
-import com.agenttaskmanager.app.persistence.qdrant.QdrantCollectionNameResolver;
+import com.agenttaskmanager.app.mcp.McpServerProcessConfiguration;
+import com.agenttaskmanager.app.mcp.McpServerProcessConfigurationService;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
 public class CodexDeterministicConfigService {
 
   private final CodexExecutionProperties properties;
-  private final QdrantCollectionNameResolver collectionNameResolver;
+  private final McpServerProcessConfigurationService processConfigurationService;
 
   public CodexDeterministicConfigService(
       CodexExecutionProperties properties,
-      QdrantCollectionNameResolver collectionNameResolver
+      McpServerProcessConfigurationService processConfigurationService
   ) {
     this.properties = properties;
-    this.collectionNameResolver = collectionNameResolver;
+    this.processConfigurationService = processConfigurationService;
   }
 
   public void appendDeterministicArguments(List<String> command, String projectKey) {
     appendConfig(command, "model_reasoning_effort", tomlString(properties.getReasoningEffort()));
     for (String serverName : properties.getRequiredMcpServers()) {
+      McpServerProcessConfiguration configuration = processConfigurationService.resolve(serverName, projectKey);
       appendConfig(
           command,
           "mcp_servers." + serverName + ".command",
-          tomlString(resolveServerCommand(serverName))
+          tomlString(configuration.command())
       );
-      if (usesShellWrapper(serverName)) {
+      if (!configuration.args().isEmpty()) {
         appendConfig(
             command,
             "mcp_servers." + serverName + ".args",
-            tomlArray(properties.getMcpServerBinDir() + "/" + serverName)
+            tomlArray(configuration.args())
         );
       }
-      if ("memory".equals(serverName)) {
+      for (var entry : configuration.env().entrySet()) {
         appendConfig(
             command,
-            "mcp_servers.memory.env.MEMORY_FILE_PATH",
-            tomlString(properties.getMemoryFilePath())
-        );
-      }
-      if ("qdrant".equals(serverName)) {
-        appendConfig(
-            command,
-            "mcp_servers.qdrant.env.COLLECTION_NAME",
-            tomlString(resolveQdrantCollection(projectKey))
+            "mcp_servers." + serverName + ".env." + entry.getKey(),
+            tomlString(entry.getValue())
         );
       }
     }
@@ -57,31 +53,15 @@ public class CodexDeterministicConfigService {
     }
   }
 
-  private String resolveQdrantCollection(String projectKey) {
-    if (projectKey == null || projectKey.isBlank()) {
-      return collectionNameResolver.legacyCollection();
-    }
-    return collectionNameResolver.projectCollection(projectKey);
-  }
-
-  private String resolveServerCommand(String serverName) {
-    if (usesShellWrapper(serverName)) {
-      return "/bin/bash";
-    }
-    return properties.getMcpServerBinDir() + "/" + serverName;
-  }
-
-  private static boolean usesShellWrapper(String serverName) {
-    return "clean-java-mcp".equals(serverName) || "clean-java-harness".equals(serverName);
-  }
-
   private static void appendConfig(List<String> command, String key, String value) {
     command.add("-c");
     command.add(key + "=" + value);
   }
 
-  private static String tomlArray(String value) {
-    return "[" + tomlString(value) + "]";
+  private static String tomlArray(List<String> values) {
+    return values.stream()
+        .map(CodexDeterministicConfigService::tomlString)
+        .collect(Collectors.joining(",", "[", "]"));
   }
 
   private static String tomlString(String value) {

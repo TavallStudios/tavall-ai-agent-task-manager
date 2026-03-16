@@ -4,6 +4,7 @@ import com.agenttaskmanager.app.harness.approval.HarnessApprovalService;
 import com.agenttaskmanager.app.harness.intake.HarnessTaskIntakeService;
 import com.agenttaskmanager.app.harness.routing.HarnessRoutingService;
 import com.agenttaskmanager.app.harness.state.HarnessStateService;
+import com.agenttaskmanager.app.harness.tools.HarnessToolBundleService;
 import com.agenttaskmanager.app.mcp.cleanjava.CleanJavaHarnessTools;
 import com.agenttaskmanager.app.validation.ValidationPipelineService;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ public class CleanJavaHarnessToolHandler extends CleanJavaHarnessTools {
       HarnessRoutingService harnessRoutingService,
       HarnessStateService harnessStateService,
       HarnessTaskIntakeService harnessTaskIntakeService,
+      HarnessToolBundleService harnessToolBundleService,
       ValidationPipelineService validationPipelineService,
       McpJsonSchemaFactory schemaFactory,
       McpResultFactory resultFactory,
@@ -26,6 +28,7 @@ public class CleanJavaHarnessToolHandler extends CleanJavaHarnessTools {
         harnessRoutingService,
         harnessStateService,
         harnessTaskIntakeService,
+        harnessToolBundleService,
         validationPipelineService,
         schemaFactory,
         resultFactory,

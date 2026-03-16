@@ -11,7 +11,7 @@ Build modules:
 - `agent-task-manager-clean-java-mcp`
   The dedicated stdio MCP module for clean Java rule loading and source-shape validation tools.
 - `agent-task-manager-clean-java-harness`
-  The dedicated stdio MCP module for the harness-core intake, routing, state, approval, and clean Java harness tools without the servlet web surface on its classpath.
+  The dedicated stdio MCP module for the harness-core intake, routing, state, approval, bundled tool brokering, and clean Java harness tools without the servlet web surface on its classpath.
 - `agent-task-manager-app`
   The final app module that assembles the shared runtime, `spring-webview`, and both clean Java modules into one executable.
 
@@ -46,10 +46,11 @@ Build modules:
 3. The overseer creates a batch and queues those worker tasks.
 4. A worker session claims and receives a lease.
 5. `LocalCodexWorkerTransport` executes `codex exec` inside an isolated worktree.
-6. Worker output and diff artifacts are stored.
-7. The shared harness approval gate runs cleanup review, validation, integration tests when required, and patch-scope checks.
-8. The overseer stores decisions and patch outcomes.
-9. The shared harness state model plus dashboard and MCP surfaces expose the latest state.
+6. Codex uses the harness MCP surface, and the harness fans out repository tool calls in parallel when bundle tools are invoked.
+7. Worker output and diff artifacts are stored.
+8. The shared harness approval gate runs cleanup review, validation, integration tests when required, and patch-scope checks.
+9. The overseer stores decisions and patch outcomes.
+10. The shared harness state model plus dashboard and MCP surfaces expose the latest state.
 
 ## Semantic Retrieval
 
@@ -66,7 +67,7 @@ Build modules:
 - resources for docs
 - prompts for overseer, worker, and cleanup roles
 - tool groups for task pooling, worker state, shared context, validation, artifacts, retrieval, cache, and decisions
-- the dedicated `clean-java-harness` group now exposes a single harness surface for intake, routing, state, approval, and deterministic clean Java validation
+- the dedicated `clean-java-harness` group now exposes a single harness surface for intake, routing, state, brokered tool bundles, approval, and deterministic clean Java validation
 
 ## Remote Path
 

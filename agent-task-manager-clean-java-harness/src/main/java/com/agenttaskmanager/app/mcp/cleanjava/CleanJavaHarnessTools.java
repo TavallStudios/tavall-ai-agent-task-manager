@@ -9,6 +9,9 @@ import com.agenttaskmanager.app.harness.routing.HarnessRoutingPlan;
 import com.agenttaskmanager.app.harness.routing.HarnessRoutingService;
 import com.agenttaskmanager.app.harness.state.HarnessStateService;
 import com.agenttaskmanager.app.harness.state.HarnessStateSnapshot;
+import com.agenttaskmanager.app.harness.tools.HarnessToolBundleRequest;
+import com.agenttaskmanager.app.harness.tools.HarnessToolBundleResult;
+import com.agenttaskmanager.app.harness.tools.HarnessToolBundleService;
 import com.agenttaskmanager.app.mcp.McpJsonSchemaFactory;
 import com.agenttaskmanager.app.mcp.McpResultFactory;
 import com.agenttaskmanager.app.mcp.McpToolPayloadMapper;
@@ -28,6 +31,7 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
   private final HarnessRoutingService harnessRoutingService;
   private final HarnessStateService harnessStateService;
   private final HarnessTaskIntakeService harnessTaskIntakeService;
+  private final HarnessToolBundleService harnessToolBundleService;
   private final ValidationPipelineService validationPipelineService;
   private final McpResultFactory resultFactory;
   private final McpToolPayloadMapper payloadMapper;
@@ -37,6 +41,7 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
       HarnessRoutingService harnessRoutingService,
       HarnessStateService harnessStateService,
       HarnessTaskIntakeService harnessTaskIntakeService,
+      HarnessToolBundleService harnessToolBundleService,
       ValidationPipelineService validationPipelineService,
       McpJsonSchemaFactory schemaFactory,
       McpResultFactory resultFactory,
@@ -47,6 +52,7 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
     this.harnessRoutingService = harnessRoutingService;
     this.harnessStateService = harnessStateService;
     this.harnessTaskIntakeService = harnessTaskIntakeService;
+    this.harnessToolBundleService = harnessToolBundleService;
     this.validationPipelineService = validationPipelineService;
     this.resultFactory = resultFactory;
     this.payloadMapper = payloadMapper;
@@ -80,6 +86,21 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
             Map.of("taskId", stringProperty("Task id.")),
             List.of("taskId"),
             arguments -> new HarnessStateResponse(harnessStateService.loadState(map(arguments, HarnessTaskIdRequest.class).taskId()))
+        ),
+        spec(
+            "runHarnessToolBundle",
+            "Broker repository, retrieval, and clean Java context through one harness call that fans out downstream MCP tools in parallel.",
+            Map.of(
+                "bundleName", stringProperty("Bundle name: repo-context, worker-context, or java-context."),
+                "taskId", stringProperty("Task id."),
+                "workerTaskId", stringProperty("Worker task id."),
+                "projectKey", stringProperty("Project key for semantic retrieval."),
+                "repoPath", stringProperty("Repository path. Defaults to the current working directory when omitted."),
+                "queryText", stringProperty("Search query for retrieval and ripgrep."),
+                "limit", integerProperty("Result limit for search-oriented bundle calls.")
+            ),
+            List.of("bundleName"),
+            arguments -> new HarnessToolBundleResponse(harnessToolBundleService.executeBundle(map(arguments, HarnessToolBundleRequest.class)))
         ),
         spec(
             "runHarnessApprovalGate",
@@ -265,6 +286,9 @@ record HarnessRoutingResponse(HarnessRoutingPlan routingPlan) {
 }
 
 record HarnessStateResponse(HarnessStateSnapshot harnessState) {
+}
+
+record HarnessToolBundleResponse(HarnessToolBundleResult bundleResult) {
 }
 
 record HarnessApprovalResponse(HarnessApprovalGateResult gateResult) {

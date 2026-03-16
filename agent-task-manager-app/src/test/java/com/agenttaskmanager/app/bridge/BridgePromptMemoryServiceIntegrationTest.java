@@ -47,7 +47,7 @@ class BridgePromptMemoryServiceIntegrationTest extends IntegrationTestSupport {
     assertTrue(preparedPrompt.envelope().contains("Always check memory first for prompt " + suffix));
     assertTrue(preparedPrompt.envelope().contains("while checking the prompt"));
     assertTrue(preparedPrompt.envelope().contains("Tool combination patterns:"));
-    assertTrue(preparedPrompt.envelope().contains("filesystem + ripgrep"));
+    assertTrue(preparedPrompt.envelope().contains("runHarnessToolBundle(worker-context)"));
     assertTrue(preparedPrompt.envelope().contains("Final response contract:"));
   }
 }

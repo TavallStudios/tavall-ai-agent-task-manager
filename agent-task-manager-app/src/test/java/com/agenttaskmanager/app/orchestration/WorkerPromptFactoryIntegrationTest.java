@@ -69,7 +69,8 @@ class WorkerPromptFactoryIntegrationTest extends IntegrationTestSupport {
     assertTrue(prompt.contains("before the final response"));
     assertTrue(prompt.contains("Tool combination patterns:"));
     assertTrue(prompt.contains("Worker focus:"));
-    assertTrue(prompt.contains("loadCleanJavaRules + runCleanJavaHarness"));
+    assertTrue(prompt.contains("runHarnessToolBundle(worker-context)"));
+    assertTrue(prompt.contains("runHarnessToolBundle(java-context) + runCleanJavaHarness"));
     assertTrue(prompt.contains("Final response contract:"));
   }
 }

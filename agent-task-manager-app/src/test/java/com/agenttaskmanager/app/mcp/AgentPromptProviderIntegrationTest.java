@@ -32,8 +32,8 @@ class AgentPromptProviderIntegrationTest extends IntegrationTestSupport {
     assertTrue(body.contains("Deterministic execution policy:"));
     assertTrue(body.contains("Memory policy:"));
     assertTrue(body.contains("Tool combination patterns:"));
-    assertTrue(body.contains("filesystem + ripgrep"));
-    assertTrue(body.contains("loadCleanJavaRules + runCleanJavaHarness"));
+    assertTrue(body.contains("runHarnessToolBundle(worker-context)"));
+    assertTrue(body.contains("runHarnessToolBundle(java-context) + runCleanJavaHarness"));
     assertTrue(body.contains("Final response contract:"));
   }
 

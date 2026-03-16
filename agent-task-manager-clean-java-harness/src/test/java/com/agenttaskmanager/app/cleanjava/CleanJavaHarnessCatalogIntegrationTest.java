@@ -47,6 +47,7 @@ class CleanJavaHarnessCatalogIntegrationTest {
             "intakeHarnessTask",
             "routeHarnessTask",
             "loadHarnessState",
+            "runHarnessToolBundle",
             "runHarnessApprovalGate",
             "runCleanJavaHarness",
             "runJavaIntegrationHarness"
