@@ -56,7 +56,7 @@ worker says "done" -> patch applied with no diff review or validation
 ## Good CLI Usage
 
 ```bash
-java -cp target/classes:target/dependency/* com.agenttaskmanager.app.cli.AgentTaskManagerCli validate /srv/AgentTaskManager
-java -cp target/classes:target/dependency/* com.agenttaskmanager.app.cli.AgentTaskManagerCli run-workers tb_example /srv/AgentTaskManager worker
-java -cp target/classes:target/dependency/* com.agenttaskmanager.app.cli.AgentTaskManagerCli serve-mcp-stdio
+java -jar agent-task-manager-app/target/agent-task-manager-app-0.1.0-SNAPSHOT.jar validate /srv/AgentTaskManager
+java -jar agent-task-manager-app/target/agent-task-manager-app-0.1.0-SNAPSHOT.jar run-workers tb_example /srv/AgentTaskManager worker
+java -jar agent-task-manager-app/target/agent-task-manager-app-0.1.0-SNAPSHOT.jar serve-mcp-stdio
 ```

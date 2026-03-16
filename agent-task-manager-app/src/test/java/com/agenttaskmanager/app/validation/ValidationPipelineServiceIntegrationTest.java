@@ -1,0 +1,81 @@
+package com.agenttaskmanager.app.validation;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.agenttaskmanager.app.model.validation.ValidationReport;
+import com.agenttaskmanager.app.support.IntegrationTestSupport;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.simple.JdbcClient;
+
+class ValidationPipelineServiceIntegrationTest extends IntegrationTestSupport {
+
+  private static final String TASK_ID = "validation-test";
+
+  @Autowired
+  private ValidationPipelineService validationPipelineService;
+
+  @Autowired
+  private JdbcClient jdbcClient;
+
+  @BeforeEach
+  void cleanup() {
+    jdbcClient.sql("DELETE FROM agent_task_manager.validation_violations").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.validation_reports").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.agent_tasks WHERE task_id = :taskId")
+        .param("taskId", TASK_ID)
+        .update();
+  }
+
+  @Test
+  void shouldSkipArchUnitForExternalRepository(@TempDir Path tempDir) throws Exception {
+    Path repoPath = tempDir.resolve("external-repo");
+    Files.createDirectories(repoPath.resolve("src/main/java/example"));
+    Files.writeString(
+        repoPath.resolve("src/main/java/example/FixtureApp.java"),
+        """
+        package example;
+
+        public class FixtureApp {
+        }
+        """,
+        StandardCharsets.UTF_8
+    );
+    jdbcClient.sql("""
+        INSERT INTO agent_task_manager.agent_tasks (
+          task_id,
+          project_key,
+          source_repo,
+          task_kind,
+          title,
+          status
+        ) VALUES (
+          :taskId,
+          'validation-test-project',
+          :sourceRepo,
+          'general',
+          'Validation test task',
+          'QUEUED'
+        )
+        """)
+        .param("taskId", TASK_ID)
+        .param("sourceRepo", repoPath.toString())
+        .update();
+
+    ValidationReport report = validationPipelineService.runValidationPipeline(TASK_ID, null, repoPath);
+
+    assertEquals("passed", report.status());
+  }
+
+  @Test
+  void shouldDetectCurrentMultiModuleProjectWithoutPackageRootRules() {
+    Path repoRoot = Path.of("").toAbsolutePath().getParent();
+    assertTrue(AgentTaskManagerProjectLayout.isProjectRoot(repoRoot));
+  }
+}

@@ -2,10 +2,24 @@
 
 ## Boundaries
 
+Build modules:
+
+- `agent-task-manager-core`
+  Shared headless runtime components, MCP catalog infrastructure, validation, persistence, dashboard, and orchestration code.
+- `spring-webview`
+  Spring servlet delivery for the dashboard, HTTP APIs, login pages, static assets, and HTTP MCP transport.
+- `agent-task-manager-clean-java-mcp`
+  The dedicated stdio MCP module for clean Java rule loading and source-shape validation tools.
+- `agent-task-manager-clean-java-harness`
+  The dedicated stdio MCP module for the deterministic clean Java harness and integration harness tools without the servlet web surface on its classpath.
+- `agent-task-manager-app`
+  The final app module that assembles the shared runtime, `spring-webview`, and both clean Java modules into one executable.
+
 - `web`
   HTTP delivery and dashboard APIs.
 - `mcp`
   MCP prompts, resources, tools, and server bootstrap.
+  Clean Java validation and harness tool implementations live under a dedicated `mcp.cleanjava` subpackage while preserving the existing MCP handler surface.
 - `orchestration`
   Overseer flow, task pool, worker lifecycle, cleanup review, artifacts, shared context, and Codex worker transport.
 - `validation`

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Task Manager</title>
+  <meta name="app-base" th:content="@{/}">
+  <meta name="_csrf" th:content="${_csrf.token}">
+  <meta name="_csrf_header" th:content="${_csrf.headerName}">
+  <meta name="atm-username" th:content="${username}">
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">Agent Task Manager</div>
+      <h1>Remote control plane for tasks, browser IDE access, and fail-safe recovery</h1>
+    </div>
+    <div class="topbar-actions">
+      <div class="status-note" id="refresh-status">Waiting for first sync.</div>
+      <div class="topbar-button-row">
+        <button class="ghost-button" id="refresh-dashboard" type="button">Refresh now</button>
+        <form method="post" th:action="@{/logout}">
+          <button class="ghost-button" type="submit">Sign out</button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel hero">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Task count</div>
+          <div class="stat-value" id="task-count">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Queued prompts</div>
+          <div class="stat-value" id="queued-prompts">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Multi-agent</div>
+          <div class="stat-value" id="multi-agent-mode">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Redis</div>
+          <div class="stat-value small" id="redis-namespace">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Bridge</div>
+          <div class="stat-value small" id="bridge-status">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Bridge request</div>
+          <div class="stat-value small" id="bridge-active-request">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Browser IDE</div>
+          <div class="stat-value small" id="browser-ide-status">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active workers</div>
+          <div class="stat-value" id="active-workers">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Dead workers</div>
+          <div class="stat-value" id="dead-workers">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active chats</div>
+          <div class="stat-value" id="active-chats">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Dead chats</div>
+          <div class="stat-value" id="dead-chats">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Cleanup pending</div>
+          <div class="stat-value" id="cleanup-pending">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Patch rejections</div>
+          <div class="stat-value" id="patch-rejections">-</div>
+        </div>
+      </div>
+      <div class="hero-subsection">
+        <div class="section-heading compact">
+          <div>
+            <div class="eyebrow">Bridge Sessions</div>
+            <h2>Connected local and remote bridges</h2>
+          </div>
+        </div>
+        <div class="list-shell bridge-session-list" id="bridge-session-list"></div>
+      </div>
+    </section>
+
+    <section class="panel access-panel">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">Workspace Access</div>
+          <h2>Browser IDE, queue bridge, and recovery lanes</h2>
+        </div>
+        <div class="muted" id="workspace-checked-at">No operator surface check yet.</div>
+      </div>
+      <div class="tool-grid" id="workspace-tool-list"></div>
+      <div class="access-footer">
+        <div>
+          <h3>Repo roots</h3>
+          <div class="chip-list" id="workspace-repo-roots"></div>
+        </div>
+        <div>
+          <h3>Failover order</h3>
+          <div class="list-shell compact-list" id="workspace-failover-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">Orchestration</div>
+          <h2>Workers, batches, validation, and patch gates</h2>
+        </div>
+      </div>
+      <div class="dashboard-grid">
+        <div>
+          <h3>Workers</h3>
+          <div class="list-shell" id="dashboard-worker-list"></div>
+        </div>
+        <div>
+          <h3>Batches</h3>
+          <div class="list-shell" id="dashboard-batch-list"></div>
+        </div>
+        <div>
+          <h3>Validations</h3>
+          <div class="list-shell" id="dashboard-validation-list"></div>
+        </div>
+        <div>
+          <h3>Patch Decisions</h3>
+          <div class="list-shell" id="dashboard-patch-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel compose-panel">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">Chat Composer</div>
+          <h2>Send a prompt into a live bridge thread</h2>
+        </div>
+      </div>
+      <form id="prompt-form" class="compose-form">
+        <label class="full-span">
+          <span>Repository</span>
+          <select id="repo-path" name="repoPath" required>
+            <option value="">Select a repository</option>
+          </select>
+        </label>
+        <label>
+          <span>Bridge target</span>
+          <select id="bridge-target" name="bridgeTarget">
+            <option value="local-ide">local IDE</option>
+            <option value="remote-headless">remote server</option>
+          </select>
+        </label>
+        <label>
+          <span>Execution mode</span>
+          <select id="execution-mode" name="executionMode">
+            <option value="read-only">read-only</option>
+            <option value="edit">edit</option>
+            <option value="run-tests">run-tests</option>
+          </select>
+        </label>
+        <div class="full-span muted" id="repo-selection-meta">Select a repo. Agent Task Manager will assign the internal project key automatically.</div>
+        <label class="full-span">
+          <span>Prompt</span>
+          <textarea id="prompt-text" name="promptText" rows="6" placeholder="Investigate the startup race and only patch the service if the runtime logs rule out a hard crash." required></textarea>
+        </label>
+        <div class="full-span submit-row">
+          <div class="muted" id="prompt-submit-status">Queue a prompt request for the local Codex bridge.</div>
+          <button type="submit">Queue prompt</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">Chats</div>
+          <h2>Threaded prompt history</h2>
+        </div>
+        <label class="compact-filter">
+          <span>Bridge</span>
+          <select id="thread-bridge-filter">
+            <option value="">all</option>
+            <option value="local-ide">local IDE</option>
+            <option value="remote-headless">remote server</option>
+          </select>
+        </label>
+      </div>
+      <div class="list-shell" id="thread-list"></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">Task Viewer</div>
+          <h2>Cross-project task state</h2>
+        </div>
+        <div class="filter-row">
+          <input type="text" id="task-project-filter" placeholder="project key">
+          <input type="text" id="task-status-filter" placeholder="status">
+        </div>
+      </div>
+      <div class="list-shell" id="task-list"></div>
+    </section>
+
+    <section class="panel detail-grid">
+      <div>
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">Chat View</div>
+            <h2 id="thread-detail-title">Select a chat thread</h2>
+          </div>
+        </div>
+        <div id="thread-detail" class="detail-shell empty-state">Choose a chat thread to inspect the conversation.</div>
+      </div>
+      <div>
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">Task Detail</div>
+            <h2 id="task-detail-title">Select a task</h2>
+          </div>
+        </div>
+        <div id="task-detail" class="detail-shell empty-state">Choose a task to inspect checkpoints.</div>
+      </div>
+    </section>
+  </main>
+
+  <script th:src="@{/js/app.js}"></script>
+</body>
+</html>

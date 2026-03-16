@@ -2,7 +2,7 @@
 
 Follow these rules when editing this repository:
 
-- Use the current package layout under `com.agenttaskmanager.app` and the top-level `cache` package.
+- Keep package layouts coherent, but do not hardcode one required package root into new module or validation work.
 - Keep classes under 300 lines. Split by concern early.
 - Use the official Java MCP SDK for MCP transport, tools, prompts, and resources.
 - Use Codex CLI as the execution backend for worker tasks.
