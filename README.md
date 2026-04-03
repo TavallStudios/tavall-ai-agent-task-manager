@@ -1,6 +1,6 @@
 # AgentTaskManager
 
-AgentTaskManager is a multi-module Spring Boot control plane for local and remote Codex orchestration. It now includes:
+AgentTaskManager is a multi-module MCP-first control plane for local and remote Codex orchestration. It now includes:
 
 - a Java MCP server built with the official MCP Java SDK
 - a harness core that accepts parent work, routes typed workers, assembles shared state, and gates approvals
@@ -8,27 +8,58 @@ AgentTaskManager is a multi-module Spring Boot control plane for local and remot
 - specialized worker types for code, cleanup, computer-use, and retrieval jobs
 - ArchUnit and Spoon validation pipelines with a shared report model
 - Postgres, Redis, MongoDB, and Qdrant persistence boundaries
-- an AbstractCache-derived `cache` package for hot orchestration, validation, and dashboard caching
-- dashboard APIs and UI panels for chats, workers, batches, validation, and patch outcomes
+- an AbstractCache-derived `cache` package for hot orchestration, validation, and runtime caching
+- a cooperative automation command queue for same-device bridges that must not move the real mouse or steal focus
 - a CLI entrypoint for validation, scan, worker execution, and stdio MCP serving
+- a standalone embedded `/mcp` runtime in the main app, plus a compatibility MCP HTTP adapter module kept for Spring-hosted tests and phased migration
+
+## Quick Start
+
+Clone the repo, then point your MCP client at one of the repo-local stdio launchers:
+
+- Unix: `scripts/agent-task-manager-mcp-stdio.sh`
+- Windows: `scripts/agent-task-manager-mcp-stdio.cmd`
+
+These scripts resolve the repo root automatically and build the app jar on first run if it is missing. The only setup you need in your MCP client is the launcher path plus any optional remote repo-broker environment variables.
+
+If you want Codex to own that registration through a local plugin instead of a raw MCP config file, install the repo-local plugin at `plugins/agent-task-manager/`. The plugin wraps the same runtime through `.mcp.json`, keeps the ATM skill bundled with it, and provides `scripts/ensure_operator_surface.py` when an HTTP operator surface is needed.
+
+Example MCP config files are included in:
+
+- `mcp-config/agent-task-manager.stdio.unix.example.json`
+- `mcp-config/agent-task-manager.stdio.windows.example.json`
 
 ## Modules
 
 - `agent-task-manager-core`
   Headless runtime services, MCP catalog wiring, validation, persistence, orchestration, and shared configuration.
 - `spring-webview`
-  Spring MVC delivery for the dashboard, static assets, security, and HTTP MCP transport.
+  The compatibility MCP HTTP adapter artifact `agent-task-manager-mcp-http`. It retains the Spring-hosted `/mcp` transport for tests and phased migration without the old dashboard, pages, or REST APIs.
 - `agent-task-manager-clean-java-mcp`
   Dedicated stdio MCP executable for clean Java rules and validation tools.
 - `agent-task-manager-clean-java-harness`
-  Dedicated stdio MCP executable for the harness-core intake, routing, state, approval, bundled tool brokering, and clean Java harness tools.
+  Bundled local validator/runtime facade for harness approval, bundled repo context, and deterministic clean Java validation. It is not a standalone MCP server.
+- `agent-task-manager-artifact-tools`
+  Domain module for artifact read/write MCP tools that the central MCP imports.
+- `agent-task-manager-cache-tools`
+  Domain module for cache warming and cache-read MCP tools that the central MCP imports.
+- `agent-task-manager-context-tools`
+  Domain module for task context, docs, runtime state, chat state, and shared-context MCP tools.
+- `agent-task-manager-computer-use-tools`
+  Domain module for external runner registration, session orchestration, capture, vision, and input MCP tools.
+- `agent-task-manager-orchestration-tools`
+  Domain module for task-pool, worker-lifecycle, cleanup, overseer decision, and autonomous-cycle MCP tools.
+- `agent-task-manager-repo-tools`
+  Domain module for repository transfer, branch, and verbose commit MCP tools.
+- `agent-task-manager-validation-tools`
+  Domain module for validation, patch-scope, integration-test, and cleanup-review MCP tools.
+- `agent-task-manager-vector-memory-tools`
+  Domain module for vector-memory and Qdrant-backed MCP tools that the central MCP imports.
 - `agent-task-manager-app`
-  Final executable assembly that depends on the headless runtime, `spring-webview`, and both clean Java modules.
+  Final executable assembly for the shared runtime, standalone embedded MCP HTTP server, clean Java MCP executable, and bundled harness validator.
 
 ## Package Areas
 
-- `com.agenttaskmanager.app.bridge`
-  Codex bridge worker for queued prompt requests.
 - `com.agenttaskmanager.app.cli`
   CLI entrypoint and command routing.
 - `com.agenttaskmanager.app.dashboard`
@@ -38,10 +69,10 @@ AgentTaskManager is a multi-module Spring Boot control plane for local and remot
 - `com.agenttaskmanager.app.model`
   Shared bridge, orchestration, validation, and API DTOs that are safe to reuse across layers.
 - `com.agenttaskmanager.app.mcp`
-  MCP server bootstrap, resources, prompts, and tool handlers.
+  MCP server bootstrap, resources, prompts, and shared tool wiring.
   The dedicated `mcp.cleanjava` subpackage isolates the Clean Java MCP and harness tool implementations behind the existing handler surface.
-- `com.agenttaskmanager.app.web`
-  Servlet controllers and page delivery now live in the `spring-webview` module instead of `agent-task-manager-core`.
+- `com.agenttaskmanager.app.mcp.tools.*`
+  Domain-scoped MCP tool modules that plug into the central catalog.
 - `com.agenttaskmanager.app.orchestration`
   Task pooling, worker lifecycle, artifacts, cleanup review, and Codex worker transport.
 - `com.agenttaskmanager.app.harness`
@@ -51,7 +82,41 @@ AgentTaskManager is a multi-module Spring Boot control plane for local and remot
 - `com.agenttaskmanager.app.validation`
   ArchUnit and Spoon validation plus patch-gate scoring.
 - `cache`
-  Typed caches for task context, validation summaries, dashboard state, semantic context, and worker sessions.
+  Typed caches for task context, validation summaries, runtime state, semantic context, and worker sessions.
+
+## Cooperative Automation
+
+AgentTaskManager supports a separate bridge path for same-device automation commands that stay non-intrusive.
+
+- sessions register `cooperativeAutomation`, `intrusiveInput`, and `automationCommands`
+- MCP tools queue high-level commands such as `hytale.join-server`, `hytale.open-asset-editor`, and `hyrhythm.press-lane`
+- a local bridge client polls those commands and forwards them to a loopback provider
+- the provider is expected to use cooperative hooks or app-specific APIs instead of raw OS mouse control
+
+The Hytale-specific cooperative catalog now also includes:
+
+- `hytale.close-overlay`
+- `hytale.open-creative-tools`
+- `hytale.open-asset-editor`
+- `hytale.asset-editor.navigate`
+- `hytale.capture-timeline`
+- `hytale.promote-memory`
+- `hytale.list-playbooks`
+- `hytale.execute-playbook`
+
+## Prompt Thread Memory
+
+Prompt threads are now first-class durable memory objects instead of just request metadata.
+
+- `threadKey` can be supplied explicitly in MCP interaction metadata and is otherwise derived from MCP session plus project or repo scope.
+- On every MCP tool, prompt, or resource interaction, AgentTaskManager checks the durable thread store by `threadKey`, then merges thread-scoped semantic memory with broader project and knowledge memory.
+- Inbound interactions, memory lookups, final results, failures, and compact thread snapshots are persisted back into remote Postgres and Qdrant-backed memory.
+- Old chats are searchable by exact key or semantic recall.
+
+MCP tools:
+
+- `searchPromptThreads`
+- `searchPromptThreadMemory`
 
 ## Runtime Responsibilities
 
@@ -64,7 +129,7 @@ AgentTaskManager is a multi-module Spring Boot control plane for local and remot
 - Qdrant
   Semantic context storage and similarity search using a chunk-first flow: raw content is chunked, each chunk is embedded, and Qdrant stores the vector together with the original chunk payload and metadata.
 - `cache`
-  Memory-first TTL caches in front of dashboard, validation, worker, and context reads.
+  Memory-first TTL caches in front of runtime, validation, worker, and context reads.
 
 ## Harness Core
 
@@ -75,7 +140,7 @@ AgentTaskManager is a multi-module Spring Boot control plane for local and remot
 - orchestration
   Reuse the overseer and worker pool to schedule typed workers.
 - state
-  Build one shared task schema, agent schema, persistence model, and dashboard model for each harness task.
+  Build one shared task schema, agent schema, persistence model, and runtime summary model for each harness task.
 - approval
   Run the shared cleanup, validation, integration-test, and patch-scope gate before any worker result is accepted.
 
@@ -87,7 +152,7 @@ Build everything with:
 mvn -q package
 ```
 
-Run the main app jar with no command to start the web server, or pass a CLI command to reuse the same executable:
+Run the main app jar with no command to start the standalone embedded MCP HTTP runtime, or pass a CLI command to reuse the same executable:
 
 ```bash
 java -jar agent-task-manager-app/target/agent-task-manager-app-0.1.0-SNAPSHOT.jar
@@ -144,31 +209,63 @@ Semantic retrieval flow:
 - stdio MCP entrypoint: CLI command `serve-mcp-stdio`
 - prompts: `overseerAgent`, `workerAgent`, `cleanupAgent`
 - resources: `README.md`, `AGENTS.md`, `RULES.md`, `ARCHITECTURE.md`, `EXAMPLES.md`
-- tools: task pool, worker lifecycle, context, validation, artifact, retrieval, cache, and decision tools
+- tools: task pool, worker lifecycle, context, validation, artifact, retrieval, cache, computer-use, and decision tools
 
-The dedicated `clean-java-harness` stdio server exposes the curated harness surface:
+The default no-args app path now starts [StandaloneAgentTaskManagerServer.java](/F:/workspace/AgentTaskManager/agent-task-manager-app/src/main/java/com/agenttaskmanager/app/StandaloneAgentTaskManagerServer.java), which hosts the official MCP Java SDK servlet directly on embedded Tomcat instead of relying on Spring MVC for `/mcp`. The Spring-hosted adapter remains in the repo as a compatibility module for the phase transition and existing web-based integration tests.
+
+The central `agent-task-manager` MCP currently also exposes the curated harness tool surface:
 
 - `intakeHarnessTask`
 - `routeHarnessTask`
 - `loadHarnessState`
 - `runHarnessApprovalGate`
 - `runHarnessToolBundle`
+- `planGitCommit`
+- `prepareGitBranch`
+- `createGitCommit`
 - `loadCleanJavaTaskContext`
 - `runCleanJavaHarness`
 - `runJavaIntegrationHarness`
 
-Codex worker runs now inject `clean-java-harness` as the default required MCP server. Repository inspection and retrieval should flow through `runHarnessToolBundle`, which fans out to filesystem, ripgrep, and git on the harness host in parallel and returns one merged payload.
-For Java work, the harness should build deterministic context first with `loadCleanJavaTaskContext`, then the worker should draft code, then `runCleanJavaHarness` applies Spoon source-shape checks first and ArchUnit plus cycle checks second before approval.
+The central MCP also exposes the external runner orchestration surface for Hytale-first computer-use work:
+
+- `registerComputerUseRunner`
+- `listComputerUseRunners`
+- `startComputerUseSession`
+- `launchComputerUseProcess`
+- `captureComputerUseWindow`
+- `sendComputerUseInput`
+- `waitForComputerUseVisionMatch`
+- `stopComputerUseSession`
+
+The `agent-task-manager-clean-java-harness` module is now a bundled local validator/runtime dependency for future Codex wrapping and local validation flows. It is no longer launched as a separate MCP server process.
+
+Codex worker runs now inject `agent-task-manager` as the default downstream central MCP server. Repository inspection and retrieval should flow through `runHarnessToolBundle`, which fans out to filesystem, ripgrep, and git on the harness host in parallel and returns one merged payload.
+Repository mutation should then use `planGitCommit`, `prepareGitBranch`, and `createGitCommit` so branch naming and verbose commit structure stay auditable inside the first-party MCP workflow.
+If you need direct per-tool injection instead, clear `AGENT_TASK_MANAGER_CODEX_DOWNSTREAM_CENTRAL_SERVER` and set `AGENT_TASK_MANAGER_CODEX_REQUIRED_MCP_SERVERS=<comma-separated-server-list>`.
+For plug-and-play stdio usage, point your client at the repo-local launcher scripts under `scripts/`. They locate the jar relative to the cloned repo and build it when needed.
+Remote MCP brokering is now the default behavior when the remote endpoint and credentials are present. Local third-party MCP binaries are fallback-only and are resolved from `mcp-servers/bin` in the cloned repo first, then from `AGENT_TASK_MANAGER_CODEX_MCP_SERVER_BIN_DIR`, then from the system `PATH`.
+If you want to override the remote settings explicitly, set:
+
+- `AGENT_TASK_MANAGER_CODEX_REMOTE_TOOL_EXECUTION_ENABLED=true`
+- `AGENT_TASK_MANAGER_MCP_BASE_URL`
+- `AGENT_TASK_MANAGER_MCP_ENDPOINT`
+- `AGENT_TASK_MANAGER_USERNAME`
+- `AGENT_TASK_MANAGER_PASSWORD`
+- `AGENT_TASK_MANAGER_MCP_NO_AUTH_ENABLED=true` to expose `/mcp` without app-level auth when the deployment wants MCP-only access
+
+In that mode, the local central MCP stages repository snapshots through the remote MCP, then runs `runHarnessToolBundle(repo-context)` against the staged workspace. That replaces SSH launchers, mount roots, and direct cross-host filesystem access with an application-managed HTTP transfer path.
+For Java work, Codex should gather repo and task context through the central MCP first, and AgentTaskManager then runs bundled local Spoon and ArchUnit validation during approval instead of depending on a separate harness MCP process.
 
 Remote MCP smoke test:
 
 ```bash
-AGENT_TASK_MANAGER_PASSWORD=... ./scripts/test_remote_mcp.sh
-AGENT_TASK_MANAGER_PASSWORD=... java -jar \
+./scripts/test_remote_mcp.sh
+java -jar \
   agent-task-manager-app/target/agent-task-manager-app-0.1.0-SNAPSHOT.jar remote-mcp-smoke
 ```
 
-The shell script and the CLI smoke command both perform the official streamable HTTP flow against the configured endpoint. The CLI path uses the official Java MCP client and normalizes path-based deployments such as `https://docs.tavall.org/agent-task-manager` plus `/mcp` into `https://docs.tavall.org` plus `/agent-task-manager/mcp`.
+Add `AGENT_TASK_MANAGER_PASSWORD=...` when the remote endpoint still requires HTTP Basic auth. The shell script and the CLI smoke command both perform the official streamable HTTP flow against the configured endpoint. The CLI path uses the official Java MCP client and normalizes path-based deployments such as `https://docs.tavall.org/agent-task-manager` plus `/mcp` into `https://docs.tavall.org` plus `/agent-task-manager/mcp`.
 
 The smoke flow covers:
 
@@ -176,6 +273,30 @@ The smoke flow covers:
 - `notifications/initialized`
 - `tools/list`
 - `tools/call` for `loadDashboardSummary`
+
+## Hytale External Runner
+
+Game-class automation is designed around a separate Windows runner, not the operator desktop. The runner hosts `clients/desktop/AgentTaskManager.AutomationHost` in HTTP mode, while the Java control plane persists runner registrations, session leases, artifacts, and Hytale scenario state in the normal Postgres, Redis, and Mongo boundaries.
+
+The built-in Hytale scenario ids are:
+
+- `hytale/launch-and-join-smoke`
+- `hytale/gameplay-assets-visible`
+- `hytale/chart-start-stable`
+- `hytale/note-hit-interaction`
+
+## Hytale Hybrid Learning Memory
+
+The control plane now includes a Hytale-specific learning surface for same-device cooperative automation with remote durable memory semantics:
+
+- Postgres stores Hytale learning sessions, action traces, timeline-frame metadata, visual-anchor metadata, playbooks, and promotion decisions.
+- Mongo stores the heavy frame or anchor capture bodies through the existing artifact document store.
+- Redis hot state tracks the active automation phase and focus-safe marker for live Hytale learning sessions.
+- Qdrant remains the promotion target for curated semantic memory such as `hytale-playbook`, `hytale-recovery-note`, and `hytale-scenario-summary`.
+- Only approved or pinned Hytale playbooks are executable; unapproved playbooks stay retrieval-only.
+
+The Hytale profile is configured deterministically in code and properties under `app.computer-use.*`, including launcher path, client path, server target, visual anchors, and gameplay lane keybinds. External-runner setup details live in [docs/computer-use-runner.md](F:\workspace\AgentTaskManager\docs\computer-use-runner.md) and [AUTOMATION_SETUP.md](F:\workspace\AgentTaskManager\clients\desktop\AUTOMATION_SETUP.md).
+The Hytale learning and runner flows are now intended to be driven through MCP tools rather than a first-party browser UI.
 
 ## Validation
 
@@ -186,8 +307,10 @@ The smoke flow covers:
 
 ## Current Status
 
-The platform now builds as a multi-module Maven project with a dedicated `spring-webview` servlet module and separate clean Java MCP and harness executables. Worker execution still runs through `codex exec` with model `gpt-5.3-codex` by default when available, but Codex now depends on the harness MCP surface by default while the harness brokers downstream repository tools in parallel and exposes one shared task and approval model for local and remote use.
+The platform now builds as a multi-module Maven project with a shared runtime core, a standalone embedded MCP HTTP runtime in the main app, a compatibility MCP adapter module for migration and tests, a separate clean Java MCP executable, and a bundled clean Java harness validator module. Worker execution still runs through `codex exec` with model `gpt-5.3-codex` by default when available, and the harness logic remains available locally for approval, repo-context brokering, and deterministic Java validation without requiring a separate harness MCP process.
 
-The MCP surface now also exposes canonical semantic/context tool names that match the orchestration contract directly: `storeTaskEmbedding`, `searchRelatedContexts`, `searchPriorFixes`, `loadRelatedSemanticContext`, and `attachSemanticContextToTask`. Live dashboard state is also available as MCP resources under `state://dashboard/summary`, `state://dashboard/workers`, `state://dashboard/chats`, and `state://dashboard/batches`.
+The MCP surface now also exposes canonical semantic/context tool names that match the orchestration contract directly: `storeTaskEmbedding`, `searchRelatedContexts`, `searchPriorFixes`, `loadRelatedSemanticContext`, and `attachSemanticContextToTask`. Runtime state is also available as MCP resources under `state://dashboard/summary`, `state://dashboard/workers`, `state://dashboard/chats`, and `state://dashboard/batches`.
 
 For AgentTaskManager itself, custom memory no longer depends on the legacy file-backed `memory` MCP server. Prompt and task memory flow through the harness semantic pipeline, which chunks payloads, embeds them, stores them in Qdrant with metadata, and retrieves the original chunk text/code back into worker context.
+
+Tool modules are now split by domain/concern instead of keeping every handler inside `agent-task-manager-core`. The central MCP imports dedicated artifact, cache, context, orchestration, repo-workflow, validation, and vector-memory tool modules, leaving `agent-task-manager-core` focused on shared runtime services and MCP infrastructure.
