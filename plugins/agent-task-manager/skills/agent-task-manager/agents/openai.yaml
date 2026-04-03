@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Task Manager"
+  short_description: "Plugin-managed harness and task runtime skill"
+  default_prompt: "Use the AgentTaskManager plugin to own local MCP registration and optional operator-surface startup, then work through the AgentTaskManager harness for repo context, task context, Java validation, and deterministic git workflow."

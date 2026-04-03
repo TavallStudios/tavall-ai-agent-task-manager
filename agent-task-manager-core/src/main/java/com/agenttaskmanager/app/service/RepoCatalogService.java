@@ -118,14 +118,22 @@ public class RepoCatalogService {
 
   private static String describeLocation(Path root) {
     String normalized = root.normalize().toString();
-    if ("/srv".equals(normalized)) {
-      return "remote";
-    }
-    if ("/srv/local-pc-root/F:/workspace".equals(normalized)) {
+    if (normalized.equals(currentWorkingDirectory())) {
       return "workspace";
+    }
+    if (!isWindows() && "/srv".equals(normalized)) {
+      return "remote";
     }
     Path fileName = root.getFileName();
     return fileName == null ? normalized : fileName.toString();
+  }
+
+  private static String currentWorkingDirectory() {
+    return Path.of(System.getProperty("user.dir", ".")).normalize().toString();
+  }
+
+  private static boolean isWindows() {
+    return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
   }
 
   private static String slugify(String rawValue) {

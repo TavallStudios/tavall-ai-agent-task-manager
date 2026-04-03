@@ -4,26 +4,29 @@ import java.security.SecureRandom;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsByNameServiceWrapper;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationProvider;
 import org.springframework.security.web.authentication.preauth.RequestHeaderAuthenticationFilter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
-import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationProvider;
-import org.springframework.security.core.userdetails.UserDetailsByNameServiceWrapper;
-import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 @Configuration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
@@ -31,16 +34,32 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 public class SecurityConfig {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SecurityConfig.class);
-  private static final String PASSWORD_CHARS =
-      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  private static final String PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
 
   @Bean
-  SecurityFilterChain securityFilterChain(
+  @Order(0)
+  @ConditionalOnProperty(prefix = "app.security", name = "mcp-no-auth-enabled", havingValue = "true")
+  SecurityFilterChain mcpNoAuthFilterChain(
+      HttpSecurity http,
+      ServerProperties serverProperties,
+      McpServerProperties mcpServerProperties
+  ) throws Exception {
+    return http
+        .securityMatcher(mcpRequestMatcher(serverProperties, mcpServerProperties))
+        .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+        .csrf(csrf -> csrf.disable())
+        .build();
+  }
+
+  @Bean
+  @Order(1)
+  SecurityFilterChain mcpSecurityFilterChain(
       HttpSecurity http,
       SecurityProperties properties,
-      PreAuthenticatedAuthenticationProvider preAuthenticatedAuthenticationProvider
-  )
-      throws Exception {
+      PreAuthenticatedAuthenticationProvider preAuthenticatedAuthenticationProvider,
+      ServerProperties serverProperties,
+      McpServerProperties mcpServerProperties
+  ) throws Exception {
     if (properties.isProxyAuthEnabled()) {
       RequestHeaderAuthenticationFilter requestHeaderAuthenticationFilter =
           new RequestHeaderAuthenticationFilter();
@@ -53,23 +72,38 @@ public class SecurityConfig {
     }
 
     return http
-        .authorizeHttpRequests(authorize -> authorize
-            .requestMatchers("/login", "/css/**", "/js/**").permitAll()
-            .anyRequest().authenticated()
-        )
-        .formLogin(form -> form
-            .loginPage("/login")
-            .defaultSuccessUrl("/", true)
-            .permitAll()
-        )
-        .logout(logout -> logout.logoutSuccessUrl("/login?logout"))
-        .rememberMe(remember -> remember.key(properties.getRememberMeKey()))
-        .csrf(csrf -> csrf
-            .ignoringRequestMatchers("/api/bridge/**", "/mcp", "/mcp/**")
-            .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-        )
+        .securityMatcher(mcpRequestMatcher(serverProperties, mcpServerProperties))
+        .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
         .httpBasic(Customizer.withDefaults())
+        .csrf(csrf -> csrf.disable())
         .build();
+  }
+
+  @Bean
+  @Order(2)
+  SecurityFilterChain fallbackFilterChain(HttpSecurity http) throws Exception {
+    return http
+        .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+        .csrf(csrf -> csrf.disable())
+        .build();
+  }
+
+  private RequestMatcher mcpRequestMatcher(
+      ServerProperties serverProperties,
+      McpServerProperties mcpServerProperties
+  ) {
+    String mcpPath = normalizePath(serverProperties.getServlet().getContextPath())
+        + normalizePath(mcpServerProperties.getEndpoint());
+    return request -> request.getRequestURI().equals(mcpPath)
+        || request.getRequestURI().startsWith(mcpPath + "/");
+  }
+
+  private String normalizePath(String value) {
+    if (value == null || value.isBlank() || "/".equals(value)) {
+      return "";
+    }
+    String normalized = value.startsWith("/") ? value : "/" + value;
+    return normalized.endsWith("/") ? normalized.substring(0, normalized.length() - 1) : normalized;
   }
 
   @Bean

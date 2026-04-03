@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.qdrant")
 public class QdrantProperties {
 
-  private String baseUrl = "http://127.0.0.1:6333";
+  private String baseUrl = "";
   private String collection = "agent_task_manager_context_v2";
   private String projectCollectionPrefix = "agent_task_manager_project";
   private String knowledgeCollectionPrefix = "agent_task_manager_knowledge";

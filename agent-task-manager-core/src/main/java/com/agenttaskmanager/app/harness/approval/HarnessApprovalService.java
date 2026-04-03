@@ -50,7 +50,8 @@ public class HarnessApprovalService {
       Path repoPath,
       String diffArtifactId,
       Integer workerExitCode,
-      Boolean requiresIntegrationTests
+      Boolean requiresIntegrationTests,
+      Integer integrationTimeoutSeconds
   ) {
     WorkerTask workerTask = workerTaskRepository.getWorkerTask(workerTaskId);
     String diffBody = diffArtifactId == null || diffArtifactId.isBlank()
@@ -60,7 +61,12 @@ public class HarnessApprovalService {
     HarnessValidationSummary validation = validationSummary(taskId, workerTask, repoPath);
     boolean patchScopeAllowed = !workerTask.workerType().patchArtifactRequired()
         || validationPipelineService.validatePatchScope(diffBody);
-    Map<String, Object> integrationTests = integrationTests(workerTask, repoPath, requiresIntegrationTests);
+    Map<String, Object> integrationTests = integrationTests(
+        workerTask,
+        repoPath,
+        requiresIntegrationTests,
+        integrationTimeoutSeconds
+    );
     int exitCode = workerExitCode == null ? 0 : workerExitCode;
     TaskLifecycleStatus taskStatus = resolveTaskStatus(exitCode, cleanup, validation, integrationTests, patchScopeAllowed);
     String summary = buildSummary(workerTask, exitCode, cleanup, validation, integrationTests, patchScopeAllowed);
@@ -131,14 +137,15 @@ public class HarnessApprovalService {
   private Map<String, Object> integrationTests(
       WorkerTask workerTask,
       Path repoPath,
-      Boolean requiresIntegrationTests
+      Boolean requiresIntegrationTests,
+      Integer integrationTimeoutSeconds
   ) {
     boolean shouldRun = workerTask.workerType().integrationTestsSupported()
         && Boolean.TRUE.equals(resolveIntegrationTests(workerTask, requiresIntegrationTests));
     if (!shouldRun) {
       return Map.of("status", "skipped");
     }
-    Map<String, Object> result = new LinkedHashMap<>(validationPipelineService.runIntegrationTests(repoPath));
+    Map<String, Object> result = new LinkedHashMap<>(validationPipelineService.runIntegrationTests(repoPath, integrationTimeoutSeconds));
     result.put("status", ((Number) result.getOrDefault("exitCode", -1)).intValue() == 0 ? "passed" : "failed");
     return result;
   }

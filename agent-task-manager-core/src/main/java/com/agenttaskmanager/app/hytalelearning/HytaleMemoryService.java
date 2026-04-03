@@ -1,0 +1,291 @@
+package com.agenttaskmanager.app.hytalelearning;
+
+import com.agenttaskmanager.app.model.hytalelearning.HytaleLearningSession;
+import com.agenttaskmanager.app.model.hytalelearning.HytaleMemoryQuery;
+import com.agenttaskmanager.app.model.hytalelearning.HytalePlaybook;
+import com.agenttaskmanager.app.model.hytalelearning.HytalePromotionDecision;
+import com.agenttaskmanager.app.model.hytalelearning.HytalePromotionRequest;
+import com.agenttaskmanager.app.model.hytalelearning.HytaleRetrievedMemory;
+import com.agenttaskmanager.app.model.hytalelearning.HytaleVisualAnchor;
+import com.agenttaskmanager.app.model.orchestration.RetrievedSemanticContext;
+import com.agenttaskmanager.app.orchestration.SharedTaskContextService;
+import com.agenttaskmanager.app.persistence.postgres.HytaleLearningSessionRepository;
+import com.agenttaskmanager.app.persistence.postgres.HytalePlaybookRepository;
+import com.agenttaskmanager.app.persistence.postgres.HytalePromotionDecisionRepository;
+import com.agenttaskmanager.app.persistence.postgres.HytaleVisualAnchorRepository;
+import com.agenttaskmanager.app.retrieval.SemanticCollectionDomain;
+import com.agenttaskmanager.app.retrieval.SemanticContentType;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+
+@Service
+public class HytaleMemoryService {
+
+  private final HytaleLearningProjectKeyFactory projectKeyFactory;
+  private final HytaleLearningSessionRepository learningSessionRepository;
+  private final HytalePlaybookRepository playbookRepository;
+  private final HytalePromotionDecisionRepository promotionDecisionRepository;
+  private final HytaleVisualAnchorRepository visualAnchorRepository;
+  private final SharedTaskContextService sharedTaskContextService;
+
+  public HytaleMemoryService(
+      HytaleLearningProjectKeyFactory projectKeyFactory,
+      HytaleLearningSessionRepository learningSessionRepository,
+      HytalePlaybookRepository playbookRepository,
+      HytalePromotionDecisionRepository promotionDecisionRepository,
+      HytaleVisualAnchorRepository visualAnchorRepository,
+      SharedTaskContextService sharedTaskContextService
+  ) {
+    this.projectKeyFactory = projectKeyFactory;
+    this.learningSessionRepository = learningSessionRepository;
+    this.playbookRepository = playbookRepository;
+    this.promotionDecisionRepository = promotionDecisionRepository;
+    this.visualAnchorRepository = visualAnchorRepository;
+    this.sharedTaskContextService = sharedTaskContextService;
+  }
+
+  public HytalePromotionDecision promote(HytalePromotionRequest request) {
+    HytaleLearningSession session = request.sessionId() == null || request.sessionId().isBlank()
+        ? null
+        : learningSessionRepository.get(request.sessionId());
+    PromotionEvaluation evaluation = evaluatePromotion(request, session);
+    Map<String, Object> payload = new LinkedHashMap<>(evaluation.scopePayload());
+    payload.put("subjectType", request.subjectType());
+    payload.put("subjectId", request.subjectId());
+    payload.put("semanticKind", request.semanticKind());
+    payload.put("decisionStatus", evaluation.decisionStatus());
+    payload.putAll(request.metadata() == null ? Map.of() : request.metadata());
+    List<String> pointIds = evaluation.promotable()
+        ? sharedTaskContextService.storeProjectSemanticDocument(
+            evaluation.projectKey(),
+            session == null ? null : session.sessionId(),
+            null,
+            request.semanticKind(),
+            request.summary(),
+            request.body(),
+            SemanticCollectionDomain.TASK_HISTORY,
+            contentType(request.semanticKind()),
+            payload
+        )
+        : List.of();
+    return promotionDecisionRepository.create(
+        "hpd_" + UUID.randomUUID(),
+        session == null ? null : session.sessionId(),
+        request.subjectType(),
+        request.subjectId(),
+        request.semanticKind(),
+        evaluation.decisionStatus(),
+        request.summary(),
+        pointIds.isEmpty() ? null : pointIds.get(0),
+        payload
+    );
+  }
+
+  public HytaleRetrievedMemory retrieve(HytaleMemoryQuery query) {
+    String projectKey = projectKeyFactory.projectKey(
+        query.machineId(),
+        query.clientProfileId(),
+        query.serverTarget(),
+        query.scenarioId()
+    );
+    Map<String, Object> scopeFilter = projectKeyFactory.semanticScope(
+        query.machineId(),
+        query.clientProfileId(),
+        query.serverTarget(),
+        query.scenarioId()
+    );
+    List<HytalePlaybook> playbooks = playbookRepository.listByScope(
+        query.machineId(),
+        query.clientProfileId(),
+        query.serverTarget(),
+        query.scenarioId(),
+        true,
+        20
+    );
+    List<HytaleVisualAnchor> anchors = visualAnchorRepository.listByScope(
+        query.machineId(),
+        query.clientProfileId(),
+        query.serverTarget(),
+        query.scenarioId(),
+        20
+    );
+    List<HytalePromotionDecision> promotionCandidates = latestPromotionCandidates(
+        query.machineId(),
+        query.clientProfileId(),
+        query.serverTarget(),
+        query.scenarioId()
+    );
+    String queryText = query.queryText() == null || query.queryText().isBlank()
+        ? fallbackQuery(query)
+        : query.queryText();
+    List<RetrievedSemanticContext> recoveryNotes = sharedTaskContextService.searchProjectRelatedContexts(
+        projectKey,
+        queryText,
+        10,
+        semanticFilter(scopeFilter, "hytale-recovery-note")
+    );
+    List<RetrievedSemanticContext> scenarioSummaries = sharedTaskContextService.searchProjectRelatedContexts(
+        projectKey,
+        queryText,
+        10,
+        semanticFilter(scopeFilter, "hytale-scenario-summary")
+    );
+    List<RetrievedSemanticContext> generalNotes = sharedTaskContextService.searchProjectRelatedContexts(
+        projectKey,
+        queryText,
+        10,
+        scopeFilter
+    );
+    if (recoveryNotes.isEmpty()) {
+      recoveryNotes = decisionFallback(promotionCandidates, "hytale-recovery-note");
+    }
+    if (scenarioSummaries.isEmpty()) {
+      scenarioSummaries = decisionFallback(promotionCandidates, "hytale-scenario-summary");
+    }
+    if (generalNotes.isEmpty()) {
+      generalNotes = promotionCandidates.stream()
+          .map(decision -> new RetrievedSemanticContext(
+              decision.decisionId(),
+              0.5D,
+              Map.of(
+                  "summary", decision.summary(),
+                  "semanticKind", decision.semanticKind(),
+                  "decisionStatus", decision.decisionStatus()
+              )
+          ))
+          .toList();
+    }
+    return new HytaleRetrievedMemory(
+        playbooks,
+        anchors,
+        promotionCandidates,
+        recoveryNotes,
+        scenarioSummaries,
+        generalNotes
+    );
+  }
+
+  private PromotionEvaluation evaluatePromotion(HytalePromotionRequest request, HytaleLearningSession session) {
+    if (request.subjectType() == null || request.subjectType().isBlank()) {
+      throw new IllegalArgumentException("subjectType is required");
+    }
+    if (request.subjectId() == null || request.subjectId().isBlank()) {
+      throw new IllegalArgumentException("subjectId is required");
+    }
+    if (request.semanticKind() == null || request.semanticKind().isBlank()) {
+      throw new IllegalArgumentException("semanticKind is required");
+    }
+    if (request.summary() == null || request.summary().isBlank()) {
+      throw new IllegalArgumentException("summary is required");
+    }
+    Map<String, Object> scopePayload = session == null
+        ? projectKeyFactory.semanticScope("", "", "", "")
+        : projectKeyFactory.semanticScope(
+            session.machineId(),
+            session.clientProfileId(),
+            session.serverTarget(),
+            session.scenarioId()
+        );
+    if ("playbook".equals(request.subjectType())) {
+      HytalePlaybook playbook = playbookRepository.get(request.subjectId());
+      if (!playbook.approved() && !playbook.pinned()) {
+        return new PromotionEvaluation(false, "artifact-only", projectKeyFactory.projectKey(
+            playbook.machineId(),
+            playbook.clientProfileId(),
+            playbook.serverTarget(),
+            playbook.scenarioId()
+        ), scopePayload);
+      }
+      return new PromotionEvaluation(true, "promoted", projectKeyFactory.projectKey(
+          playbook.machineId(),
+          playbook.clientProfileId(),
+          playbook.serverTarget(),
+          playbook.scenarioId()
+      ), scopePayload);
+    }
+    boolean unstable = Boolean.TRUE.equals((request.metadata() == null ? Map.of() : request.metadata()).get("unstable"));
+    return new PromotionEvaluation(
+        !unstable,
+        unstable ? "artifact-only" : "promoted",
+        session == null ? projectKeyFactory.projectKey("", "", "", "") : projectKeyFactory.projectKey(session),
+        scopePayload
+    );
+  }
+
+  private List<HytalePromotionDecision> latestPromotionCandidates(
+      String machineId,
+      String clientProfileId,
+      String serverTarget,
+      String scenarioId
+  ) {
+    List<HytalePromotionDecision> decisions = new ArrayList<>();
+    for (HytaleLearningSession session : learningSessionRepository.listByScope(
+        machineId,
+        clientProfileId,
+        serverTarget,
+        scenarioId,
+        5
+    )) {
+      decisions.addAll(promotionDecisionRepository.listBySession(session.sessionId(), 5));
+    }
+    return decisions.stream().limit(20).toList();
+  }
+
+  private Map<String, Object> semanticFilter(Map<String, Object> scopeFilter, String semanticKind) {
+    Map<String, Object> payload = new LinkedHashMap<>(scopeFilter);
+    payload.put("semanticKind", semanticKind);
+    return payload;
+  }
+
+  private SemanticContentType contentType(String semanticKind) {
+    return switch (semanticKind) {
+      case "hytale-scenario-summary", "hytale-recovery-note" -> SemanticContentType.RUN_SUMMARY;
+      default -> SemanticContentType.GENERIC;
+    };
+  }
+
+  private String fallbackQuery(HytaleMemoryQuery query) {
+    return String.join(
+        " ",
+        blank(query.machineId()),
+        blank(query.clientProfileId()),
+        blank(query.serverTarget()),
+        blank(query.scenarioId()),
+        "hytale"
+    ).trim();
+  }
+
+  private String blank(String value) {
+    return value == null ? "" : value;
+  }
+
+  private List<RetrievedSemanticContext> decisionFallback(
+      List<HytalePromotionDecision> promotionCandidates,
+      String semanticKind
+  ) {
+    return promotionCandidates.stream()
+        .filter(decision -> semanticKind.equals(decision.semanticKind()))
+        .map(decision -> new RetrievedSemanticContext(
+            decision.decisionId(),
+            0.5D,
+            Map.of(
+                "summary", decision.summary(),
+                "semanticKind", decision.semanticKind(),
+                "decisionStatus", decision.decisionStatus()
+            )
+        ))
+        .toList();
+  }
+
+  private record PromotionEvaluation(
+      boolean promotable,
+      String decisionStatus,
+      String projectKey,
+      Map<String, Object> scopePayload
+  ) {
+  }
+}

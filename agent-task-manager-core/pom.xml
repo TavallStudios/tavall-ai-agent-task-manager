@@ -40,6 +40,11 @@
       <artifactId>postgresql</artifactId>
     </dependency>
     <dependency>
+      <groupId>io.zonky.test</groupId>
+      <artifactId>embedded-postgres</artifactId>
+      <version>2.2.2</version>
+    </dependency>
+    <dependency>
       <groupId>org.mongodb</groupId>
       <artifactId>mongodb-driver-sync</artifactId>
       <version>${mongodb.driver.version}</version>

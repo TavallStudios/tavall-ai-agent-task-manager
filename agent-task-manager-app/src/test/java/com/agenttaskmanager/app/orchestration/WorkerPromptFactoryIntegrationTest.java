@@ -73,10 +73,16 @@ class WorkerPromptFactoryIntegrationTest extends IntegrationTestSupport {
     assertTrue(prompt.contains("Worker prompt should check memory first " + suffix));
     assertTrue(prompt.contains("before the final response"));
     assertTrue(prompt.contains("Tool combination patterns:"));
+    assertTrue(prompt.contains("Contextual tool policy:"));
+    assertTrue(prompt.contains("Contextual tool policy (auto-inferred):"));
+    assertTrue(prompt.contains("decision: REQUIRED"));
+    assertTrue(prompt.contains("required sequence:"));
     assertTrue(prompt.contains("Worker focus:"));
     assertTrue(prompt.contains("runHarnessToolBundle(worker-context)"));
-    assertTrue(prompt.contains("loadCleanJavaTaskContext + runHarnessToolBundle(java-context)"));
-    assertTrue(prompt.contains("runCleanJavaHarness: run Spoon source-shape checks first"));
+    assertTrue(prompt.contains("prepareGitBranch"));
+    assertTrue(prompt.contains("createGitCommit"));
+    assertTrue(prompt.contains("loadTaskContext + loadValidationHistory + searchPriorFixes"));
+    assertTrue(prompt.contains("local clean Java validation runs after worker execution"));
     assertTrue(prompt.contains("Final response contract:"));
   }
 }

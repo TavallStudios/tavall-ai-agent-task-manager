@@ -18,10 +18,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ValidationPipelineService {
+
+  private static final int DEFAULT_INTEGRATION_TIMEOUT_SECONDS = 120;
+  private static final int MIN_INTEGRATION_TIMEOUT_SECONDS = 10;
+  private static final int MAX_INTEGRATION_TIMEOUT_SECONDS = 1800;
+  private static final int INTEGRATION_TIMEOUT_EXIT_CODE = 124;
+  private static final int MAX_INTEGRATION_OUTPUT_CHARS = 200_000;
 
   private final ArchUnitValidationService archUnitValidationService;
   private final SpoonValidationService spoonValidationService;
@@ -78,19 +85,54 @@ public class ValidationPipelineService {
   }
 
   public Map<String, Object> runIntegrationTests(Path repoRoot) {
+    return runIntegrationTests(repoRoot, null);
+  }
+
+  public Map<String, Object> runIntegrationTests(Path repoRoot, Integer timeoutSeconds) {
+    Path normalizedRepoRoot = repoRoot.toAbsolutePath().normalize();
+    int effectiveTimeoutSeconds = normalizeIntegrationTimeout(timeoutSeconds);
+    Path outputPath = null;
     try {
+      outputPath = Files.createTempFile("atm-integration-tests-", ".log");
       Process process = new ProcessBuilder("mvn", "-q", "-DskipTests=false", "-DskipITs=false", "verify")
-          .directory(repoRoot.toFile())
+          .directory(normalizedRepoRoot.toFile())
           .redirectErrorStream(true)
+          .redirectOutput(outputPath.toFile())
           .start();
-      String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-      int exitCode = process.waitFor();
-      return Map.of("exitCode", exitCode, "output", output);
+
+      boolean finished = process.waitFor(effectiveTimeoutSeconds, TimeUnit.SECONDS);
+      if (!finished) {
+        process.destroy();
+        if (!process.waitFor(5, TimeUnit.SECONDS)) {
+          process.destroyForcibly();
+          process.waitFor(5, TimeUnit.SECONDS);
+        }
+      }
+
+      Map<String, Object> result = new LinkedHashMap<>();
+      result.put("exitCode", finished ? process.exitValue() : INTEGRATION_TIMEOUT_EXIT_CODE);
+      result.put("output", readProcessOutput(outputPath));
+      result.put("timeoutSeconds", effectiveTimeoutSeconds);
+      result.put("timedOut", !finished);
+      return result;
     } catch (IOException | InterruptedException exception) {
       if (exception instanceof InterruptedException) {
         Thread.currentThread().interrupt();
       }
-      return Map.of("exitCode", -1, "output", exception.getMessage());
+      Map<String, Object> result = new LinkedHashMap<>();
+      result.put("exitCode", -1);
+      result.put("output", exception.getMessage());
+      result.put("timeoutSeconds", effectiveTimeoutSeconds);
+      result.put("timedOut", false);
+      return result;
+    } finally {
+      if (outputPath != null) {
+        try {
+          Files.deleteIfExists(outputPath);
+        } catch (IOException ignored) {
+          // Best effort cleanup for temporary integration harness logs.
+        }
+      }
     }
   }
 
@@ -166,5 +208,30 @@ public class ValidationPipelineService {
 
   private boolean supportsArchUnitValidation(Path repoRoot) {
     return AgentTaskManagerProjectLayout.isProjectRoot(repoRoot);
+  }
+
+  private int normalizeIntegrationTimeout(Integer timeoutSeconds) {
+    int baseTimeout = timeoutSeconds == null ? defaultIntegrationTimeoutSeconds() : timeoutSeconds;
+    return Math.max(MIN_INTEGRATION_TIMEOUT_SECONDS, Math.min(baseTimeout, MAX_INTEGRATION_TIMEOUT_SECONDS));
+  }
+
+  private int defaultIntegrationTimeoutSeconds() {
+    String configured = System.getenv("AGENT_TASK_MANAGER_INTEGRATION_TIMEOUT_SECONDS");
+    if (configured == null || configured.isBlank()) {
+      return DEFAULT_INTEGRATION_TIMEOUT_SECONDS;
+    }
+    try {
+      return Integer.parseInt(configured.strip());
+    } catch (NumberFormatException ignored) {
+      return DEFAULT_INTEGRATION_TIMEOUT_SECONDS;
+    }
+  }
+
+  private String readProcessOutput(Path outputPath) throws IOException {
+    String output = Files.readString(outputPath, StandardCharsets.UTF_8);
+    if (output.length() <= MAX_INTEGRATION_OUTPUT_CHARS) {
+      return output;
+    }
+    return output.substring(0, MAX_INTEGRATION_OUTPUT_CHARS) + "\n... integration output truncated ...";
   }
 }

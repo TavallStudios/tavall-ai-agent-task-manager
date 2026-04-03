@@ -15,17 +15,20 @@ public class McpCatalog {
   private final List<McpPromptProvider> promptProviders;
   private final List<McpResourceProvider> resourceProviders;
   private final List<McpToolProvider> toolProviders;
+  private final McpInteractionMemoryService interactionMemoryService;
   private final McpServerProperties properties;
 
   public McpCatalog(
       List<McpPromptProvider> promptProviders,
       List<McpResourceProvider> resourceProviders,
       List<McpToolProvider> toolProviders,
+      McpInteractionMemoryService interactionMemoryService,
       McpServerProperties properties
   ) {
     this.promptProviders = promptProviders;
     this.resourceProviders = resourceProviders;
     this.toolProviders = toolProviders;
+    this.interactionMemoryService = interactionMemoryService;
     this.properties = properties;
   }
 
@@ -36,18 +39,21 @@ public class McpCatalog {
     return toolProviders.stream()
         .filter(provider -> activeGroups.isEmpty() || provider.serverGroups().stream().anyMatch(activeGroups::contains))
         .flatMap(provider -> provider.toolSpecifications().stream())
+        .map(interactionMemoryService::wrapToolSpecification)
         .toList();
   }
 
   public List<SyncResourceSpecification> resourceSpecifications() {
     return resourceProviders.stream()
         .flatMap(provider -> provider.resourceSpecifications().stream())
+        .map(interactionMemoryService::wrapResourceSpecification)
         .toList();
   }
 
   public List<SyncPromptSpecification> promptSpecifications() {
     return promptProviders.stream()
         .flatMap(provider -> provider.promptSpecifications().stream())
+        .map(interactionMemoryService::wrapPromptSpecification)
         .toList();
   }
 }

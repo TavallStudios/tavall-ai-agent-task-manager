@@ -7,10 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.repo-catalog")
 public class RepoCatalogProperties {
 
-  private List<String> roots = new ArrayList<>(List.of(
-      "/srv",
-      "/srv/local-pc-root/F:/workspace"
-  ));
+  private List<String> roots = defaultRoots();
   private int maxDepth = 2;
 
   public List<String> getRoots() {
@@ -27,5 +24,15 @@ public class RepoCatalogProperties {
 
   public void setMaxDepth(int maxDepth) {
     this.maxDepth = maxDepth;
+  }
+
+  private static List<String> defaultRoots() {
+    List<String> roots = new ArrayList<>();
+    String userDir = System.getProperty("user.dir");
+    if (userDir != null && !userDir.isBlank()) {
+      roots.add(userDir);
+    }
+    roots.add("/srv");
+    return roots;
   }
 }

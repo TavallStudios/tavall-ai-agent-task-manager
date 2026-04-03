@@ -18,10 +18,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class SharedTaskContextService {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(SharedTaskContextService.class);
 
   private final SemanticContextCache semanticContextCache;
   private final SemanticVectorStoreService semanticVectorStoreService;
@@ -106,12 +110,17 @@ public class SharedTaskContextService {
       SemanticContentType contentType,
       Map<String, Object> payload
   ) {
-    List<String> pointIds = semanticVectorStoreService.storeProjectDocument(
-        projectKey,
-        new SemanticDocumentRequest(null, taskId, workerTaskId, kind, title, content, domain, contentType, payload)
-    );
-    semanticContextCache.clear();
-    return pointIds;
+    try {
+      List<String> pointIds = semanticVectorStoreService.storeProjectDocument(
+          projectKey,
+          new SemanticDocumentRequest(null, taskId, workerTaskId, kind, title, content, domain, contentType, payload)
+      );
+      semanticContextCache.clear();
+      return pointIds;
+    } catch (RuntimeException exception) {
+      LOGGER.warn("Semantic project upsert failed for projectKey={}: {}", projectKey, exception.getMessage());
+      return List.of();
+    }
   }
 
   public List<String> upsertKnowledgeDocument(
@@ -123,37 +132,54 @@ public class SharedTaskContextService {
       SemanticContentType contentType,
       Map<String, Object> payload
   ) {
-    List<String> pointIds = semanticVectorStoreService.upsertKnowledgeDocument(
-        knowledgeBase,
-        new SemanticDocumentRequest(
-            documentId,
-            null,
-            null,
-            kind,
-            title,
-            content,
-            SemanticCollectionDomain.KNOWLEDGE_RULES,
-            contentType,
-            payload
-        )
-    );
-    semanticContextCache.clear();
-    return pointIds;
+    try {
+      List<String> pointIds = semanticVectorStoreService.upsertKnowledgeDocument(
+          knowledgeBase,
+          new SemanticDocumentRequest(
+              documentId,
+              null,
+              null,
+              kind,
+              title,
+              content,
+              SemanticCollectionDomain.KNOWLEDGE_RULES,
+              contentType,
+              payload
+          )
+      );
+      semanticContextCache.clear();
+      return pointIds;
+    } catch (RuntimeException exception) {
+      LOGGER.warn("Semantic knowledge upsert failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());
+      return List.of();
+    }
   }
 
   public void deleteProjectSemanticContexts(String projectKey, Map<String, Object> payloadFilter) {
-    semanticVectorStoreService.deleteProject(projectKey, payloadFilter);
-    semanticContextCache.clear();
+    try {
+      semanticVectorStoreService.deleteProject(projectKey, payloadFilter);
+      semanticContextCache.clear();
+    } catch (RuntimeException exception) {
+      LOGGER.warn("Semantic project delete failed for projectKey={}: {}", projectKey, exception.getMessage());
+    }
   }
 
   public void deleteKnowledgeContexts(String knowledgeBase, Map<String, Object> payloadFilter) {
-    semanticVectorStoreService.deleteKnowledge(knowledgeBase, payloadFilter);
-    semanticContextCache.clear();
+    try {
+      semanticVectorStoreService.deleteKnowledge(knowledgeBase, payloadFilter);
+      semanticContextCache.clear();
+    } catch (RuntimeException exception) {
+      LOGGER.warn("Semantic knowledge delete failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());
+    }
   }
 
   public void deleteLegacySemanticCollection() {
-    semanticVectorStoreService.deleteLegacyCollection();
-    semanticContextCache.clear();
+    try {
+      semanticVectorStoreService.deleteLegacyCollection();
+      semanticContextCache.clear();
+    } catch (RuntimeException exception) {
+      LOGGER.warn("Legacy semantic collection delete failed: {}", exception.getMessage());
+    }
   }
 
   public List<RetrievedSemanticContext> searchProjectRelatedContexts(String projectKey, String queryText, int limit) {
@@ -196,26 +222,36 @@ public class SharedTaskContextService {
       SemanticSearchLoader loader
   ) {
     Map<String, Object> normalizedFilter = payloadFilter == null ? Map.of() : new TreeMap<>(payloadFilter);
-    List<Map<String, Object>> cached = semanticContextCache.getOrLoad(
-        collectionKey + ":" + queryText + ":" + limit + ":" + normalizedFilter,
-        CacheDomain.RETRIEVAL,
-        CacheType.SEMANTIC_CONTEXT,
-        CacheSource.QDRANT,
-        () -> loader.load().stream()
-            .map(context -> Map.<String, Object>of(
-                "id", context.id(),
-                "score", context.score(),
-                "payload", context.payload()
-            ))
-            .toList()
-    );
-    return cached.stream()
-        .map(item -> new RetrievedSemanticContext(
-            String.valueOf(item.get("id")),
-            ((Number) item.getOrDefault("score", 0.0D)).doubleValue(),
-            (Map<String, Object>) item.getOrDefault("payload", Map.of())
-        ))
-        .toList();
+    try {
+      List<Map<String, Object>> cached = semanticContextCache.getOrLoad(
+          collectionKey + ":" + queryText + ":" + limit + ":" + normalizedFilter,
+          CacheDomain.RETRIEVAL,
+          CacheType.SEMANTIC_CONTEXT,
+          CacheSource.QDRANT,
+          () -> loader.load().stream()
+              .map(context -> Map.<String, Object>of(
+                  "id", context.id(),
+                  "score", context.score(),
+                  "payload", context.payload()
+              ))
+              .toList()
+      );
+      return cached.stream()
+          .map(item -> new RetrievedSemanticContext(
+              String.valueOf(item.get("id")),
+              ((Number) item.getOrDefault("score", 0.0D)).doubleValue(),
+              (Map<String, Object>) item.getOrDefault("payload", Map.of())
+          ))
+          .toList();
+    } catch (RuntimeException exception) {
+      LOGGER.warn(
+          "Semantic search failed for collectionKey={} query='{}': {}",
+          collectionKey,
+          queryText,
+          exception.getMessage()
+      );
+      return List.of();
+    }
   }
 
   @FunctionalInterface

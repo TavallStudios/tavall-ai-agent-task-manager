@@ -16,13 +16,21 @@
   <version>0.1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>AgentTaskManager</name>
-  <description>Spring Boot control plane for cross-project agent tasks and prompt requests.</description>
+  <description>MCP-first control plane for cross-project agent tasks and prompt memory.</description>
 
   <modules>
     <module>agent-task-manager-core</module>
     <module>spring-webview</module>
     <module>agent-task-manager-clean-java-mcp</module>
     <module>agent-task-manager-clean-java-harness</module>
+    <module>agent-task-manager-artifact-tools</module>
+    <module>agent-task-manager-cache-tools</module>
+    <module>agent-task-manager-context-tools</module>
+    <module>agent-task-manager-computer-use-tools</module>
+    <module>agent-task-manager-orchestration-tools</module>
+    <module>agent-task-manager-repo-tools</module>
+    <module>agent-task-manager-validation-tools</module>
+    <module>agent-task-manager-vector-memory-tools</module>
     <module>agent-task-manager-app</module>
   </modules>
 
@@ -34,4 +42,17 @@
     <mongodb.driver.version>5.2.1</mongodb.driver.version>
     <spoon.version>11.2.1</spoon.version>
   </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <forkCount>0</forkCount>
+          <reuseForks>false</reuseForks>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>

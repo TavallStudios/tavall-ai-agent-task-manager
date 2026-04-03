@@ -1,10 +1,12 @@
 package com.agenttaskmanager.app.orchestration;
 
 import com.agenttaskmanager.app.bridge.CodexDeterministicConfigService;
+import com.agenttaskmanager.app.bridge.CodexEventMessage;
 import com.agenttaskmanager.app.bridge.CodexJsonEventParser;
+import com.agenttaskmanager.app.cleanjava.CleanJavaHarnessValidator;
+import com.agenttaskmanager.app.config.ConfiguredCommandResolver;
 import com.agenttaskmanager.app.config.OrchestrationProperties;
 import com.agenttaskmanager.app.harness.approval.HarnessApprovalGateResult;
-import com.agenttaskmanager.app.harness.approval.HarnessApprovalService;
 import com.agenttaskmanager.app.model.KnownRepo;
 import com.agenttaskmanager.app.model.orchestration.ArtifactRecord;
 import com.agenttaskmanager.app.model.orchestration.TaskLifecycleStatus;
@@ -29,8 +31,8 @@ import org.springframework.stereotype.Service;
 public class LocalCodexWorkerTransport implements WorkerTransport {
 
   private final ArtifactService artifactService;
+  private final CleanJavaHarnessValidator cleanJavaHarnessValidator;
   private final GitWorktreeManager gitWorktreeManager;
-  private final HarnessApprovalService harnessApprovalService;
   private final OrchestrationProperties orchestrationProperties;
   private final TaskPoolService taskPoolService;
   private final WorkerLifecycleService workerLifecycleService;
@@ -40,11 +42,12 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
   private final WorkerTaskRepository workerTaskRepository;
   private final CodexJsonEventParser codexJsonEventParser;
   private final CodexDeterministicConfigService codexDeterministicConfigService;
+  private final ContextualToolPolicyService contextualToolPolicyService;
 
   public LocalCodexWorkerTransport(
       ArtifactService artifactService,
+      CleanJavaHarnessValidator cleanJavaHarnessValidator,
       GitWorktreeManager gitWorktreeManager,
-      HarnessApprovalService harnessApprovalService,
       OrchestrationProperties orchestrationProperties,
       TaskPoolService taskPoolService,
       WorkerLifecycleService workerLifecycleService,
@@ -53,11 +56,12 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
       WorkerPromptFactory workerPromptFactory,
       WorkerTaskRepository workerTaskRepository,
       CodexJsonEventParser codexJsonEventParser,
-      CodexDeterministicConfigService codexDeterministicConfigService
+      CodexDeterministicConfigService codexDeterministicConfigService,
+      ContextualToolPolicyService contextualToolPolicyService
   ) {
     this.artifactService = artifactService;
+    this.cleanJavaHarnessValidator = cleanJavaHarnessValidator;
     this.gitWorktreeManager = gitWorktreeManager;
-    this.harnessApprovalService = harnessApprovalService;
     this.orchestrationProperties = orchestrationProperties;
     this.taskPoolService = taskPoolService;
     this.workerLifecycleService = workerLifecycleService;
@@ -67,6 +71,7 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
     this.workerTaskRepository = workerTaskRepository;
     this.codexJsonEventParser = codexJsonEventParser;
     this.codexDeterministicConfigService = codexDeterministicConfigService;
+    this.contextualToolPolicyService = contextualToolPolicyService;
   }
 
   @Override
@@ -74,6 +79,7 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
     WorkerTask workerTask = workerTaskRepository.getWorkerTask(request.workerTaskId());
     KnownRepo repo = repoCatalogService.requireByPath(request.repoPath().toString());
     Path workspacePath = gitWorktreeManager.prepareWorkspace(request.repoPath(), request.taskId(), request.workerTaskId());
+    GitWorktreeManager.GitHeadState initialGitState = gitWorktreeManager.loadHeadState(workspacePath);
     Path outputFile = workspacePath.resolve(".agent-task-manager.last-message.txt");
     List<String> command = buildCommand(
         repo.projectKey(),
@@ -91,29 +97,67 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
     );
 
     Process process = start(command, workspacePath);
-    String stdout = readStream(process, true);
+    ContextualToolPolicyService.ToolPolicyDecision toolPolicyDecision = contextualToolPolicyService.decide(
+        "edit",
+        workerTask.taskRole() + " " + workerTask.title() + " " + (workerTask.latestSummary() == null ? "" : workerTask.latestSummary()),
+        true
+    );
+    java.util.Set<String> observedToolCalls = new java.util.LinkedHashSet<>();
+    String stdout = readStream(process, true, observedToolCalls);
     String stderr = readStream(process, false);
     int exitCode = waitFor(process);
-
     String finalMessage = readFile(outputFile);
-    String diff = gitWorktreeManager.captureDiff(workspacePath);
+    GitWorktreeManager.GitHeadState finalGitState = gitWorktreeManager.loadHeadState(workspacePath);
+    String diff = gitWorktreeManager.captureDiffSince(workspacePath, initialGitState.headCommitHash());
+    ContextualToolPolicyService.ToolPolicyAudit toolPolicyAudit = contextualToolPolicyService.audit(
+        toolPolicyDecision,
+        observedToolCalls,
+        finalMessage,
+        diff,
+        new ContextualToolPolicyService.GitWorkflowEvidence(
+            finalGitState.gitRepository(),
+            finalGitState.branchName(),
+            finalGitState.headCommitHash(),
+            finalGitState.headSubject(),
+            finalGitState.headBody()
+        )
+    );
+    int effectiveExitCode = toolPolicyAudit.passed() ? exitCode : 97;
     ArtifactRecord outputArtifact = artifactService.writeArtifact(
         request.taskId(),
         request.workerTaskId(),
         "worker-output",
         "Captured worker output",
-        stdout + (stderr.isBlank() ? "" : "\nSTDERR:\n" + stderr),
-        Map.of("exitCode", exitCode, "finalMessage", finalMessage)
+        stdout
+            + (stderr.isBlank() ? "" : "\nSTDERR:\n" + stderr)
+            + (toolPolicyAudit.passed()
+            ? ""
+            : "\nTOOL_POLICY_GATE:\nMissing required tool calls: "
+                + formatPolicyItems(toolPolicyAudit.missingCalls())
+                + "\nViolations: "
+                + formatPolicyItems(toolPolicyAudit.violations())),
+        Map.of(
+            "exitCode", effectiveExitCode,
+            "finalMessage", finalMessage,
+            "toolPolicyGatePassed", toolPolicyAudit.passed(),
+            "observedToolCalls", toolPolicyAudit.observedCalls(),
+            "missingToolCalls", toolPolicyAudit.missingCalls(),
+            "toolPolicyViolations", toolPolicyAudit.violations(),
+            "gitBranchName", finalGitState.branchName(),
+            "gitCommitHash", finalGitState.headCommitHash(),
+            "gitCommitSubject", finalGitState.headSubject(),
+            "gitCommitBody", finalGitState.headBody()
+        )
     );
-    ArtifactRecord diffArtifact = artifactService.storeDiffArtifact(request.taskId(), request.workerTaskId(), diff, Map.of("exitCode", exitCode));
+    ArtifactRecord diffArtifact = artifactService.storeDiffArtifact(request.taskId(), request.workerTaskId(), diff, Map.of("exitCode", effectiveExitCode));
 
-    HarnessApprovalGateResult gateResult = harnessApprovalService.runApprovalGate(
+    HarnessApprovalGateResult gateResult = cleanJavaHarnessValidator.runApprovalGate(
         request.taskId(),
         request.workerTaskId(),
-        workspacePath
-            ,
+        workspacePath,
         diffArtifact.artifactId(),
-        exitCode,
+        effectiveExitCode,
+        null,
         null
     );
     TaskLifecycleStatus taskStatus = gateResult.taskStatus();
@@ -124,13 +168,19 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
         request.workerTaskId(),
         "worker-final-response",
         finalMessage.isBlank() ? summary : finalMessage,
-        Map.of(
-            "repoPath", request.repoPath().toString(),
-            "exitCode", exitCode,
-            "cleanupReviewStatus", gateResult.cleanup().status(),
-            "validationStatus", gateResult.validation().status(),
-            "patchScopeAllowed", gateResult.patchScopeAllowed(),
-            "summary", summary
+        Map.ofEntries(
+            Map.entry("repoPath", request.repoPath().toString()),
+            Map.entry("exitCode", effectiveExitCode),
+            Map.entry("cleanupReviewStatus", gateResult.cleanup().status()),
+            Map.entry("validationStatus", gateResult.validation().status()),
+            Map.entry("patchScopeAllowed", gateResult.patchScopeAllowed()),
+            Map.entry("summary", summary),
+            Map.entry("toolPolicyGatePassed", toolPolicyAudit.passed()),
+            Map.entry("missingToolCalls", toolPolicyAudit.missingCalls()),
+            Map.entry("toolPolicyViolations", toolPolicyAudit.violations()),
+            Map.entry("gitBranchName", finalGitState.branchName()),
+            Map.entry("gitCommitHash", finalGitState.headCommitHash()),
+            Map.entry("gitCommitSubject", finalGitState.headSubject())
         )
     );
     if (taskStatus == TaskLifecycleStatus.COMPLETED) {
@@ -157,7 +207,7 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
         gateResult.patchScopeAllowed(),
         parseCleanupStatus(gateResult.cleanup().status()),
         gateResult.validation().status(),
-        exitCode
+        effectiveExitCode
     );
   }
 
@@ -179,8 +229,9 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
   }
 
   private List<String> buildCommand(String projectKey, Path workspacePath, Path outputFile, String prompt) {
-    List<String> command = new ArrayList<>();
-    command.add(orchestrationProperties.getWorkerCommand());
+    List<String> command = new ArrayList<>(ConfiguredCommandResolver.resolveCommand(
+        orchestrationProperties.getWorkerCommand()
+    ));
     codexDeterministicConfigService.appendDeterministicArguments(command, projectKey);
     command.add("-C");
     command.add(workspacePath.toString());
@@ -211,6 +262,10 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
   }
 
   private String readStream(Process process, boolean stdout) {
+    return readStream(process, stdout, java.util.Set.of());
+  }
+
+  private String readStream(Process process, boolean stdout, java.util.Set<String> observedToolCalls) {
     try (BufferedReader reader = new BufferedReader(new InputStreamReader(
         stdout ? process.getInputStream() : process.getErrorStream(),
         StandardCharsets.UTF_8
@@ -219,7 +274,14 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
       String line;
       while ((line = reader.readLine()) != null) {
         if (stdout) {
-          codexJsonEventParser.parseLine(line);
+          for (CodexEventMessage message : codexJsonEventParser.parseLine(line)) {
+            if ("tool-call".equals(message.kind())) {
+              String signature = contextualToolPolicyService.normalizeObservedSignature(message.body());
+              if (!signature.isBlank()) {
+                observedToolCalls.add(signature);
+              }
+            }
+          }
         }
         output.append(line).append('\n');
       }
@@ -244,5 +306,9 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
     } catch (IOException exception) {
       return "";
     }
+  }
+
+  private String formatPolicyItems(java.util.Set<String> items) {
+    return items == null || items.isEmpty() ? "<none>" : String.join(", ", items);
   }
 }

@@ -28,6 +28,6 @@ public final class AgentTaskManagerLauncher {
       AgentTaskManagerCli.main(args);
       return;
     }
-    AgentTaskManagerApplication.main(args);
+    StandaloneAgentTaskManagerServer.main(args);
   }
 }

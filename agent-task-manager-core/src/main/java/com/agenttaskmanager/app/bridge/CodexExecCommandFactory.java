@@ -1,6 +1,8 @@
 package com.agenttaskmanager.app.bridge;
 
 import com.agenttaskmanager.app.config.CodexBridgeProperties;
+import com.agenttaskmanager.app.config.ConfiguredCommandResolver;
+import com.agenttaskmanager.app.orchestration.ContextualToolPolicyService;
 import com.agenttaskmanager.app.orchestration.PromptOutputGuidanceService;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -11,15 +13,18 @@ import org.springframework.stereotype.Component;
 public class CodexExecCommandFactory {
 
   private final CodexBridgeProperties properties;
+  private final ContextualToolPolicyService contextualToolPolicyService;
   private final CodexDeterministicConfigService deterministicConfigService;
   private final PromptOutputGuidanceService promptOutputGuidanceService;
 
   public CodexExecCommandFactory(
       CodexBridgeProperties properties,
+      ContextualToolPolicyService contextualToolPolicyService,
       CodexDeterministicConfigService deterministicConfigService,
       PromptOutputGuidanceService promptOutputGuidanceService
   ) {
     this.properties = properties;
+    this.contextualToolPolicyService = contextualToolPolicyService;
     this.deterministicConfigService = deterministicConfigService;
     this.promptOutputGuidanceService = promptOutputGuidanceService;
   }
@@ -31,8 +36,7 @@ public class CodexExecCommandFactory {
       Path outputFile,
       String resumeSessionId
   ) {
-    List<String> command = new ArrayList<>();
-    command.add(properties.getCommand());
+    List<String> command = new ArrayList<>(ConfiguredCommandResolver.resolveCommand(properties.getCommand()));
     deterministicConfigService.appendDeterministicArguments(command, projectKey);
     command.add("-C");
     command.add(repoPath.toString());
@@ -77,6 +81,9 @@ public class CodexExecCommandFactory {
         Tool combination patterns:
         %s
 
+        Contextual tool policy:
+        %s
+
         Final response contract:
         %s
 
@@ -91,6 +98,7 @@ public class CodexExecCommandFactory {
         promptOutputGuidanceService.deterministicExecutionPolicy(),
         promptOutputGuidanceService.memoryPolicy(),
         promptOutputGuidanceService.toolCombinationPatterns(),
+        contextualToolPolicyService.buildPolicy(executionMode, normalizedPrompt, false),
         promptOutputGuidanceService.finalResponseContract(),
         normalizedMemory,
         normalizedPrompt

@@ -8,6 +8,7 @@ public class SecurityProperties {
   private String username = "agent";
   private String password = "";
   private String rememberMeKey = "agent-task-manager-remember-me";
+  private boolean mcpNoAuthEnabled = false;
   private boolean proxyAuthEnabled = false;
   private String proxyAuthHeader = "X-Forwarded-User";
 
@@ -33,6 +34,14 @@ public class SecurityProperties {
 
   public void setRememberMeKey(String rememberMeKey) {
     this.rememberMeKey = rememberMeKey;
+  }
+
+  public boolean isMcpNoAuthEnabled() {
+    return mcpNoAuthEnabled;
+  }
+
+  public void setMcpNoAuthEnabled(boolean mcpNoAuthEnabled) {
+    this.mcpNoAuthEnabled = mcpNoAuthEnabled;
   }
 
   public boolean isProxyAuthEnabled() {

@@ -11,9 +11,10 @@ public class PromptOutputGuidanceService {
   public String deterministicExecutionPolicy() {
     return """
         - tool access is configured by AgentTaskManager before the run starts
-        - clean-java-harness is the primary MCP surface for Codex worker runs
-        - the harness builds task context before code is drafted, including rules, examples, retrieval hits, package dependencies, and validation history
-        - use the harness bundle tools to broker repository inspection and retrieval before reaching for individual tool calls
+        - agent-task-manager is the primary MCP surface for Codex worker runs
+        - repository inspection should flow through the brokered repo-context tools before reaching for fallback local execution
+        - branch creation and commit creation must flow through the first-party git workflow MCP tools instead of raw shell git mutation
+        - clean Java validation is bundled locally and runs through AgentTaskManager runtime validation instead of a separate harness server
         - workers do not self-approve; they must pass cleanup review, staged validation, and approval gates
         - treat direct shell searching as fallback-only when the MCP tools cannot satisfy the operation
         - verify repository state before claiming that work is complete
@@ -38,9 +39,10 @@ public class PromptOutputGuidanceService {
   public String toolCombinationPatterns() {
     return """
         - runHarnessToolBundle(worker-context): load shared task state, retrieval context, git status, filesystem listing, and search results in one brokered call before editing
-        - runHarnessToolBundle(repo-context): fan out filesystem, ripgrep, and git calls in parallel on the harness server instead of chaining them from Codex
-        - loadCleanJavaTaskContext + runHarnessToolBundle(java-context): build deterministic Java context with rules, examples, prior fixes, package dependencies, and repo state before editing
-        - runCleanJavaHarness: run Spoon source-shape checks first, then ArchUnit architecture checks, then cycle feedback before approval
+        - runHarnessToolBundle(repo-context): fan out filesystem, ripgrep, and git calls in parallel through the central MCP instead of chaining them from Codex
+        - planGitCommit + prepareGitBranch + createGitCommit: keep branch naming deterministic and commit the current concern through the first-party git workflow with a verbose body
+        - loadTaskContext + loadValidationHistory + searchPriorFixes: gather current task state, prior validation, and related Java fixes before editing
+        - local clean Java validation runs after worker execution: Spoon source-shape checks first, then ArchUnit architecture checks, then cycle feedback before approval
         - use direct shell search only when the brokered harness bundle cannot satisfy the operation
         """;
   }

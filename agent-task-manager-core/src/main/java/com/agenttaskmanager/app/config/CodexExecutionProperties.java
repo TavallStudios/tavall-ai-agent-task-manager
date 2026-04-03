@@ -9,12 +9,12 @@ public class CodexExecutionProperties {
 
   private String mcpServerBinDir = "/srv/mcp-servers/bin";
   private String reasoningEffort = "high";
-  private List<String> addDirectories = new ArrayList<>(List.of("/srv", "/srv/local-pc-root"));
-  private List<String> requiredMcpServers = new ArrayList<>(
-      List.of(
-          "clean-java-harness"
-      )
-  );
+  private List<String> addDirectories = new ArrayList<>(List.of("/srv"));
+  private String downstreamCentralServer = "agent-task-manager";
+  private List<String> requiredMcpServers = new ArrayList<>();
+  private boolean centralServerLocalStdioEnabled;
+  private String centralServerJarPath = "";
+  private boolean remoteToolExecutionEnabled;
 
   public String getMcpServerBinDir() {
     return mcpServerBinDir;
@@ -40,11 +40,43 @@ public class CodexExecutionProperties {
     this.addDirectories = addDirectories;
   }
 
+  public String getDownstreamCentralServer() {
+    return downstreamCentralServer;
+  }
+
+  public void setDownstreamCentralServer(String downstreamCentralServer) {
+    this.downstreamCentralServer = downstreamCentralServer;
+  }
+
   public List<String> getRequiredMcpServers() {
     return requiredMcpServers;
   }
 
   public void setRequiredMcpServers(List<String> requiredMcpServers) {
     this.requiredMcpServers = requiredMcpServers;
+  }
+
+  public boolean isCentralServerLocalStdioEnabled() {
+    return centralServerLocalStdioEnabled;
+  }
+
+  public void setCentralServerLocalStdioEnabled(boolean centralServerLocalStdioEnabled) {
+    this.centralServerLocalStdioEnabled = centralServerLocalStdioEnabled;
+  }
+
+  public String getCentralServerJarPath() {
+    return centralServerJarPath;
+  }
+
+  public void setCentralServerJarPath(String centralServerJarPath) {
+    this.centralServerJarPath = centralServerJarPath;
+  }
+
+  public boolean isRemoteToolExecutionEnabled() {
+    return remoteToolExecutionEnabled;
+  }
+
+  public void setRemoteToolExecutionEnabled(boolean remoteToolExecutionEnabled) {
+    this.remoteToolExecutionEnabled = remoteToolExecutionEnabled;
   }
 }

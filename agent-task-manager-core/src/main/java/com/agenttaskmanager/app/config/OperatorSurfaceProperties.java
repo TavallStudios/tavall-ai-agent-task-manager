@@ -10,7 +10,7 @@ public class OperatorSurfaceProperties {
   private String idePath = "/code/";
   private String ideHealthUrl = "http://127.0.0.1:13337/healthz";
   private String ideWorkspace = "/srv";
-  private String sshCommand = "ssh novus-remote";
+  private String supportCommand = "bash -lc";
 
   public String getExternalBaseUrl() {
     return externalBaseUrl;
@@ -52,11 +52,11 @@ public class OperatorSurfaceProperties {
     this.ideWorkspace = ideWorkspace;
   }
 
-  public String getSshCommand() {
-    return sshCommand;
+  public String getSupportCommand() {
+    return supportCommand;
   }
 
-  public void setSshCommand(String sshCommand) {
-    this.sshCommand = sshCommand;
+  public void setSupportCommand(String supportCommand) {
+    this.supportCommand = supportCommand;
   }
 }

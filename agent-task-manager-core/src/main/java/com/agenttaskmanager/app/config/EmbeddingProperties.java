@@ -12,7 +12,7 @@ public class EmbeddingProperties {
   private int dimensions = 1536;
   private String geminiApiKey = "";
   private String geminiModel = "gemini-embedding-2-preview";
-  private String localCommand = "python3 " + Path.of(System.getProperty("user.dir", "."), "scripts", "fastembed_embed.py");
+  private String localCommand = defaultLocalCommand();
   private String localModel = "BAAI/bge-small-en-v1.5";
   private int localTimeoutSeconds = 30;
 
@@ -70,5 +70,11 @@ public class EmbeddingProperties {
 
   public void setLocalTimeoutSeconds(int localTimeoutSeconds) {
     this.localTimeoutSeconds = localTimeoutSeconds;
+  }
+
+  private static String defaultLocalCommand() {
+    String pythonCommand = System.getProperty("os.name", "").toLowerCase().contains("win") ? "python" : "python3";
+    Path scriptPath = Path.of(System.getProperty("user.dir", "."), "scripts", "fastembed_embed.py");
+    return pythonCommand + " \"" + scriptPath + "\"";
   }
 }

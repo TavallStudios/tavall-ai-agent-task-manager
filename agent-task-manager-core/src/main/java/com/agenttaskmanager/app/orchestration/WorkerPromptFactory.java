@@ -1,5 +1,6 @@
 package com.agenttaskmanager.app.orchestration;
 
+import com.agenttaskmanager.app.model.orchestration.WorkerType;
 import com.agenttaskmanager.app.model.orchestration.WorkerTask;
 import org.springframework.stereotype.Component;
 
@@ -7,13 +8,16 @@ import org.springframework.stereotype.Component;
 public class WorkerPromptFactory {
 
   private final PromptMemoryLookupService promptMemoryLookupService;
+  private final ContextualToolPolicyService contextualToolPolicyService;
   private final PromptOutputGuidanceService promptOutputGuidanceService;
 
   public WorkerPromptFactory(
       PromptMemoryLookupService promptMemoryLookupService,
+      ContextualToolPolicyService contextualToolPolicyService,
       PromptOutputGuidanceService promptOutputGuidanceService
   ) {
     this.promptMemoryLookupService = promptMemoryLookupService;
+    this.contextualToolPolicyService = contextualToolPolicyService;
     this.promptOutputGuidanceService = promptOutputGuidanceService;
   }
 
@@ -32,6 +36,9 @@ public class WorkerPromptFactory {
         Tool combination patterns:
         %s
 
+        Contextual tool policy:
+        %s
+
         Final response contract:
         %s
 
@@ -39,6 +46,9 @@ public class WorkerPromptFactory {
         %s
 
         Worker focus:
+        %s
+
+        Computer-use execution contract:
         %s
 
         Requirements:
@@ -55,14 +65,34 @@ public class WorkerPromptFactory {
         promptOutputGuidanceService.deterministicExecutionPolicy(),
         promptOutputGuidanceService.memoryPolicy(),
         promptOutputGuidanceService.toolCombinationPatterns(),
+        contextualToolPolicyService.buildPolicy(
+            "edit",
+            workerTask.taskRole() + " " + workerTask.title() + " " + (workerTask.latestSummary() == null ? "" : workerTask.latestSummary()),
+            true
+        ),
         promptOutputGuidanceService.finalResponseContract(),
         promptMemoryLookupService.lookup(projectKey, buildQuery(workerTask)).section(),
-        workerTask.workerType().promptFocus()
+        workerTask.workerType().promptFocus(),
+        computerUseExecutionContract(workerTask)
     );
   }
 
   private static String buildQuery(WorkerTask workerTask) {
     String latestSummary = workerTask.latestSummary() == null ? "" : workerTask.latestSummary().strip();
     return (workerTask.workerType().name() + " " + workerTask.taskRole() + " " + workerTask.title() + " " + latestSummary).strip();
+  }
+
+  private String computerUseExecutionContract(WorkerTask workerTask) {
+    if (workerTask.workerType() != WorkerType.COMPUTER_USE) {
+      return "Use the normal repo and harness tool path for non-computer-use work.";
+    }
+    return """
+        - acquire or reference a dedicated computer-use runner instead of the operator desktop
+        - start a computer-use session with one of: hytale/launch-and-join-smoke, hytale/gameplay-assets-visible, hytale/chart-start-stable, hytale/note-hit-interaction
+        - drive launch, join, UI, gameplay-asset, and note-input checkpoints through the computer-use runner
+        - use the persisted scenarioDefinition metadata to track required steps, artifacts, and pass-fail gates
+        - store screenshots or runner artifacts for every failed gate
+        - treat the task as incomplete unless the session proves the expected visual or gameplay markers
+        """;
   }
 }

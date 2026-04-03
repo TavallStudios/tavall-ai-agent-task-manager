@@ -1,5 +1,6 @@
 package com.agenttaskmanager.app.persistence.qdrant;
 
+import com.agenttaskmanager.app.config.ConfiguredCommandResolver;
 import com.agenttaskmanager.app.config.EmbeddingProperties;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -62,7 +63,7 @@ public class LocalCommandEmbeddingProvider implements EmbeddingProvider {
 
   private String runCommand(Map<String, Object> request) {
     try {
-      Process process = new ProcessBuilder("bash", "-lc", embeddingProperties.getLocalCommand())
+      Process process = new ProcessBuilder(ConfiguredCommandResolver.resolveCommand(embeddingProperties.getLocalCommand()))
           .redirectErrorStream(true)
           .start();
       process.getOutputStream().write(objectMapper.writeValueAsBytes(request));

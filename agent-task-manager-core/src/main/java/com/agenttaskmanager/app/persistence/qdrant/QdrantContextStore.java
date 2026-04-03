@@ -14,24 +14,34 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
+import org.springframework.util.StringUtils;
 
 @Repository
 public class QdrantContextStore {
 
+  private static final Logger LOGGER = LoggerFactory.getLogger(QdrantContextStore.class);
+
   private final HttpClient httpClient;
   private final EmbeddingProviderChain embeddingProviderChain;
+  private final InMemoryQdrantStore inMemoryQdrantStore;
   private final ObjectMapper objectMapper;
   private final QdrantProperties qdrantProperties;
+  private final AtomicBoolean localFallbackEnabled = new AtomicBoolean();
 
   public QdrantContextStore(
       HttpClient httpClient,
       EmbeddingProviderChain embeddingProviderChain,
+      InMemoryQdrantStore inMemoryQdrantStore,
       ObjectMapper objectMapper,
       QdrantProperties qdrantProperties
   ) {
     this.httpClient = httpClient;
     this.embeddingProviderChain = embeddingProviderChain;
+    this.inMemoryQdrantStore = inMemoryQdrantStore;
     this.objectMapper = objectMapper;
     this.qdrantProperties = qdrantProperties;
   }
@@ -58,7 +68,6 @@ public class QdrantContextStore {
   }
 
   public String upsertContext(String collectionName, String pointId, String kind, String body, Map<String, Object> payload) {
-    ensureCollection(collectionName);
     EmbeddingVectorResult embedding = embeddingProviderChain.embed(kind, body, EmbeddingPurpose.RETRIEVAL_DOCUMENT);
     Map<String, Object> fullPayload = new LinkedHashMap<>();
     if (payload != null) {
@@ -77,11 +86,21 @@ public class QdrantContextStore {
         "vector", embedding.vector(),
         "payload", fullPayload
     );
-    sendRequest(
-        "/collections/" + collectionName + "/points?wait=true",
-        Map.of("points", List.of(point)),
-        "PUT"
-    );
+    if (shouldUseLocalFallback()) {
+      inMemoryQdrantStore.upsert(collectionName, pointId, embedding.vector(), fullPayload);
+      return pointId;
+    }
+    try {
+      ensureCollection(collectionName);
+      sendRequest(
+          "/collections/" + collectionName + "/points?wait=true",
+          Map.of("points", List.of(point)),
+          "PUT"
+      );
+    } catch (IllegalStateException exception) {
+      activateLocalFallback(exception);
+      inMemoryQdrantStore.upsert(collectionName, pointId, embedding.vector(), fullPayload);
+    }
     return pointId;
   }
 
@@ -100,8 +119,10 @@ public class QdrantContextStore {
       Map<String, Object> payloadFilter,
       EmbeddingPurpose queryPurpose
   ) {
-    ensureCollection(collectionName);
     EmbeddingVectorResult embedding = embeddingProviderChain.embed(null, queryText, queryPurpose);
+    if (shouldUseLocalFallback()) {
+      return inMemoryQdrantStore.search(collectionName, embedding.vector(), limit, payloadFilter);
+    }
     Map<String, Object> requestBody = new LinkedHashMap<>();
     requestBody.put("query", embedding.vector());
     requestBody.put("limit", limit);
@@ -109,42 +130,66 @@ public class QdrantContextStore {
     if (payloadFilter != null && !payloadFilter.isEmpty()) {
       requestBody.put("filter", buildFilter(payloadFilter));
     }
-    Map<String, Object> response = sendRequest(
-        "/collections/" + collectionName + "/points/query",
-        requestBody
-    );
-    Object result = response.get("result");
-    Object points = result;
-    if (result instanceof Map<?, ?> resultMap) {
-      points = resultMap.get("points");
+    try {
+      ensureCollection(collectionName);
+      Map<String, Object> response = sendRequest(
+          "/collections/" + collectionName + "/points/query",
+          requestBody
+      );
+      Object result = response.get("result");
+      Object points = result;
+      if (result instanceof Map<?, ?> resultMap) {
+        points = resultMap.get("points");
+      }
+      if (!(points instanceof List<?> items)) {
+        return List.of();
+      }
+      return items.stream()
+          .filter(Map.class::isInstance)
+          .map(Map.class::cast)
+          .map(item -> new RetrievedSemanticContext(
+              String.valueOf(item.get("id")),
+              ((Number) item.getOrDefault("score", 0.0D)).doubleValue(),
+              (Map<String, Object>) item.getOrDefault("payload", Map.of())
+          ))
+          .toList();
+    } catch (IllegalStateException exception) {
+      activateLocalFallback(exception);
+      return inMemoryQdrantStore.search(collectionName, embedding.vector(), limit, payloadFilter);
     }
-    if (!(points instanceof List<?> items)) {
-      return List.of();
-    }
-    return items.stream()
-        .filter(Map.class::isInstance)
-        .map(Map.class::cast)
-        .map(item -> new RetrievedSemanticContext(
-            String.valueOf(item.get("id")),
-            ((Number) item.getOrDefault("score", 0.0D)).doubleValue(),
-            (Map<String, Object>) item.getOrDefault("payload", Map.of())
-        ))
-        .toList();
   }
 
   public void deleteContexts(String collectionName, Map<String, Object> payloadFilter) {
     if (payloadFilter == null || payloadFilter.isEmpty()) {
       return;
     }
-    ensureCollection(collectionName);
-    sendRequest(
-        "/collections/" + collectionName + "/points/delete?wait=true",
-        Map.of("filter", buildFilter(payloadFilter))
-    );
+    if (shouldUseLocalFallback()) {
+      inMemoryQdrantStore.deleteByFilter(collectionName, payloadFilter);
+      return;
+    }
+    try {
+      ensureCollection(collectionName);
+      sendRequest(
+          "/collections/" + collectionName + "/points/delete?wait=true",
+          Map.of("filter", buildFilter(payloadFilter))
+      );
+    } catch (IllegalStateException exception) {
+      activateLocalFallback(exception);
+      inMemoryQdrantStore.deleteByFilter(collectionName, payloadFilter);
+    }
   }
 
   public void deleteCollection(String collectionName) {
-    sendRequest("/collections/" + collectionName, Map.of(), "DELETE");
+    if (shouldUseLocalFallback()) {
+      inMemoryQdrantStore.deleteCollection(collectionName);
+      return;
+    }
+    try {
+      sendRequest("/collections/" + collectionName, Map.of(), "DELETE");
+    } catch (IllegalStateException exception) {
+      activateLocalFallback(exception);
+      inMemoryQdrantStore.deleteCollection(collectionName);
+    }
   }
 
   private void ensureCollection(String collectionName) {
@@ -211,5 +256,15 @@ public class QdrantContextStore {
 
   private String collectionBaseUrl(String path) {
     return qdrantProperties.getBaseUrl() + path;
+  }
+
+  private boolean shouldUseLocalFallback() {
+    return localFallbackEnabled.get() || !StringUtils.hasText(qdrantProperties.getBaseUrl());
+  }
+
+  private void activateLocalFallback(IllegalStateException exception) {
+    if (localFallbackEnabled.compareAndSet(false, true)) {
+      LOGGER.warn("Qdrant unavailable. Falling back to in-memory semantic storage: {}", exception.getMessage());
+    }
   }
 }

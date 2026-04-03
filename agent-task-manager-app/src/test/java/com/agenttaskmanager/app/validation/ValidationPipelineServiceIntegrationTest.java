@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agenttaskmanager.app.model.validation.ValidationReport;
 import com.agenttaskmanager.app.support.IntegrationTestSupport;
+import com.agenttaskmanager.app.support.TestWorkspacePaths;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -75,7 +76,6 @@ class ValidationPipelineServiceIntegrationTest extends IntegrationTestSupport {
 
   @Test
   void shouldDetectCurrentMultiModuleProjectWithoutPackageRootRules() {
-    Path repoRoot = Path.of("").toAbsolutePath().getParent();
-    assertTrue(AgentTaskManagerProjectLayout.isProjectRoot(repoRoot));
+    assertTrue(AgentTaskManagerProjectLayout.isProjectRoot(TestWorkspacePaths.repoRoot()));
   }
 }

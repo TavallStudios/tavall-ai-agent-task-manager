@@ -1,9 +1,12 @@
 package com.agenttaskmanager.app.cleanjava;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.agenttaskmanager.app.AgentTaskManagerApplication;
 import com.agenttaskmanager.app.mcp.McpCatalog;
+import com.agenttaskmanager.app.mcp.cleanjava.CleanJavaMcpTools;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
@@ -12,7 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest(
-    classes = AgentTaskManagerApplication.class,
+    classes = CleanJavaMcpApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.NONE
 )
 @TestPropertySource(properties = {
@@ -52,5 +55,16 @@ class CleanJavaMcpCatalogIntegrationTest {
         ),
         toolNames
     );
+  }
+
+  @Test
+  void shouldResolveRulesWhenSearchStartsFromModuleTargetDirectory() throws Exception {
+    Path moduleTarget = Path.of("target").toAbsolutePath().normalize();
+    Path resolved = CleanJavaMcpTools.resolveDocPath(
+        java.util.List.of(Path.of("/tmp/not-the-repo"), moduleTarget),
+        "RULES.md"
+    );
+
+    assertTrue(Files.isSameFile(resolved, moduleTarget.getParent().getParent().resolve("RULES.md")));
   }
 }

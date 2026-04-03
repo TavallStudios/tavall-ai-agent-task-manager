@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.bridge")
 public class CodexBridgeProperties {
 
-  private boolean enabled = true;
+  private boolean enabled = false;
   private String agentId = "";
   private String command = "codex";
   private long pollIntervalMs = 5000;

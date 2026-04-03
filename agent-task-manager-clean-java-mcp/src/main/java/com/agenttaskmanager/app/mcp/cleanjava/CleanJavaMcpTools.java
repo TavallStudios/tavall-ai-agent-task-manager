@@ -10,6 +10,7 @@ import com.agenttaskmanager.app.mcp.McpToolSupport;
 import com.agenttaskmanager.app.validation.ValidationPipelineService;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -128,10 +129,62 @@ public class CleanJavaMcpTools extends McpToolSupport implements McpToolProvider
 
   private String readDoc(String fileName) {
     try {
-      return Files.readString(Path.of(fileName), StandardCharsets.UTF_8);
+      return Files.readString(resolveDocPath(fileName), StandardCharsets.UTF_8);
     } catch (IOException exception) {
       return "Failed to read " + fileName + ": " + exception.getMessage();
     }
+  }
+
+  public static Path resolveDocPath(String fileName) throws IOException {
+    return resolveDocPath(defaultSearchRoots(), fileName);
+  }
+
+  public static Path resolveDocPath(List<Path> searchRoots, String fileName) throws IOException {
+    for (Path searchRoot : searchRoots) {
+      Path resolved = searchUpwardsForDoc(searchRoot, fileName);
+      if (resolved != null) {
+        return resolved;
+      }
+    }
+    throw new IOException("Unable to locate " + fileName + " from search roots " + searchRoots);
+  }
+
+  private static List<Path> defaultSearchRoots() {
+    return List.of(
+        Path.of(".").toAbsolutePath().normalize(),
+        codeSourceSearchRoot()
+    );
+  }
+
+  private static Path codeSourceSearchRoot() {
+    try {
+      Path location = Path.of(CleanJavaMcpTools.class.getProtectionDomain().getCodeSource().getLocation().toURI())
+          .toAbsolutePath()
+          .normalize();
+      return Files.isDirectory(location) ? location : location.getParent();
+    } catch (URISyntaxException | NullPointerException exception) {
+      return Path.of(".").toAbsolutePath().normalize();
+    }
+  }
+
+  private static Path searchUpwardsForDoc(Path start, String fileName) {
+    Path current = normalizeSearchRoot(start);
+    while (current != null) {
+      Path candidate = current.resolve(fileName);
+      if (Files.isRegularFile(candidate)) {
+        return candidate;
+      }
+      current = current.getParent();
+    }
+    return null;
+  }
+
+  private static Path normalizeSearchRoot(Path path) {
+    if (path == null) {
+      return null;
+    }
+    Path normalized = path.toAbsolutePath().normalize();
+    return Files.isDirectory(normalized) ? normalized : normalized.getParent();
   }
 
   @FunctionalInterface

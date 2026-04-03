@@ -6,12 +6,12 @@ public record RuntimeStatus(
     boolean multiAgentEnabled,
     boolean redisReachable,
     String redisNamespace,
-    boolean bridgeEnabled,
-    boolean bridgeOnline,
-    String bridgeAgentId,
-    String bridgeSessionId,
-    String bridgeSessionStatus,
-    String bridgeActiveRequestId,
-    Long bridgeActiveRunId
+    boolean runnerEnabled,
+    boolean runnerOnline,
+    String runnerAgentId,
+    String runnerSessionId,
+    String runnerStatus,
+    String activeRequestId,
+    Long activeRunId
 ) {
 }

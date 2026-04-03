@@ -2,7 +2,6 @@ package com.agenttaskmanager.app.cleanjava;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.agenttaskmanager.app.AgentTaskManagerApplication;
 import com.agenttaskmanager.app.mcp.McpCatalog;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -12,7 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest(
-    classes = AgentTaskManagerApplication.class,
+    classes = CleanJavaHarnessTestApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.NONE
 )
 @TestPropertySource(properties = {

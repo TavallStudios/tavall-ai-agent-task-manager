@@ -37,6 +37,7 @@ public class PromptRequestRepository {
       String projectKey,
       String repoPath,
       String bridgeTarget,
+      String threadKeyOverride,
       String executionMode,
       String promptText,
       String requestedBy,
@@ -44,7 +45,9 @@ public class PromptRequestRepository {
   ) {
     String requestId = "pr_" + UUID.randomUUID();
     String normalizedBridgeTarget = PromptThreadRepository.normalizeBridgeTarget(bridgeTarget);
-    String threadKey = buildThreadKey(repoPath, normalizedBridgeTarget);
+    String threadKey = threadKeyOverride == null || threadKeyOverride.isBlank()
+        ? buildThreadKey(repoPath, normalizedBridgeTarget)
+        : threadKeyOverride.strip();
 
     jdbcClient.sql("""
             INSERT INTO agent_task_manager.prompt_requests (

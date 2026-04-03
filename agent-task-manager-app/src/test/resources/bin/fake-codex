@@ -31,6 +31,8 @@ mkdir -p "$workspace"
 cd "$workspace"
 
 printf '{"type":"thread.started","thread_id":"fake-thread"}\n'
+printf '{"type":"item.completed","item":{"type":"tool_call","name":"runHarnessToolBundle","arguments":{"bundleName":"worker-context"}}}\n'
+printf '{"type":"item.completed","item":{"type":"tool_call","name":"runHarnessToolBundle","arguments":{"bundleName":"repo-context"}}}\n'
 printf '{"type":"item.completed","item":{"type":"agent_message","text":"fake-codex processed prompt"}}\n'
 
 if [[ -f README.md ]]; then
@@ -43,6 +45,24 @@ package example;
 public class AutonomousNote {
 }
 EOF
+fi
+
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  branch="atm-fakecodex-tj-v1"
+  printf '{"type":"item.completed","item":{"type":"tool_call","name":"prepareGitBranch","arguments":{"repoPath":"%s","domain":"atm","system":"fakecodex","user":"tj","version":"v1"}}}\n' "$workspace"
+  git config user.email integration@example.com >/dev/null 2>&1 || true
+  git config user.name "Integration Test" >/dev/null 2>&1 || true
+  if git show-ref --verify --quiet "refs/heads/$branch"; then
+    git checkout "$branch" >/dev/null 2>&1
+  else
+    git checkout -b "$branch" >/dev/null 2>&1
+  fi
+  git add -A
+  if ! git diff --cached --quiet; then
+    body=$'What Changed:\nRecorded the fake codex fixture update.\n\nWhy:\nKeeps the fake worker run aligned with git workflow enforcement.\n\nVerification:\nFake codex fixture execution.\n\nBranch:\natm-fakecodex-tj-v1\n\nConcern:\natm / fakecodex\n\nFinal Change: yes\nChange Type: Changed\n'
+    git commit -m 'Changed: Fake codex worker fixture update' -m "$body" >/dev/null 2>&1
+    printf '{"type":"item.completed","item":{"type":"tool_call","name":"createGitCommit","arguments":{"repoPath":"%s","changeType":"Changed"}}}\n' "$workspace"
+  fi
 fi
 
 if [[ -n "$output_file" ]]; then

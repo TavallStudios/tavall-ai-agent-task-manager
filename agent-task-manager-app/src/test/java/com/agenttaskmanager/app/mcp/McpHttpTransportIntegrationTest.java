@@ -11,8 +11,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -21,11 +19,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.TestPropertySource;
 
+@TestPropertySource(properties = {
+    "app.security.mcp-no-auth-enabled=true"
+})
 class McpHttpTransportIntegrationTest extends IntegrationTestSupport {
-
-  private static final String PASSWORD = "test-password";
-  private static final String USERNAME = "test-agent";
 
   @Autowired
   private JdbcClient jdbcClient;
@@ -38,6 +37,10 @@ class McpHttpTransportIntegrationTest extends IntegrationTestSupport {
 
   @BeforeEach
   void cleanup() {
+    jdbcClient.sql("DELETE FROM agent_task_manager.prompt_messages").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.prompt_runs").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.prompt_threads").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.prompt_requests").update();
     jdbcClient.sql("DELETE FROM agent_task_manager.validation_violations").update();
     jdbcClient.sql("DELETE FROM agent_task_manager.validation_reports").update();
     jdbcClient.sql("DELETE FROM agent_task_manager.patch_decisions").update();
@@ -121,6 +124,19 @@ class McpHttpTransportIntegrationTest extends IntegrationTestSupport {
     assertTrue(dashboardResponse.toString().contains("integration-http-mcp"));
   }
 
+  @Test
+  void shouldNotExposeLegacyRestRoutes() throws Exception {
+    HttpClient httpClient = HttpClient.newHttpClient();
+    HttpResponse<String> response = httpClient.send(
+        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/tasks"))
+            .GET()
+            .build(),
+        HttpResponse.BodyHandlers.ofString()
+    );
+
+    assertEquals(404, response.statusCode());
+  }
+
   private List<String> extractToolNames(JsonNode response) {
     return response.at("/result/tools")
         .findValuesAsText("name")
@@ -160,7 +176,6 @@ class McpHttpTransportIntegrationTest extends IntegrationTestSupport {
     HttpClient httpClient = HttpClient.newHttpClient();
     HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
         .uri(URI.create("http://127.0.0.1:" + port + "/mcp"))
-        .header("Authorization", authorizationHeader())
         .header("Accept", "application/json, text/event-stream")
         .header("Content-Type", "application/json");
 
@@ -185,11 +200,5 @@ class McpHttpTransportIntegrationTest extends IntegrationTestSupport {
         .collect(Collectors.joining("\n"));
 
     return objectMapper.readTree(data);
-  }
-
-  private String authorizationHeader() {
-    String token = Base64.getEncoder()
-        .encodeToString((USERNAME + ":" + PASSWORD).getBytes(StandardCharsets.UTF_8));
-    return "Basic " + token;
   }
 }

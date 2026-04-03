@@ -1,8 +1,10 @@
 package com.agenttaskmanager.app.persistence.postgres;
 
 import com.agenttaskmanager.app.model.BridgeSessionSummary;
+import com.agenttaskmanager.app.model.bridge.BridgeSessionRecord;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -10,9 +12,11 @@ import org.springframework.stereotype.Repository;
 public class BridgeSessionRepository {
 
   private final JdbcClient jdbcClient;
+  private final JsonSupport jsonSupport;
 
-  public BridgeSessionRepository(JdbcClient jdbcClient) {
+  public BridgeSessionRepository(JdbcClient jdbcClient, JsonSupport jsonSupport) {
     this.jdbcClient = jdbcClient;
+    this.jsonSupport = jsonSupport;
   }
 
   public void upsertAgentSession(
@@ -148,5 +152,42 @@ public class BridgeSessionRepository {
             rs.getObject("last_seen_at", OffsetDateTime.class)
         ))
         .list();
+  }
+
+  public Optional<BridgeSessionRecord> findBridgeSession(String sessionId) {
+    return jdbcClient.sql("""
+            SELECT
+              session_id,
+              agent_id,
+              client_name,
+              host_name,
+              repo_path,
+              COALESCE(capabilities ->> 'bridgeTarget', '') AS bridge_target,
+              COALESCE(capabilities ->> 'transport', '') AS transport,
+              status,
+              (
+                status NOT IN ('offline', 'disabled')
+                AND last_seen_at > now() - interval '90 seconds'
+              ) AS online,
+              last_seen_at,
+              capabilities
+            FROM agent_task_manager.agent_sessions
+            WHERE session_id = :sessionId
+            """)
+        .param("sessionId", sessionId)
+        .query((rs, rowNum) -> new BridgeSessionRecord(
+            rs.getString("session_id"),
+            rs.getString("agent_id"),
+            rs.getString("client_name"),
+            rs.getString("host_name"),
+            rs.getString("repo_path"),
+            rs.getString("bridge_target"),
+            rs.getString("transport"),
+            rs.getString("status"),
+            rs.getBoolean("online"),
+            rs.getObject("last_seen_at", OffsetDateTime.class),
+            jsonSupport.readMap(rs.getString("capabilities"))
+        ))
+        .optional();
   }
 }

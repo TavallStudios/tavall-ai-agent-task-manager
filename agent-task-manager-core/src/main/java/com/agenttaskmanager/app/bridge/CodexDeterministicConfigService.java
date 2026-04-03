@@ -3,6 +3,7 @@ package com.agenttaskmanager.app.bridge;
 import com.agenttaskmanager.app.config.CodexExecutionProperties;
 import com.agenttaskmanager.app.mcp.McpServerProcessConfiguration;
 import com.agenttaskmanager.app.mcp.McpServerProcessConfigurationService;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,7 @@ public class CodexDeterministicConfigService {
 
   public void appendDeterministicArguments(List<String> command, String projectKey) {
     appendConfig(command, "model_reasoning_effort", tomlString(properties.getReasoningEffort()));
-    for (String serverName : properties.getRequiredMcpServers()) {
+    for (String serverName : configuredServerNames()) {
       McpServerProcessConfiguration configuration = processConfigurationService.resolve(serverName, projectKey);
       appendConfig(
           command,
@@ -51,6 +52,20 @@ public class CodexDeterministicConfigService {
         command.add(directory);
       }
     }
+  }
+
+  private List<String> configuredServerNames() {
+    String centralServer = properties.getDownstreamCentralServer();
+    if (centralServer != null && !centralServer.isBlank()) {
+      return List.of(centralServer.strip());
+    }
+    List<String> requiredServers = new ArrayList<>();
+    for (String serverName : properties.getRequiredMcpServers()) {
+      if (serverName != null && !serverName.isBlank()) {
+        requiredServers.add(serverName.strip());
+      }
+    }
+    return requiredServers;
   }
 
   private static void appendConfig(List<String> command, String key, String value) {

@@ -61,8 +61,11 @@ public class AgentPromptProvider implements McpPromptProvider {
           - follow AGENTS.md and RULES.md
           - use MCP tools instead of self-certifying work
           - use runHarnessToolBundle to assemble repository, state, and retrieval context before acting
-          - let the harness broker filesystem, ripgrep, and git in parallel instead of calling them one by one
-          - when changing Java code, call loadCleanJavaTaskContext before editing, then use the java-context harness bundle, then run the clean Java harness before approval
+          - let AgentTaskManager broker filesystem, ripgrep, and git in parallel instead of calling them one by one
+          - use planGitCommit, prepareGitBranch, and createGitCommit for branch and commit mutation instead of raw shell git commands
+          - do not use downstream git mutation tools such as git_commit, git_add, git_checkout, git_create_branch, or git_reset when AgentTaskManager workflow tools are available
+          - when changing Java code, review task context, validation history, and prior fixes before editing
+          - expect local Spoon and ArchUnit validation to run through AgentTaskManager runtime approval after the worker process ends
           - treat Spoon and ArchUnit failures as structured remediation that must be fixed before approval
           - keep explicit check-ins and artifacts
           - require cleanup review plus validation before approval

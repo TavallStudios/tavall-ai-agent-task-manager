@@ -1,5 +1,6 @@
 package com.agenttaskmanager.app.bridge;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -12,7 +13,9 @@ import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {
     "app.codex.mcp-server-bin-dir=/srv/test-mcp/bin",
-    "app.codex.add-directories=/srv,/srv/local-pc-root",
+    "app.codex.downstream-central-server=agent-task-manager",
+    "app.codex.required-mcp-servers=filesystem,qdrant",
+    "app.codex.add-directories=/srv",
     "app.qdrant.project-collection-prefix=agent_task_manager_project_test"
 })
 class CodexExecCommandFactoryIntegrationTest extends IntegrationTestSupport {
@@ -32,31 +35,41 @@ class CodexExecCommandFactoryIntegrationTest extends IntegrationTestSupport {
 
     assertTrue(command.contains("-c"));
     assertFalse(command.stream().anyMatch(item -> item.contains("mcp_servers.filesystem.command=")));
+    assertFalse(command.stream().anyMatch(item -> item.contains("mcp_servers.qdrant.command=")));
+    assertFalse(command.stream().anyMatch(item -> item.contains("mcp_servers.clean-java-harness.command=")));
     assertFalse(command.stream().anyMatch(item -> item.contains("mcp_servers.filesystem-localpc.command=")));
     assertFalse(command.stream().anyMatch(item -> item.contains("mcp_servers.memory.env.MEMORY_FILE_PATH=")));
     assertFalse(command.stream().anyMatch(item -> item.contains("mcp_servers.qdrant.env.COLLECTION_NAME=")));
     assertFalse(command.stream().anyMatch(item -> item.contains("mcp_servers.clean-java-mcp.command=")));
-    assertTrue(command.stream().anyMatch(item -> item.contains("mcp_servers.clean-java-harness.command=\"java\"")));
-    assertTrue(command.stream().anyMatch(item -> item.contains(
-        "mcp_servers.clean-java-harness.args=[\"-jar\",\"/srv/AgentTaskManager/agent-task-manager-clean-java-harness/target/agent-task-manager-clean-java-harness-0.1.0-SNAPSHOT-exec.jar\"]"
-    )));
+    assertTrue(command.stream().anyMatch(item -> item.contains("mcp_servers.agent-task-manager.command=\"java\"")));
+    assertTrue(command.stream().anyMatch(item -> item.contains("mcp_servers.agent-task-manager.args=")));
+    assertEquals(
+        1,
+        command.stream().filter(item -> item.contains("mcp_servers.") && item.contains(".command=")).count()
+    );
+    assertTrue(command.stream().anyMatch(item -> item.contains("serve-mcp-stdio")));
     assertTrue(command.contains("--add-dir"));
-    assertTrue(command.contains("/srv/local-pc-root"));
+    assertTrue(command.contains("/srv"));
   }
 
   @Test
   void shouldEmbedSharedToolCombinationAndResponseGuidanceInPromptEnvelopes() {
     String envelope = commandFactory.buildPromptEnvelope(
         "edit",
-        "Improve output quality",
+        "Fix failing Java build and update service wiring",
         "Relevant memory"
     );
 
     assertTrue(envelope.contains("Tool combination patterns:"));
     assertTrue(envelope.contains("runHarnessToolBundle(worker-context)"));
     assertTrue(envelope.contains("runHarnessToolBundle(repo-context)"));
-    assertTrue(envelope.contains("loadCleanJavaTaskContext + runHarnessToolBundle(java-context)"));
-    assertTrue(envelope.contains("runCleanJavaHarness: run Spoon source-shape checks first"));
+    assertTrue(envelope.contains("planGitCommit + prepareGitBranch + createGitCommit"));
+    assertTrue(envelope.contains("loadTaskContext + loadValidationHistory + searchPriorFixes"));
+    assertTrue(envelope.contains("local clean Java validation runs after worker execution"));
+    assertTrue(envelope.contains("Contextual tool policy:"));
+    assertTrue(envelope.contains("Contextual tool policy (auto-inferred):"));
+    assertTrue(envelope.contains("decision: REQUIRED"));
+    assertTrue(envelope.contains("required sequence:"));
     assertTrue(envelope.contains("Final response contract:"));
     assertTrue(envelope.contains("report verification status explicitly"));
   }

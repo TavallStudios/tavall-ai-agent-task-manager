@@ -27,6 +27,7 @@ public class HarnessToolBundleService {
   private final CleanJavaTaskContextService cleanJavaTaskContextService;
   private final DownstreamMcpToolClientService downstreamMcpToolClientService;
   private final HarnessStateService harnessStateService;
+  private final RemoteHarnessToolBundleClientService remoteHarnessToolBundleClientService;
   private final SharedTaskContextService sharedTaskContextService;
 
   public HarnessToolBundleService(
@@ -34,12 +35,14 @@ public class HarnessToolBundleService {
       CleanJavaTaskContextService cleanJavaTaskContextService,
       DownstreamMcpToolClientService downstreamMcpToolClientService,
       HarnessStateService harnessStateService,
+      RemoteHarnessToolBundleClientService remoteHarnessToolBundleClientService,
       SharedTaskContextService sharedTaskContextService
   ) {
     this.dashboardSummaryService = dashboardSummaryService;
     this.cleanJavaTaskContextService = cleanJavaTaskContextService;
     this.downstreamMcpToolClientService = downstreamMcpToolClientService;
     this.harnessStateService = harnessStateService;
+    this.remoteHarnessToolBundleClientService = remoteHarnessToolBundleClientService;
     this.sharedTaskContextService = sharedTaskContextService;
   }
 
@@ -47,12 +50,24 @@ public class HarnessToolBundleService {
     HarnessToolBundleType bundleType = request.bundleType();
     String repoPath = normalizeRepoPath(request.repoPath());
     int limit = normalizeLimit(request.limit());
+    HarnessToolBundleRequest normalizedRequest = new HarnessToolBundleRequest(
+        bundleType.value(),
+        request.taskId(),
+        request.workerTaskId(),
+        request.projectKey(),
+        repoPath,
+        request.queryText(),
+        limit
+    );
+    if (bundleType == HarnessToolBundleType.REPO_CONTEXT && remoteHarnessToolBundleClientService.isEnabled()) {
+      return remoteRepoContextResult(normalizedRequest);
+    }
 
     ExecutorService executor = Executors.newFixedThreadPool(bundleType == HarnessToolBundleType.REPO_CONTEXT ? 2 : 4);
     try {
-      List<CompletableFuture<Map.Entry<String, Object>>> internalFutures = internalSections(request, bundleType, executor);
-      CompletableFuture<List<DownstreamMcpToolResult>> downstreamFuture = CompletableFuture.supplyAsync(
-          () -> downstreamMcpToolClientService.callTools(request.projectKey(), downstreamCalls(bundleType, repoPath, request.queryText(), limit)),
+      List<CompletableFuture<Map.Entry<String, Object>>> internalFutures = internalSections(normalizedRequest, bundleType, executor);
+      CompletableFuture<RepoContextBundle> repoContextFuture = CompletableFuture.supplyAsync(
+          () -> loadRepoContext(normalizedRequest, bundleType, repoPath, limit),
           executor
       );
 
@@ -62,18 +77,19 @@ public class HarnessToolBundleService {
         sections.put(section.getKey(), section.getValue());
       }
 
-      List<DownstreamMcpToolResult> downstreamResults = downstreamFuture.join();
-      sections.put("downstream", downstreamSections(downstreamResults));
+      RepoContextBundle repoContext = repoContextFuture.join();
+      sections.put("downstream", repoContext.downstreamSections());
 
       Map<String, Object> summary = new LinkedHashMap<>();
       summary.put("bundleName", bundleType.value());
-      summary.put("taskId", request.taskId());
-      summary.put("workerTaskId", request.workerTaskId());
+      summary.put("taskId", normalizedRequest.taskId());
+      summary.put("workerTaskId", normalizedRequest.workerTaskId());
       summary.put("repoPath", repoPath);
-      summary.put("downstreamCalls", downstreamResults.size());
-      summary.put("downstreamErrors", downstreamResults.stream().filter(DownstreamMcpToolResult::isError).count());
+      summary.put("downstreamCalls", repoContext.downstreamResults().size());
+      summary.put("downstreamErrors", repoContext.downstreamResults().stream().filter(DownstreamMcpToolResult::isError).count());
       summary.put("internalSections", sections.size() - 1);
-      return new HarnessToolBundleResult(bundleType.value(), summary, sections, downstreamResults);
+      summary.put("repoContextSource", repoContext.source());
+      return new HarnessToolBundleResult(bundleType.value(), summary, sections, repoContext.downstreamResults());
     } finally {
       executor.shutdownNow();
     }
@@ -140,6 +156,39 @@ public class HarnessToolBundleService {
     return futures;
   }
 
+  private RepoContextBundle loadRepoContext(
+      HarnessToolBundleRequest request,
+      HarnessToolBundleType bundleType,
+      String repoPath,
+      int limit
+  ) {
+    if (remoteHarnessToolBundleClientService.isEnabled()) {
+      HarnessToolBundleResult remoteResult = remoteHarnessToolBundleClientService.loadRemoteRepoContext(request);
+      return new RepoContextBundle("remote-mcp", downstreamSection(remoteResult), remoteResult.downstreamCalls());
+    }
+    List<DownstreamMcpToolResult> downstreamResults = downstreamMcpToolClientService.callTools(
+        request.projectKey(),
+        downstreamCalls(bundleType, repoPath, request.queryText(), limit)
+    );
+    return new RepoContextBundle("local-downstream", downstreamSections(downstreamResults), downstreamResults);
+  }
+
+  private HarnessToolBundleResult remoteRepoContextResult(HarnessToolBundleRequest request) {
+    HarnessToolBundleResult remoteResult = remoteHarnessToolBundleClientService.loadRemoteRepoContext(request);
+    Map<String, Object> summary = new LinkedHashMap<>(remoteResult.summary());
+    summary.put("bundleName", HarnessToolBundleType.REPO_CONTEXT.value());
+    summary.put("taskId", request.taskId());
+    summary.put("workerTaskId", request.workerTaskId());
+    summary.put("repoPath", request.repoPath());
+    summary.put("repoContextSource", "remote-mcp");
+    return new HarnessToolBundleResult(
+        HarnessToolBundleType.REPO_CONTEXT.value(),
+        summary,
+        remoteResult.sections(),
+        remoteResult.downstreamCalls()
+    );
+  }
+
   private List<DownstreamMcpToolCall> downstreamCalls(
       HarnessToolBundleType bundleType,
       String repoPath,
@@ -195,6 +244,15 @@ public class HarnessToolBundleService {
     return sections;
   }
 
+  @SuppressWarnings("unchecked")
+  private Map<String, Object> downstreamSection(HarnessToolBundleResult remoteResult) {
+    Object section = remoteResult.sections().get("downstream");
+    if (section instanceof Map<?, ?> map) {
+      return (Map<String, Object>) map;
+    }
+    return downstreamSections(remoteResult.downstreamCalls());
+  }
+
   private Object semanticContext(String projectKey, String queryText, int limit) {
     if (projectKey == null || projectKey.isBlank()) {
       return List.of();
@@ -233,5 +291,12 @@ public class HarnessToolBundleService {
       current = current.getParent();
     }
     return Path.of(".").toAbsolutePath().normalize();
+  }
+
+  private record RepoContextBundle(
+      String source,
+      Map<String, Object> downstreamSections,
+      List<DownstreamMcpToolResult> downstreamResults
+  ) {
   }
 }

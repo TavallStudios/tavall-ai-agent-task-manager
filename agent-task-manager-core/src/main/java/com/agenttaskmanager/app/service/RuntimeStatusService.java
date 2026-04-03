@@ -1,7 +1,5 @@
 package com.agenttaskmanager.app.service;
 
-import com.agenttaskmanager.app.model.bridge.BridgeStatusSnapshot;
-import com.agenttaskmanager.app.bridge.CodexBridgeService;
 import com.agenttaskmanager.app.config.TaskRuntimeProperties;
 import com.agenttaskmanager.app.model.RuntimeStatus;
 import org.springframework.dao.DataAccessException;
@@ -15,21 +13,15 @@ public class RuntimeStatusService {
   private final JdbcClient jdbcClient;
   private final StringRedisTemplate redisTemplate;
   private final TaskRuntimeProperties runtimeProperties;
-  private final PromptRequestService promptRequestService;
-  private final CodexBridgeService codexBridgeService;
 
   public RuntimeStatusService(
       JdbcClient jdbcClient,
       StringRedisTemplate redisTemplate,
-      TaskRuntimeProperties runtimeProperties,
-      PromptRequestService promptRequestService,
-      CodexBridgeService codexBridgeService
+      TaskRuntimeProperties runtimeProperties
   ) {
     this.jdbcClient = jdbcClient;
     this.redisTemplate = redisTemplate;
     this.runtimeProperties = runtimeProperties;
-    this.promptRequestService = promptRequestService;
-    this.codexBridgeService = codexBridgeService;
   }
 
   public RuntimeStatus getRuntimeStatus() {
@@ -56,21 +48,19 @@ public class RuntimeStatusService {
               || normalized.equals("enabled");
     }
 
-    BridgeStatusSnapshot bridgeStatus = codexBridgeService.getStatus();
-
     return new RuntimeStatus(
         taskCount == null ? 0 : taskCount,
-        promptRequestService.queuedPromptCount(),
+        0,
         multiAgentEnabled,
         redisReachable,
         runtimeProperties.getRedisNamespace(),
-        bridgeStatus.enabled(),
-        bridgeStatus.online(),
-        bridgeStatus.agentId(),
-        bridgeStatus.sessionId(),
-        bridgeStatus.sessionStatus(),
-        bridgeStatus.activeRequestId(),
-        bridgeStatus.activeRunId()
+        false,
+        false,
+        null,
+        null,
+        "disabled",
+        null,
+        null
     );
   }
 }

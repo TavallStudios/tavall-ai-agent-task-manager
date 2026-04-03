@@ -18,7 +18,7 @@ record CleanJavaHarnessRequest(
 ) {
 }
 
-record CleanJavaHarnessRepoPathRequest(String repoPath) {
+record CleanJavaHarnessRepoPathRequest(String repoPath, Integer timeoutSeconds) {
 }
 
 record HarnessTaskRequest(
@@ -53,7 +53,8 @@ record HarnessApprovalRequest(
     String repoPath,
     String diffArtifactId,
     Integer workerExitCode,
-    Boolean requiresIntegrationTests
+    Boolean requiresIntegrationTests,
+    Integer integrationTimeoutSeconds
 ) {
 }
 

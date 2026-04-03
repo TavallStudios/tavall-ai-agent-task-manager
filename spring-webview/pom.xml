@@ -11,8 +11,8 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>spring-webview</artifactId>
-  <name>Spring Webview</name>
+  <artifactId>agent-task-manager-mcp-http</artifactId>
+  <name>AgentTaskManager MCP HTTP</name>
 
   <dependencies>
     <dependency>
@@ -23,10 +23,6 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-security</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-thymeleaf</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>

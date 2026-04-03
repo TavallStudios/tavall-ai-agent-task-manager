@@ -48,16 +48,12 @@ public class RemoteMcpSmokeService {
   }
 
   public RemoteMcpSmokeResult runSmoke(String baseUrl, String endpoint, String username, String password) {
-    if (password == null || password.isBlank()) {
-      throw new IllegalArgumentException("A remote MCP password is required.");
-    }
-
     RemoteEndpoint remoteEndpoint = resolveRemoteEndpoint(baseUrl, endpoint);
     HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport.builder(remoteEndpoint.baseUrl())
         .endpoint(remoteEndpoint.endpoint())
         .jsonMapper(mcpJsonMapper)
         .httpRequestCustomizer((HttpRequest.Builder builder, String method, java.net.URI uri, String body, io.modelcontextprotocol.common.McpTransportContext context) ->
-            builder.header("Authorization", basicAuthorization(username, password)))
+            applyAuthorization(builder, username, password))
         .build();
 
     McpSyncClient client = McpClient.sync(transport)
@@ -91,6 +87,13 @@ public class RemoteMcpSmokeService {
     String token = Base64.getEncoder()
         .encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
     return "Basic " + token;
+  }
+
+  private HttpRequest.Builder applyAuthorization(HttpRequest.Builder builder, String username, String password) {
+    if (password == null || password.isBlank()) {
+      return builder;
+    }
+    return builder.header("Authorization", basicAuthorization(username, password));
   }
 
   private RemoteEndpoint resolveRemoteEndpoint(String baseUrl, String endpoint) {

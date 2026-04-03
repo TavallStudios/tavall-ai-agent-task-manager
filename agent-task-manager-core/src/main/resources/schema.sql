@@ -149,6 +149,40 @@ BEFORE UPDATE ON agent_task_manager.agent_sessions
 FOR EACH ROW
 EXECUTE FUNCTION agent_task_manager.touch_updated_at();
 
+CREATE TABLE IF NOT EXISTS agent_task_manager.bridge_automation_commands (
+  command_request_id text PRIMARY KEY,
+  session_id text NOT NULL REFERENCES agent_task_manager.agent_sessions(session_id) ON DELETE CASCADE,
+  target_agent_id text NOT NULL,
+  repo_path text,
+  bridge_target text NOT NULL,
+  command_id text NOT NULL,
+  isolation_class text NOT NULL DEFAULT 'cooperative-only',
+  requested_by text NOT NULL,
+  requested_from text,
+  status text NOT NULL DEFAULT 'queued',
+  latest_summary text,
+  command_arguments jsonb NOT NULL DEFAULT '{}'::jsonb,
+  result_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  claimed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS bridge_automation_commands_session_status_idx
+  ON agent_task_manager.bridge_automation_commands (session_id, status, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS bridge_automation_commands_target_status_idx
+  ON agent_task_manager.bridge_automation_commands (target_agent_id, status, updated_at DESC);
+
+DROP TRIGGER IF EXISTS bridge_automation_commands_touch_updated_at
+  ON agent_task_manager.bridge_automation_commands;
+
+CREATE TRIGGER bridge_automation_commands_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.bridge_automation_commands
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
 CREATE TABLE IF NOT EXISTS agent_task_manager.prompt_runs (
   run_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   request_id text NOT NULL REFERENCES agent_task_manager.prompt_requests(request_id) ON DELETE CASCADE,
@@ -214,6 +248,174 @@ EXECUTE FUNCTION agent_task_manager.touch_updated_at();
 
 CREATE INDEX IF NOT EXISTS prompt_threads_bridge_message_idx
   ON agent_task_manager.prompt_threads (bridge_target, last_message_at DESC, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_learning_sessions (
+  session_id text PRIMARY KEY,
+  bridge_session_id text REFERENCES agent_task_manager.agent_sessions(session_id) ON DELETE SET NULL,
+  machine_id text NOT NULL,
+  client_profile_id text,
+  client_install_path text,
+  server_target text,
+  scenario_id text,
+  status text NOT NULL DEFAULT 'active',
+  latest_summary text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS hytale_learning_sessions_scope_idx
+  ON agent_task_manager.hytale_learning_sessions (
+    machine_id,
+    client_profile_id,
+    server_target,
+    scenario_id,
+    updated_at DESC
+  );
+
+DROP TRIGGER IF EXISTS hytale_learning_sessions_touch_updated_at
+  ON agent_task_manager.hytale_learning_sessions;
+
+CREATE TRIGGER hytale_learning_sessions_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.hytale_learning_sessions
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_action_traces (
+  trace_id text PRIMARY KEY,
+  session_id text NOT NULL REFERENCES agent_task_manager.hytale_learning_sessions(session_id) ON DELETE CASCADE,
+  command_request_id text,
+  action_kind text NOT NULL,
+  command_id text,
+  status text NOT NULL,
+  summary text,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS hytale_action_traces_session_created_idx
+  ON agent_task_manager.hytale_action_traces (session_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS hytale_action_traces_command_idx
+  ON agent_task_manager.hytale_action_traces (command_request_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_timeline_frames (
+  frame_id text PRIMARY KEY,
+  session_id text NOT NULL REFERENCES agent_task_manager.hytale_learning_sessions(session_id) ON DELETE CASCADE,
+  source_window text NOT NULL,
+  artifact_kind text NOT NULL,
+  storage_backend text NOT NULL DEFAULT 'mongo',
+  storage_key text NOT NULL,
+  summary text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS hytale_timeline_frames_session_created_idx
+  ON agent_task_manager.hytale_timeline_frames (session_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS hytale_timeline_frames_window_created_idx
+  ON agent_task_manager.hytale_timeline_frames (source_window, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_visual_anchors (
+  anchor_id text PRIMARY KEY,
+  machine_id text NOT NULL,
+  client_profile_id text,
+  server_target text,
+  scenario_id text,
+  anchor_key text NOT NULL,
+  source_window text NOT NULL,
+  normalized_region jsonb NOT NULL DEFAULT '{}'::jsonb,
+  description text NOT NULL,
+  confidence double precision NOT NULL DEFAULT 0,
+  storage_backend text NOT NULL DEFAULT 'mongo',
+  storage_key text,
+  last_validated_at timestamptz NOT NULL DEFAULT now(),
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS hytale_visual_anchors_scope_idx
+  ON agent_task_manager.hytale_visual_anchors (
+    machine_id,
+    client_profile_id,
+    server_target,
+    scenario_id,
+    anchor_key,
+    updated_at DESC
+  );
+
+DROP TRIGGER IF EXISTS hytale_visual_anchors_touch_updated_at
+  ON agent_task_manager.hytale_visual_anchors;
+
+CREATE TRIGGER hytale_visual_anchors_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.hytale_visual_anchors
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_playbooks (
+  playbook_id text PRIMARY KEY,
+  machine_id text NOT NULL,
+  client_profile_id text,
+  server_target text,
+  scenario_id text,
+  name text NOT NULL,
+  target_window text NOT NULL,
+  actions jsonb NOT NULL DEFAULT '[]'::jsonb,
+  expected_anchors jsonb NOT NULL DEFAULT '[]'::jsonb,
+  failure_recovery jsonb NOT NULL DEFAULT '{}'::jsonb,
+  approved boolean NOT NULL DEFAULT false,
+  pinned boolean NOT NULL DEFAULT false,
+  latest_summary text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  approved_at timestamptz,
+  approved_by text,
+  pinned_at timestamptz,
+  pinned_by text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS hytale_playbooks_scope_idx
+  ON agent_task_manager.hytale_playbooks (
+    machine_id,
+    client_profile_id,
+    server_target,
+    scenario_id,
+    updated_at DESC
+  );
+
+CREATE INDEX IF NOT EXISTS hytale_playbooks_execution_idx
+  ON agent_task_manager.hytale_playbooks (approved, pinned, updated_at DESC);
+
+DROP TRIGGER IF EXISTS hytale_playbooks_touch_updated_at
+  ON agent_task_manager.hytale_playbooks;
+
+CREATE TRIGGER hytale_playbooks_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.hytale_playbooks
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_promotion_decisions (
+  decision_id text PRIMARY KEY,
+  session_id text REFERENCES agent_task_manager.hytale_learning_sessions(session_id) ON DELETE SET NULL,
+  subject_type text NOT NULL,
+  subject_id text NOT NULL,
+  semantic_kind text NOT NULL,
+  decision_status text NOT NULL,
+  summary text NOT NULL,
+  promoted_document_id text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS hytale_promotion_decisions_session_created_idx
+  ON agent_task_manager.hytale_promotion_decisions (session_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS hytale_promotion_decisions_subject_idx
+  ON agent_task_manager.hytale_promotion_decisions (subject_type, subject_id, created_at DESC);
 
 CREATE OR REPLACE VIEW agent_task_manager.task_overview AS
 SELECT
@@ -526,6 +728,220 @@ CREATE TABLE IF NOT EXISTS agent_task_manager.task_artifacts (
 
 CREATE INDEX IF NOT EXISTS task_artifacts_task_kind_idx
   ON agent_task_manager.task_artifacts (task_id, artifact_kind, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.computer_use_runners (
+  runner_id text PRIMARY KEY,
+  display_name text NOT NULL,
+  host_name text NOT NULL,
+  base_url text NOT NULL,
+  launcher_path text,
+  client_path text,
+  status text NOT NULL DEFAULT 'online',
+  current_lease_session_id text,
+  supported_capture_modes jsonb NOT NULL DEFAULT '[]'::jsonb,
+  capabilities jsonb NOT NULL DEFAULT '{}'::jsonb,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  last_seen_at timestamptz NOT NULL DEFAULT now()
+);
+
+DROP TRIGGER IF EXISTS computer_use_runners_touch_updated_at
+  ON agent_task_manager.computer_use_runners;
+
+CREATE TRIGGER computer_use_runners_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.computer_use_runners
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.computer_use_sessions (
+  session_id text PRIMARY KEY,
+  runner_id text NOT NULL REFERENCES agent_task_manager.computer_use_runners(runner_id) ON DELETE CASCADE,
+  task_id text REFERENCES agent_task_manager.agent_tasks(task_id) ON DELETE SET NULL,
+  worker_task_id text REFERENCES agent_task_manager.worker_tasks(worker_task_id) ON DELETE SET NULL,
+  scenario_id text NOT NULL,
+  server_target text,
+  chart_id text,
+  status text NOT NULL,
+  latest_summary text,
+  runner_session_key text,
+  expected_artifacts jsonb NOT NULL DEFAULT '[]'::jsonb,
+  pass_fail_gates jsonb NOT NULL DEFAULT '[]'::jsonb,
+  artifact_policy jsonb NOT NULL DEFAULT '{}'::jsonb,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  started_at timestamptz,
+  completed_at timestamptz
+);
+
+DROP TRIGGER IF EXISTS computer_use_sessions_touch_updated_at
+  ON agent_task_manager.computer_use_sessions;
+
+CREATE TRIGGER computer_use_sessions_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.computer_use_sessions
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.computer_use_session_artifacts (
+  artifact_id text PRIMARY KEY,
+  session_id text NOT NULL REFERENCES agent_task_manager.computer_use_sessions(session_id) ON DELETE CASCADE,
+  artifact_kind text NOT NULL,
+  storage_backend text NOT NULL,
+  storage_key text NOT NULL,
+  summary text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS computer_use_runner_status_idx
+  ON agent_task_manager.computer_use_runners (status, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS computer_use_sessions_runner_status_idx
+  ON agent_task_manager.computer_use_sessions (runner_id, status, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS computer_use_session_artifacts_session_idx
+  ON agent_task_manager.computer_use_session_artifacts (session_id, artifact_kind, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_learning_sessions (
+  session_id text PRIMARY KEY,
+  bridge_session_id text REFERENCES agent_task_manager.agent_sessions(session_id) ON DELETE SET NULL,
+  machine_id text NOT NULL,
+  client_profile_id text NOT NULL,
+  client_install_path text,
+  server_target text,
+  scenario_id text,
+  status text NOT NULL DEFAULT 'recording',
+  latest_summary text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
+DROP TRIGGER IF EXISTS hytale_learning_sessions_touch_updated_at
+  ON agent_task_manager.hytale_learning_sessions;
+
+CREATE TRIGGER hytale_learning_sessions_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.hytale_learning_sessions
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_action_traces (
+  trace_id text PRIMARY KEY,
+  session_id text NOT NULL REFERENCES agent_task_manager.hytale_learning_sessions(session_id) ON DELETE CASCADE,
+  command_request_id text REFERENCES agent_task_manager.bridge_automation_commands(command_request_id) ON DELETE SET NULL,
+  action_kind text NOT NULL,
+  command_id text,
+  status text NOT NULL,
+  summary text NOT NULL,
+  trace_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_timeline_frames (
+  frame_id text PRIMARY KEY,
+  session_id text NOT NULL REFERENCES agent_task_manager.hytale_learning_sessions(session_id) ON DELETE CASCADE,
+  source_window text NOT NULL,
+  artifact_kind text NOT NULL,
+  storage_backend text NOT NULL,
+  storage_key text NOT NULL,
+  summary text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_visual_anchors (
+  anchor_id text PRIMARY KEY,
+  machine_id text NOT NULL,
+  client_profile_id text NOT NULL,
+  server_target text,
+  scenario_id text,
+  anchor_key text NOT NULL,
+  source_window text NOT NULL,
+  normalized_region jsonb NOT NULL DEFAULT '{}'::jsonb,
+  description text NOT NULL,
+  confidence double precision NOT NULL DEFAULT 0,
+  storage_backend text NOT NULL,
+  storage_key text NOT NULL,
+  last_validated_at timestamptz,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+DROP TRIGGER IF EXISTS hytale_visual_anchors_touch_updated_at
+  ON agent_task_manager.hytale_visual_anchors;
+
+CREATE TRIGGER hytale_visual_anchors_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.hytale_visual_anchors
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_playbooks (
+  playbook_id text PRIMARY KEY,
+  machine_id text NOT NULL,
+  client_profile_id text NOT NULL,
+  server_target text,
+  scenario_id text,
+  name text NOT NULL,
+  target_window text NOT NULL,
+  actions jsonb NOT NULL DEFAULT '[]'::jsonb,
+  expected_anchors jsonb NOT NULL DEFAULT '[]'::jsonb,
+  failure_recovery jsonb NOT NULL DEFAULT '{}'::jsonb,
+  approved boolean NOT NULL DEFAULT false,
+  pinned boolean NOT NULL DEFAULT false,
+  latest_summary text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  approved_at timestamptz,
+  approved_by text,
+  pinned_at timestamptz,
+  pinned_by text
+);
+
+DROP TRIGGER IF EXISTS hytale_playbooks_touch_updated_at
+  ON agent_task_manager.hytale_playbooks;
+
+CREATE TRIGGER hytale_playbooks_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.hytale_playbooks
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_promotion_decisions (
+  decision_id text PRIMARY KEY,
+  session_id text REFERENCES agent_task_manager.hytale_learning_sessions(session_id) ON DELETE SET NULL,
+  subject_type text NOT NULL,
+  subject_id text NOT NULL,
+  semantic_kind text NOT NULL,
+  decision_status text NOT NULL,
+  summary text NOT NULL,
+  promoted_document_id text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS hytale_learning_sessions_scope_idx
+  ON agent_task_manager.hytale_learning_sessions (machine_id, client_profile_id, server_target, scenario_id, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS hytale_action_traces_session_idx
+  ON agent_task_manager.hytale_action_traces (session_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS hytale_action_traces_command_idx
+  ON agent_task_manager.hytale_action_traces (command_id, status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS hytale_timeline_frames_session_idx
+  ON agent_task_manager.hytale_timeline_frames (session_id, artifact_kind, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS hytale_visual_anchors_scope_idx
+  ON agent_task_manager.hytale_visual_anchors (machine_id, client_profile_id, server_target, scenario_id, anchor_key, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS hytale_playbooks_scope_idx
+  ON agent_task_manager.hytale_playbooks (machine_id, client_profile_id, server_target, scenario_id, approved, pinned, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS hytale_promotion_decisions_subject_idx
+  ON agent_task_manager.hytale_promotion_decisions (subject_type, subject_id, created_at DESC);
 
 DROP VIEW IF EXISTS agent_task_manager.worker_task_overview;
 

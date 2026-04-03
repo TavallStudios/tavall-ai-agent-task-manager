@@ -1,6 +1,4 @@
 package com.agenttaskmanager.app.cleanjava;
-
-import com.agenttaskmanager.app.AgentTaskManagerApplication;
 import com.agenttaskmanager.app.cli.CliCommandService;
 import java.util.List;
 import org.springframework.boot.WebApplicationType;
@@ -13,7 +11,8 @@ public final class CleanJavaMcpLauncher {
   }
 
   public static void main(String[] args) {
-    ConfigurableApplicationContext context = new SpringApplicationBuilder(AgentTaskManagerApplication.class)
+    disableStdoutLogging();
+    ConfigurableApplicationContext context = new SpringApplicationBuilder(CleanJavaMcpApplication.class)
         .web(WebApplicationType.NONE)
         .properties("app.bridge.enabled=false")
         .properties("app.orchestration.autonomy-enabled=false")
@@ -22,5 +21,11 @@ public final class CleanJavaMcpLauncher {
     int exitCode = context.getBean(CliCommandService.class).execute(List.of("serve-mcp-stdio"));
     context.close();
     System.exit(exitCode);
+  }
+
+  private static void disableStdoutLogging() {
+    System.setProperty("org.springframework.boot.logging.LoggingSystem", "none");
+    System.setProperty("spring.main.banner-mode", "off");
+    System.setProperty("spring.output.ansi.enabled", "never");
   }
 }

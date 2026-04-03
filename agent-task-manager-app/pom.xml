@@ -22,7 +22,7 @@
     </dependency>
     <dependency>
       <groupId>io.agenttaskmanager</groupId>
-      <artifactId>spring-webview</artifactId>
+      <artifactId>agent-task-manager-mcp-http</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
@@ -33,6 +33,46 @@
     <dependency>
       <groupId>io.agenttaskmanager</groupId>
       <artifactId>agent-task-manager-clean-java-harness</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.agenttaskmanager</groupId>
+      <artifactId>agent-task-manager-artifact-tools</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.agenttaskmanager</groupId>
+      <artifactId>agent-task-manager-cache-tools</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.agenttaskmanager</groupId>
+      <artifactId>agent-task-manager-context-tools</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.agenttaskmanager</groupId>
+      <artifactId>agent-task-manager-computer-use-tools</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.agenttaskmanager</groupId>
+      <artifactId>agent-task-manager-orchestration-tools</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.agenttaskmanager</groupId>
+      <artifactId>agent-task-manager-repo-tools</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.agenttaskmanager</groupId>
+      <artifactId>agent-task-manager-validation-tools</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.agenttaskmanager</groupId>
+      <artifactId>agent-task-manager-vector-memory-tools</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>

@@ -74,7 +74,8 @@ class HarnessApprovalServiceIntegrationTest extends IntegrationTestSupport {
         Path.of("/srv/AgentTaskManager"),
         null,
         0,
-        false
+        false,
+        null
     );
 
     assertTrue(result.approved());
@@ -122,7 +123,8 @@ class HarnessApprovalServiceIntegrationTest extends IntegrationTestSupport {
         Path.of("/srv/AgentTaskManager"),
         diffArtifactId,
         0,
-        false
+        false,
+        null
     );
 
     assertTrue(result.patchScopeAllowed());

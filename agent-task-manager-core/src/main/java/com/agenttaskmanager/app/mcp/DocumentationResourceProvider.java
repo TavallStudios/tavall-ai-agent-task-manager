@@ -19,6 +19,7 @@ public class DocumentationResourceProvider implements McpResourceProvider {
       "RULES.md",
       "ARCHITECTURE.md",
       "EXAMPLES.md",
+      "GIT_WORKFLOW.md",
       "README.md"
   );
 

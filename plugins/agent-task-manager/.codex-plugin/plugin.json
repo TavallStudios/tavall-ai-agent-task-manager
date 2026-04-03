@@ -1,0 +1,40 @@
+{
+  "name": "agent-task-manager",
+  "version": "0.1.0",
+  "description": "Own the local AgentTaskManager MCP runtime, startup helpers, and bundled harness skill for Codex.",
+  "author": {
+    "name": "TJ",
+    "url": "https://docs.tavall.org/agent-task-manager"
+  },
+  "homepage": "https://docs.tavall.org/agent-task-manager",
+  "license": "Proprietary",
+  "keywords": [
+    "agent-task-manager",
+    "mcp",
+    "harness",
+    "codex",
+    "git-workflow"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Agent Task Manager",
+    "shortDescription": "Own the ATM MCP runtime and harness workflow",
+    "longDescription": "Use the AgentTaskManager plugin to register the local ATM MCP server, bootstrap the optional operator surface, and load the bundled cross-repo harness skill with deterministic git workflow guidance.",
+    "developerName": "TJ",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://docs.tavall.org/agent-task-manager",
+    "privacyPolicyURL": "https://docs.tavall.org/agent-task-manager",
+    "termsOfServiceURL": "https://docs.tavall.org/agent-task-manager",
+    "defaultPrompt": [
+      "Use AgentTaskManager for repo context, worker context, and git workflow",
+      "Start the local ATM MCP runtime for this repo",
+      "Bring up the ATM operator surface if local HTTP control is needed"
+    ],
+    "brandColor": "#0F766E"
+  }
+}

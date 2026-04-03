@@ -117,7 +117,8 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
                 "repoPath", stringProperty("Repo path."),
                 "diffArtifactId", stringProperty("Diff artifact id."),
                 "workerExitCode", integerProperty("Worker exit code."),
-                "requiresIntegrationTests", booleanProperty("Whether integration tests are required.")
+                "requiresIntegrationTests", booleanProperty("Whether integration tests are required."),
+                "integrationTimeoutSeconds", integerProperty("Optional timeout override for integration tests.")
             ),
             List.of("taskId", "workerTaskId", "repoPath"),
             arguments -> new HarnessApprovalResponse(runApprovalGate(arguments))
@@ -151,9 +152,15 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
         spec(
             "runJavaIntegrationHarness",
             "Run the deterministic Java integration-test harness.",
-            Map.of("repoPath", stringProperty("Repo path.")),
+            Map.of(
+                "repoPath", stringProperty("Repo path."),
+                "timeoutSeconds", integerProperty("Optional timeout override for this integration harness run.")
+            ),
             List.of("repoPath"),
-            arguments -> validationPipelineService.runIntegrationTests(Path.of(map(arguments, CleanJavaHarnessRepoPathRequest.class).repoPath()))
+            arguments -> {
+              CleanJavaHarnessRepoPathRequest request = map(arguments, CleanJavaHarnessRepoPathRequest.class);
+              return validationPipelineService.runIntegrationTests(Path.of(request.repoPath()), request.timeoutSeconds());
+            }
         )
     );
   }
@@ -191,7 +198,8 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
         Path.of(request.repoPath()),
         request.diffArtifactId(),
         request.workerExitCode(),
-        request.requiresIntegrationTests()
+        request.requiresIntegrationTests(),
+        request.integrationTimeoutSeconds()
     );
   }
 

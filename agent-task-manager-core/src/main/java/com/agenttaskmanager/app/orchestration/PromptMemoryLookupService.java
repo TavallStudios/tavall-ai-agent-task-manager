@@ -1,75 +1,138 @@
 package com.agenttaskmanager.app.orchestration;
 
 import com.agenttaskmanager.app.config.KnowledgeIndexProperties;
+import com.agenttaskmanager.app.model.PromptThreadDetail;
+import com.agenttaskmanager.app.model.PromptThreadMemoryLookupResult;
 import com.agenttaskmanager.app.model.orchestration.RetrievedSemanticContext;
+import com.agenttaskmanager.app.persistence.postgres.PromptThreadRepository;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PromptMemoryLookupService {
 
   private static final int TASK_MEMORY_LIMIT = 5;
+  private static final int THREAD_MEMORY_LIMIT = 5;
   private final SharedTaskContextService sharedTaskContextService;
   private final KnowledgeIndexProperties knowledgeIndexProperties;
+  private final PromptThreadRepository promptThreadRepository;
 
   public PromptMemoryLookupService(
       SharedTaskContextService sharedTaskContextService,
-      KnowledgeIndexProperties knowledgeIndexProperties
+      KnowledgeIndexProperties knowledgeIndexProperties,
+      PromptThreadRepository promptThreadRepository
   ) {
     this.sharedTaskContextService = sharedTaskContextService;
     this.knowledgeIndexProperties = knowledgeIndexProperties;
+    this.promptThreadRepository = promptThreadRepository;
   }
 
   public PromptMemorySnapshot lookup(String projectKey, String queryText) {
+    PromptThreadMemoryLookupResult result = lookup(projectKey, null, queryText);
+    return new PromptMemorySnapshot(result.summary(), result.section());
+  }
+
+  public PromptThreadMemoryLookupResult lookup(String projectKey, String threadKey, String queryText) {
     if (queryText == null || queryText.isBlank()) {
-      return new PromptMemorySnapshot(
+      PromptMemorySnapshot snapshot = new PromptMemorySnapshot(
           "Memory lookup skipped because the prompt was blank.",
           "No memory context was retrieved because the prompt was blank."
       );
+      return new PromptThreadMemoryLookupResult(
+          blank(threadKey),
+          null,
+          snapshot.summary(),
+          snapshot.section(),
+          List.of(),
+          List.of(),
+          List.of()
+      );
     }
     try {
-      List<RetrievedSemanticContext> merged = mergeContexts(projectKey, queryText.strip());
+      Optional<PromptThreadDetail> exactThread = threadKey == null || threadKey.isBlank()
+          ? Optional.empty()
+          : promptThreadRepository.findDetail(threadKey);
+      ThreadMemory threadMemory = mergeContexts(projectKey, threadKey, queryText.strip());
+      List<RetrievedSemanticContext> merged = new ArrayList<>();
+      merged.addAll(threadMemory.threadContexts());
+      merged.addAll(threadMemory.projectContexts());
+      merged.addAll(threadMemory.knowledgeContexts());
+      PromptMemorySnapshot snapshot;
       if (merged.isEmpty()) {
-        return new PromptMemorySnapshot(
+        snapshot = new PromptMemorySnapshot(
             "Memory lookup completed: no related entries found.",
             "No directly related memory entries were retrieved."
         );
+      } else {
+        snapshot = new PromptMemorySnapshot(
+            buildSummary(exactThread.orElse(null), merged),
+            buildSection(exactThread.orElse(null), merged)
+        );
       }
-      return new PromptMemorySnapshot(buildSummary(merged), buildSection(merged));
+      return new PromptThreadMemoryLookupResult(
+          blank(threadKey),
+          exactThread.map(PromptThreadDetail::thread).orElse(null),
+          snapshot.summary(),
+          snapshot.section(),
+          threadMemory.threadContexts(),
+          threadMemory.projectContexts(),
+          threadMemory.knowledgeContexts()
+      );
     } catch (RuntimeException exception) {
       String message = exception.getMessage() == null
           ? exception.getClass().getSimpleName()
           : exception.getMessage().strip();
       String summary = "Memory lookup failed: " + message;
-      return new PromptMemorySnapshot(summary, summary);
+      return new PromptThreadMemoryLookupResult(blank(threadKey), null, summary, summary, List.of(), List.of(), List.of());
     }
   }
 
-  private List<RetrievedSemanticContext> mergeContexts(String projectKey, String queryText) {
+  private ThreadMemory mergeContexts(String projectKey, String threadKey, String queryText) {
+    List<RetrievedSemanticContext> threadContexts = new ArrayList<>();
+    List<RetrievedSemanticContext> projectContexts = new ArrayList<>();
+    List<RetrievedSemanticContext> knowledgeContexts = new ArrayList<>();
     List<RetrievedSemanticContext> combined = new ArrayList<>();
+    if (projectKey != null && !projectKey.isBlank() && threadKey != null && !threadKey.isBlank()) {
+      threadContexts.addAll(sharedTaskContextService.searchProjectRelatedContexts(
+          projectKey,
+          queryText,
+          THREAD_MEMORY_LIMIT,
+          Map.of("threadKey", threadKey)
+      ));
+      combined.addAll(threadContexts);
+    }
     if (projectKey != null && !projectKey.isBlank()) {
-      combined.addAll(sharedTaskContextService.searchProjectRelatedContexts(projectKey, queryText, TASK_MEMORY_LIMIT));
+      projectContexts.addAll(sharedTaskContextService.searchProjectRelatedContexts(projectKey, queryText, TASK_MEMORY_LIMIT));
+      combined.addAll(projectContexts);
     }
     if (knowledgeIndexProperties.isEnabled()) {
-      combined.addAll(sharedTaskContextService.searchKnowledgeContexts(
+      knowledgeContexts.addAll(sharedTaskContextService.searchKnowledgeContexts(
           knowledgeIndexProperties.getKnowledgeBase(),
           queryText,
           knowledgeIndexProperties.getPromptResultLimit()
       ));
+      combined.addAll(knowledgeContexts);
     }
     Map<String, RetrievedSemanticContext> deduped = new LinkedHashMap<>();
     combined.stream()
         .sorted(Comparator.comparingDouble(RetrievedSemanticContext::score).reversed())
         .forEach(context -> deduped.putIfAbsent(context.id(), context));
-    return List.copyOf(deduped.values());
+    return new ThreadMemory(
+        dedupe(threadContexts, deduped),
+        dedupe(projectContexts, deduped),
+        dedupe(knowledgeContexts, deduped)
+    );
   }
 
-  private String buildSummary(List<RetrievedSemanticContext> contexts) {
-    StringBuilder builder = new StringBuilder("Memory lookup completed. Related entries:\n");
+  private String buildSummary(PromptThreadDetail exactThread, List<RetrievedSemanticContext> contexts) {
+    StringBuilder builder = new StringBuilder("Memory lookup completed.");
+    appendThreadMatchSummary(builder, exactThread);
+    builder.append(" Related entries:\n");
     for (int index = 0; index < contexts.size(); index++) {
       RetrievedSemanticContext context = contexts.get(index);
       builder.append(index + 1)
@@ -84,8 +147,9 @@ public class PromptMemoryLookupService {
     return builder.toString().strip();
   }
 
-  private String buildSection(List<RetrievedSemanticContext> contexts) {
+  private String buildSection(PromptThreadDetail exactThread, List<RetrievedSemanticContext> contexts) {
     StringBuilder builder = new StringBuilder();
+    appendThreadMatchSection(builder, exactThread);
     for (int index = 0; index < contexts.size(); index++) {
       RetrievedSemanticContext context = contexts.get(index);
       Map<String, Object> payload = context.payload();
@@ -145,6 +209,59 @@ public class PromptMemoryLookupService {
     return normalized.substring(0, maxLength - 3) + "...";
   }
 
+  private void appendThreadMatchSummary(StringBuilder builder, PromptThreadDetail exactThread) {
+    if (exactThread == null) {
+      return;
+    }
+    builder.append(" Matched thread key ")
+        .append(exactThread.thread().threadKey())
+        .append(" with ")
+        .append(exactThread.requests().size())
+        .append(" requests and ")
+        .append(exactThread.messages().size())
+        .append(" persisted messages.");
+  }
+
+  private void appendThreadMatchSection(StringBuilder builder, PromptThreadDetail exactThread) {
+    if (exactThread == null) {
+      return;
+    }
+    builder.append("Exact thread match: ")
+        .append(exactThread.thread().threadKey())
+        .append(", latestSummary=")
+        .append(exactThread.thread().latestRequestSummary() == null ? "" : exactThread.thread().latestRequestSummary())
+        .append("\n");
+    exactThread.messages().stream()
+        .skip(Math.max(0, exactThread.messages().size() - 5))
+        .forEach(message -> builder.append("recent[")
+            .append(message.messageKind())
+            .append("] ")
+            .append(snippet(message.body(), 220))
+            .append("\n"));
+  }
+
+  private List<RetrievedSemanticContext> dedupe(
+      List<RetrievedSemanticContext> source,
+      Map<String, RetrievedSemanticContext> deduped
+  ) {
+    return source.stream()
+        .map(context -> deduped.get(context.id()))
+        .filter(java.util.Objects::nonNull)
+        .distinct()
+        .toList();
+  }
+
+  private String blank(String value) {
+    return value == null ? "" : value;
+  }
+
   public record PromptMemorySnapshot(String summary, String section) {
+  }
+
+  private record ThreadMemory(
+      List<RetrievedSemanticContext> threadContexts,
+      List<RetrievedSemanticContext> projectContexts,
+      List<RetrievedSemanticContext> knowledgeContexts
+  ) {
   }
 }

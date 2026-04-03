@@ -1,7 +1,6 @@
 package com.agenttaskmanager.app.validation;
 
 import cache.CacheDomain;
-import com.agenttaskmanager.app.AgentTaskManagerApplication;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -10,6 +9,7 @@ import java.util.List;
 
 public final class AgentTaskManagerProjectLayout {
 
+  private static final String APPLICATION_PACKAGE = "com.agenttaskmanager.app";
   private static final List<String> CYCLE_BOUNDARIES = List.of(
       "bridge",
       "cli",
@@ -26,7 +26,7 @@ public final class AgentTaskManagerProjectLayout {
   }
 
   public static String applicationPackage() {
-    return AgentTaskManagerApplication.class.getPackageName();
+    return APPLICATION_PACKAGE;
   }
 
   public static String cachePackage() {

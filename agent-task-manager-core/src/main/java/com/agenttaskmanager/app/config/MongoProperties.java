@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.mongodb")
 public class MongoProperties {
 
-  private String uri = "mongodb://127.0.0.1:27017";
+  private String uri = "";
   private String database = "agent_task_manager";
 
   public String getUri() {

@@ -8,11 +8,14 @@ import com.agenttaskmanager.app.model.orchestration.RetrievedSemanticContext;
 import com.agenttaskmanager.app.retrieval.SemanticCollectionDomain;
 import com.agenttaskmanager.app.retrieval.SemanticContentType;
 import com.agenttaskmanager.app.support.IntegrationTestSupport;
+import com.agenttaskmanager.app.support.TestWorkspacePaths;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {
@@ -20,10 +23,17 @@ import org.springframework.test.context.TestPropertySource;
     "app.embedding.provider-order=gemini,local,hash",
     "app.embedding.dimensions=8",
     "app.embedding.gemini-api-key=",
-    "app.embedding.local-command=${user.dir}/src/test/resources/bin/fake-embedding-runner",
     "app.embedding.local-model=fake-local-model"
 })
 class LocalFallbackEmbeddingIntegrationTest extends IntegrationTestSupport {
+
+  @DynamicPropertySource
+  static void registerLocalEmbeddingCommand(DynamicPropertyRegistry registry) {
+    registry.add(
+        "app.embedding.local-command",
+        () -> TestWorkspacePaths.appModuleRoot().resolve("src/test/resources/bin/fake-embedding-runner").toString()
+    );
+  }
 
   @Autowired
   private SharedTaskContextService sharedTaskContextService;

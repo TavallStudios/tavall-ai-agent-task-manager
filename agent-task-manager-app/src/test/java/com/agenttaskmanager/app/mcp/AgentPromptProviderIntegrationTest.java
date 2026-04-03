@@ -33,8 +33,11 @@ class AgentPromptProviderIntegrationTest extends IntegrationTestSupport {
     assertTrue(body.contains("Memory policy:"));
     assertTrue(body.contains("Tool combination patterns:"));
     assertTrue(body.contains("runHarnessToolBundle(worker-context)"));
-    assertTrue(body.contains("loadCleanJavaTaskContext + runHarnessToolBundle(java-context)"));
-    assertTrue(body.contains("runCleanJavaHarness: run Spoon source-shape checks first"));
+    assertTrue(body.contains("prepareGitBranch"));
+    assertTrue(body.contains("createGitCommit"));
+    assertTrue(body.contains("do not use downstream git mutation tools such as git_commit"));
+    assertTrue(body.contains("loadTaskContext + loadValidationHistory + searchPriorFixes"));
+    assertTrue(body.contains("local clean Java validation runs after worker execution"));
     assertTrue(body.contains("Final response contract:"));
   }
 

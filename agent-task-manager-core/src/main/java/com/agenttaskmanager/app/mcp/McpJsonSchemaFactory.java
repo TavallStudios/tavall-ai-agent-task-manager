@@ -13,6 +13,10 @@ public class McpJsonSchemaFactory {
     return new JsonSchema("object", properties, required, Boolean.FALSE, Map.of(), Map.of());
   }
 
+  public JsonSchema openObjectSchema() {
+    return new JsonSchema("object", Map.of(), List.of(), Boolean.TRUE, Map.of(), Map.of());
+  }
+
   public Map<String, Object> stringProperty(String description) {
     return Map.of("type", "string", "description", description);
   }

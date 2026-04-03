@@ -49,14 +49,14 @@ public class OperatorSurfaceService {
         OffsetDateTime.now(ZoneOffset.UTC),
         List.copyOf(repoCatalogProperties.getRoots()),
         List.of(
-            "Open the browser IDE first when the remote editor transport starts dropping.",
-            "Queue work through the prompt bridge when you only need remote execution.",
-            "Use direct SSH only as a break-glass path for service recovery."
+            "Open the browser IDE first when local editor access starts dropping.",
+            "Queue work through the managed Codex runner when you only need headless execution.",
+            "Use the local shell only as a break-glass path for service recovery."
         ),
         List.of(
             dashboardCard(runtimeStatus),
             browserIdeCard(),
-            promptBridgeCard(runtimeStatus),
+            managedRunnerCard(runtimeStatus),
             mcpCard(),
             shellCard()
         )
@@ -64,15 +64,15 @@ public class OperatorSurfaceService {
   }
 
   private OperatorToolCard dashboardCard(RuntimeStatus runtimeStatus) {
-    String summary = runtimeStatus.bridgeEnabled()
-        ? "Dashboard is live and the prompt bridge is " + (runtimeStatus.bridgeOnline() ? "online." : "degraded.")
-        : "Dashboard is live. Prompt bridge is disabled.";
+    String summary = runtimeStatus.runnerEnabled()
+        ? "Dashboard is live and the managed runner is " + (runtimeStatus.runnerOnline() ? "online." : "degraded.")
+        : "Dashboard is live. Managed runner is disabled.";
     return new OperatorToolCard(
         "dashboard",
         "Task dashboard",
         "online",
         summary,
-        "Use this for queues, orchestration state, task history, and bridge activity.",
+        "Use this for queues, orchestration state, task history, and managed execution activity.",
         externalUrl(properties.getDashboardPath()),
         "Open dashboard",
         null
@@ -86,8 +86,8 @@ public class OperatorSurfaceService {
         ? "code-server is answering for workspace " + properties.getIdeWorkspace() + "."
         : "code-server is not answering on the configured health endpoint.";
     String description = ideProbe.reachable()
-        ? "Use the browser IDE when Remote SSH gets wedged or tunnel state goes stale."
-        : "If this stays offline, inspect the code-server service before opening more SSH tunnels.";
+        ? "Use the browser IDE when local terminal or editor sessions get wedged."
+        : "If this stays offline, inspect the local code-server service.";
     return new OperatorToolCard(
         "browser-ide",
         "Browser IDE",
@@ -96,31 +96,31 @@ public class OperatorSurfaceService {
         description,
         externalUrl(properties.getIdePath()),
         "Open browser IDE",
-        properties.getSshCommand() + " \"sudo systemctl status code-server@ubuntu.service\""
+        properties.getSupportCommand() + " \"sudo systemctl status code-server@ubuntu.service\""
     );
   }
 
-  private OperatorToolCard promptBridgeCard(RuntimeStatus runtimeStatus) {
-    String status = !runtimeStatus.bridgeEnabled()
+  private OperatorToolCard managedRunnerCard(RuntimeStatus runtimeStatus) {
+    String status = !runtimeStatus.runnerEnabled()
         ? "configured"
-        : runtimeStatus.bridgeOnline() ? "online" : "degraded";
-    String summary = !runtimeStatus.bridgeEnabled()
-        ? "Prompt bridge is disabled."
-        : runtimeStatus.bridgeOnline()
-            ? "Bridge session " + defaultValue(runtimeStatus.bridgeSessionId(), "pending") + " is active."
-            : "Bridge is enabled but not currently online.";
-    String description = runtimeStatus.bridgeActiveRequestId() == null
+        : runtimeStatus.runnerOnline() ? "online" : "degraded";
+    String summary = !runtimeStatus.runnerEnabled()
+        ? "Managed runner is disabled."
+        : runtimeStatus.runnerOnline()
+            ? "Runner session " + defaultValue(runtimeStatus.runnerSessionId(), "pending") + " is active."
+            : "Managed runner is enabled but not currently online.";
+    String description = runtimeStatus.activeRequestId() == null
         ? "Use this lane for queued, headless work when you do not need an interactive IDE."
-        : "Active request " + runtimeStatus.bridgeActiveRequestId() + " is currently running.";
+        : "Active request " + runtimeStatus.activeRequestId() + " is currently running.";
     return new OperatorToolCard(
-        "prompt-bridge",
-        "Prompt bridge",
+        "managed-runner",
+        "Managed runner",
         status,
         summary,
         description,
         externalUrl(properties.getDashboardPath()),
         "Queue work",
-        properties.getSshCommand() + " \"sudo journalctl -u agenttaskmanager.service -n 100 --no-pager\""
+        properties.getSupportCommand() + " \"sudo journalctl -u agenttaskmanager.service -n 100 --no-pager\""
     );
   }
 
@@ -131,9 +131,9 @@ public class OperatorSurfaceService {
         "MCP endpoint",
         StringUtils.hasText(endpoint) ? "configured" : "offline",
         StringUtils.hasText(endpoint)
-            ? "Mounted at " + endpoint
+            ? "Available at " + endpoint
             : "No MCP endpoint is configured.",
-        "Use this for tool and resource automation without depending on an editor tunnel.",
+        "Use this for tool and resource automation without depending on editor session state.",
         endpoint,
         "Open MCP route",
         null
@@ -143,13 +143,13 @@ public class OperatorSurfaceService {
   private OperatorToolCard shellCard() {
     return new OperatorToolCard(
         "shell",
-        "Break-glass shell",
+        "Local shell",
         "configured",
         "Direct terminal access stays available as the final recovery lane.",
-        "Keep SSH as a fallback, not the primary workspace transport.",
+        "Keep direct local shell as a fallback, not the primary workspace transport.",
         null,
         null,
-        properties.getSshCommand()
+        properties.getSupportCommand()
     );
   }
 

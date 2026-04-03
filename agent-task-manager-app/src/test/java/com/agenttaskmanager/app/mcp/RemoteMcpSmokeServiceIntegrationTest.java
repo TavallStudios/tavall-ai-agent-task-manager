@@ -9,7 +9,11 @@ import com.agenttaskmanager.app.support.IntegrationTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.test.context.TestPropertySource;
 
+@TestPropertySource(properties = {
+    "app.security.mcp-no-auth-enabled=true"
+})
 class RemoteMcpSmokeServiceIntegrationTest extends IntegrationTestSupport {
 
   @Autowired
@@ -24,7 +28,7 @@ class RemoteMcpSmokeServiceIntegrationTest extends IntegrationTestSupport {
         "http://127.0.0.1:" + port,
         "/mcp",
         "test-agent",
-        "test-password"
+        ""
     );
 
     assertTrue(result.protocolVersion().startsWith("2025-"));

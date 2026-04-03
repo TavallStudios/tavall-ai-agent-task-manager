@@ -1,4 +1,4 @@
 interface:
   display_name: "Agent Task Manager"
-  short_description: "Global task coordination skill for multi-agent work"
-  default_prompt: "Use the local Redis and Postgres task runtime to bootstrap task storage, toggle multi-agent mode, upsert tasks, record checkpoints, and view task status across projects."
+  short_description: "Cross-repo harness and task runtime skill"
+  default_prompt: "Use $agent-task-manager to work through the AgentTaskManager harness for repo context, task context, Java validation, deterministic git workflow, and prompt-thread memory across repos. Let the AgentTaskManager plugin own local runtime registration when installed, then fall back to the repo-local MCP launchers or remote /mcp."

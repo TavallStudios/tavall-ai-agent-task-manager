@@ -16,13 +16,16 @@ public class PromptRequestService {
 
   private final PromptRequestRepository promptRequestRepository;
   private final PromptMemoryCaptureService promptMemoryCaptureService;
+  private final PromptThreadMemoryService promptThreadMemoryService;
 
   public PromptRequestService(
       PromptRequestRepository promptRequestRepository,
-      PromptMemoryCaptureService promptMemoryCaptureService
+      PromptMemoryCaptureService promptMemoryCaptureService,
+      PromptThreadMemoryService promptThreadMemoryService
   ) {
     this.promptRequestRepository = promptRequestRepository;
     this.promptMemoryCaptureService = promptMemoryCaptureService;
+    this.promptThreadMemoryService = promptThreadMemoryService;
   }
 
   public PromptRequestSummary create(
@@ -34,10 +37,24 @@ public class PromptRequestService {
       String requestedBy,
       String requestedFrom
   ) {
+    return create(projectKey, repoPath, bridgeTarget, null, executionMode, promptText, requestedBy, requestedFrom);
+  }
+
+  public PromptRequestSummary create(
+      String projectKey,
+      String repoPath,
+      String bridgeTarget,
+      String threadKey,
+      String executionMode,
+      String promptText,
+      String requestedBy,
+      String requestedFrom
+  ) {
     PromptRequestSummary summary = promptRequestRepository.create(
         projectKey,
         repoPath,
         bridgeTarget,
+        threadKey,
         normalizeExecutionMode(executionMode),
         promptText,
         requestedBy,
@@ -53,10 +70,22 @@ public class PromptRequestService {
             "requestId", summary.requestId(),
             "repoPath", repoPath,
             "bridgeTarget", bridgeTarget,
+            "threadKey", summary.threadKey(),
             "requestedBy", requestedBy,
             "requestedFrom", requestedFrom == null ? "" : requestedFrom
         )
     );
+    promptThreadMemoryService.lookup(summary.projectKey(), summary.threadKey(), promptText);
+    promptThreadMemoryService.capturePromptThreadMessage(
+        summary,
+        "prompt-thread-message",
+        promptText,
+        Map.of(
+            "sender", requestedBy,
+            "messageKind", "prompt"
+        )
+    );
+    promptThreadMemoryService.capturePromptThreadSnapshot(summary.projectKey(), summary.threadKey());
     return summary;
   }
 

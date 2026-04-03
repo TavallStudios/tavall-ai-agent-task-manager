@@ -8,6 +8,7 @@ import com.agenttaskmanager.app.model.PromptRequestNotFoundException;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -96,6 +97,18 @@ public class PromptThreadRepository {
         .update();
   }
 
+  public void recordSession(String threadKey, String threadSessionId) {
+    jdbcClient.sql("""
+            UPDATE agent_task_manager.prompt_threads
+            SET thread_session_id = :threadSessionId,
+                last_message_at = now()
+            WHERE thread_key = :threadKey
+            """)
+        .param("threadKey", threadKey)
+        .param("threadSessionId", threadSessionId)
+        .update();
+  }
+
   public void touchThread(String requestId) {
     jdbcClient.sql("""
             UPDATE agent_task_manager.prompt_threads
@@ -151,6 +164,11 @@ public class PromptThreadRepository {
   }
 
   public PromptThreadDetail getDetail(String threadKey) {
+    return findDetail(threadKey)
+        .orElseThrow(() -> new PromptRequestNotFoundException(threadKey));
+  }
+
+  public Optional<PromptThreadDetail> findDetail(String threadKey) {
     PromptThreadSummary summary = jdbcClient.sql("""
             SELECT
               thread_key,
@@ -184,7 +202,10 @@ public class PromptThreadRepository {
             rs.getObject("last_message_at", OffsetDateTime.class)
         ))
         .optional()
-        .orElseThrow(() -> new PromptRequestNotFoundException(threadKey));
+        .orElse(null);
+    if (summary == null) {
+      return Optional.empty();
+    }
 
     List<PromptRequestSummary> requests = jdbcClient.sql("""
             SELECT
@@ -241,14 +262,60 @@ public class PromptThreadRepository {
         ))
         .list();
 
-    return new PromptThreadDetail(summary, requests, messages);
+    return Optional.of(new PromptThreadDetail(summary, requests, messages));
+  }
+
+  public List<PromptThreadSummary> search(String queryText, int limit, String bridgeTarget) {
+    return jdbcClient.sql("""
+            SELECT
+              thread_key,
+              project_key,
+              repo_path,
+              bridge_target,
+              thread_session_id,
+              last_request_id,
+              latest_request_status,
+              latest_request_summary,
+              latest_prompt_text,
+              created_at,
+              updated_at,
+              last_message_at
+            FROM agent_task_manager.prompt_thread_overview
+            WHERE (
+              :queryText = ''
+              OR thread_key ILIKE ('%' || :queryText || '%')
+              OR latest_prompt_text ILIKE ('%' || :queryText || '%')
+              OR latest_request_summary ILIKE ('%' || :queryText || '%')
+            )
+              AND (:bridgeTarget = '' OR bridge_target = :bridgeTarget)
+            ORDER BY COALESCE(last_message_at, updated_at, created_at) DESC
+            LIMIT :limit
+            """)
+        .param("queryText", queryText == null ? "" : queryText.strip())
+        .param("bridgeTarget", bridgeTarget == null ? "" : bridgeTarget.strip())
+        .param("limit", limit)
+        .query((rs, rowNum) -> mapThreadSummary(
+            rs.getString("thread_key"),
+            rs.getString("project_key"),
+            rs.getString("repo_path"),
+            rs.getString("bridge_target"),
+            rs.getString("thread_session_id"),
+            rs.getString("last_request_id"),
+            rs.getString("latest_request_status"),
+            rs.getString("latest_request_summary"),
+            rs.getString("latest_prompt_text"),
+            rs.getObject("created_at", OffsetDateTime.class),
+            rs.getObject("updated_at", OffsetDateTime.class),
+            rs.getObject("last_message_at", OffsetDateTime.class)
+        ))
+        .list();
   }
 
   public static String normalizeBridgeTarget(String bridgeTarget) {
     String normalized = bridgeTarget == null ? "" : bridgeTarget.strip().toLowerCase(Locale.ROOT);
     return switch (normalized) {
-      case "", "remote", "remote-headless" -> "remote-headless";
-      case "local", "local-ide" -> "local-ide";
+      case "", "remote", "remote-headless", "local", "local-ide" -> "remote-headless";
+      case "mcp", "mcp-http" -> "mcp-http";
       default -> throw new IllegalArgumentException("Unsupported bridge target: " + bridgeTarget);
     };
   }
