@@ -1,0 +1,11 @@
+<idea-plugin>
+  <id>io.agenttaskmanager.intellij.companion</id>
+  <name>AgentTaskManager Companion</name>
+  <vendor>AgentTaskManager</vendor>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <toolWindow id="AgentTaskManager"
+                factoryClass="io.agenttaskmanager.companion.toolwindow.SessionToolWindowFactory"
+                anchor="right" />
+  </extensions>
+</idea-plugin>

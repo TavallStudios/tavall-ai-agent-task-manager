@@ -1,0 +1,49 @@
+{
+  "version": 2,
+  "dgSpecHash": "jLVu6At9vKQ=",
+  "success": false,
+  "projectFilePath": "F:\\workspace\\AgentTaskManager\\clients\\desktop\\AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj",
+  "expectedPackageFiles": [],
+  "logs": [
+    {
+      "code": "NU1801",
+      "level": "Warning",
+      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.",
+      "projectPath": "F:\\workspace\\AgentTaskManager\\clients\\desktop\\AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj",
+      "warningLevel": 1,
+      "filePath": "F:\\workspace\\AgentTaskManager\\clients\\desktop\\AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj",
+      "targetGraphs": []
+    },
+    {
+      "code": "NU1801",
+      "level": "Warning",
+      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.",
+      "projectPath": "F:\\workspace\\AgentTaskManager\\clients\\desktop\\AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj",
+      "warningLevel": 1,
+      "filePath": "F:\\workspace\\AgentTaskManager\\clients\\desktop\\AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj",
+      "targetGraphs": []
+    },
+    {
+      "code": "NU1102",
+      "level": "Error",
+      "message": "Unable to find package System.Drawing.Common with version (>= 8.0.0)\r\n  - Found 1 version(s) in Microsoft Visual Studio Offline Packages [ Nearest version: 6.0.0 ]\r\n  - Found 0 version(s) in C:\\Program Files\\dotnet\\library-packs\r\n  - Found 0 version(s) in nuget.org",
+      "projectPath": "F:\\workspace\\AgentTaskManager\\clients\\desktop\\AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj",
+      "filePath": "F:\\workspace\\AgentTaskManager\\clients\\desktop\\AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj",
+      "libraryId": "System.Drawing.Common",
+      "targetGraphs": [
+        "net8.0-windows10.0.19041.0"
+      ]
+    },
+    {
+      "code": "NU1101",
+      "level": "Error",
+      "message": "Unable to find package Microsoft.Windows.SDK.NET.Ref. No packages exist with this id in source(s): C:\\Program Files\\dotnet\\library-packs, Microsoft Visual Studio Offline Packages, nuget.org",
+      "projectPath": "F:\\workspace\\AgentTaskManager\\clients\\desktop\\AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj",
+      "filePath": "F:\\workspace\\AgentTaskManager\\clients\\desktop\\AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj",
+      "libraryId": "Microsoft.Windows.SDK.NET.Ref",
+      "targetGraphs": [
+        "net8.0-windows10.0.19041"
+      ]
+    }
+  ]
+}
