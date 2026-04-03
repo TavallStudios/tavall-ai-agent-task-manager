@@ -3,4 +3,7 @@ target/
 .idea/
 *.iml
 agent-task-manager/scripts/__pycache__/
-
+.tmp/
+.dotnet-home/
+.vscode/
+bridge-client/__pycache__/
