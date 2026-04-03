@@ -5,13 +5,11 @@ BASE_URL="${1:-${AGENT_TASK_MANAGER_MCP_BASE_URL:-https://docs.tavall.org/agent-
 USERNAME="${2:-${AGENT_TASK_MANAGER_USERNAME:-agent}}"
 PASSWORD="${3:-${AGENT_TASK_MANAGER_PASSWORD:-}}"
 
-if [[ -z "${PASSWORD}" ]]; then
-  echo "AGENT_TASK_MANAGER_PASSWORD or the third argument is required" >&2
-  exit 1
-fi
-
 endpoint="${BASE_URL%/}/mcp"
-auth="${USERNAME}:${PASSWORD}"
+auth_args=()
+if [[ -n "${PASSWORD}" ]]; then
+  auth_args=(-u "${USERNAME}:${PASSWORD}")
+fi
 
 init_body='{"jsonrpc":"2.0","id":"init-1","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"remote-smoke","version":"0.1.0"}}}'
 initialized_body='{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
@@ -22,7 +20,7 @@ tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
 curl -sS -D "${tmpdir}/init.headers" -o "${tmpdir}/init.json" \
-  -u "${auth}" \
+  "${auth_args[@]}" \
   -H 'Accept: application/json, text/event-stream' \
   -H 'Content-Type: application/json' \
   -X POST "${endpoint}" \
@@ -38,7 +36,7 @@ if [[ -z "${session_id}" ]]; then
 fi
 
 curl -sS -o /dev/null \
-  -u "${auth}" \
+  "${auth_args[@]}" \
   -H "Mcp-Session-Id: ${session_id}" \
   -H 'Accept: application/json, text/event-stream' \
   -H 'Content-Type: application/json' \
@@ -46,7 +44,7 @@ curl -sS -o /dev/null \
   --data "${initialized_body}"
 
 curl -sS -o "${tmpdir}/tools.sse" \
-  -u "${auth}" \
+  "${auth_args[@]}" \
   -H "Mcp-Session-Id: ${session_id}" \
   -H 'Accept: application/json, text/event-stream' \
   -H 'Content-Type: application/json' \
@@ -54,7 +52,7 @@ curl -sS -o "${tmpdir}/tools.sse" \
   --data "${tools_body}"
 
 curl -sS -o "${tmpdir}/summary.sse" \
-  -u "${auth}" \
+  "${auth_args[@]}" \
   -H "Mcp-Session-Id: ${session_id}" \
   -H 'Accept: application/json, text/event-stream' \
   -H 'Content-Type: application/json' \
