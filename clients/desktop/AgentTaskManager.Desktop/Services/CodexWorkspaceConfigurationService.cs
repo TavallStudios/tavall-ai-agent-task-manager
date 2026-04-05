@@ -45,7 +45,7 @@ public sealed class CodexWorkspaceConfigurationService : ICodexWorkspaceConfigur
             ? mergedPolicy.EnabledServers
             : binding.McpServers.Select(server => server.Name).ToList();
         HarnessPreferencesDto harnessPreferences = mergedPolicy?.HarnessPreferences
-            ?? new HarnessPreferencesDto("service-loader", "java", string.Empty, true, ["checkstyle", "pmd", "error-prone"], "error", "fail");
+            ?? new HarnessPreferencesDto("service-loader", "java", string.Empty, true, ["checkstyle", "pmd", "error-prone"], "error", "fail", 0, 0);
 
         var arguments = new List<string>
         {

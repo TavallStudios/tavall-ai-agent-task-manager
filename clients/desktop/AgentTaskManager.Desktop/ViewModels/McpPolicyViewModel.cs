@@ -16,12 +16,18 @@ public sealed class McpPolicyViewModel : ObservableObject
     private string _globalDiPreset = "service-loader";
     private string _globalLanguagePreset = "java";
     private string _globalCustomDiDescriptor = string.Empty;
+    private string _globalInternalConcurrencyCap = "0";
+    private string _globalDownstreamConcurrencyCap = "0";
     private string _repoDiPreset = string.Empty;
     private string _repoLanguagePreset = string.Empty;
     private string _repoCustomDiDescriptor = string.Empty;
+    private string _repoInternalConcurrencyCap = string.Empty;
+    private string _repoDownstreamConcurrencyCap = string.Empty;
     private string _effectiveDiPreset = "service-loader";
     private string _effectiveLanguagePreset = "java";
     private string _effectiveCustomDiDescriptor = string.Empty;
+    private string _effectiveInternalConcurrencyCap = "0";
+    private string _effectiveDownstreamConcurrencyCap = "0";
     private string _statusMessage = "MCP policy settings idle.";
     private bool _isBusy;
 
@@ -91,6 +97,18 @@ public sealed class McpPolicyViewModel : ObservableObject
         set => SetProperty(ref _globalCustomDiDescriptor, value);
     }
 
+    public string GlobalInternalConcurrencyCap
+    {
+        get => _globalInternalConcurrencyCap;
+        set => SetProperty(ref _globalInternalConcurrencyCap, value);
+    }
+
+    public string GlobalDownstreamConcurrencyCap
+    {
+        get => _globalDownstreamConcurrencyCap;
+        set => SetProperty(ref _globalDownstreamConcurrencyCap, value);
+    }
+
     public string RepoDiPreset
     {
         get => _repoDiPreset;
@@ -109,6 +127,18 @@ public sealed class McpPolicyViewModel : ObservableObject
         set => SetProperty(ref _repoCustomDiDescriptor, value);
     }
 
+    public string RepoInternalConcurrencyCap
+    {
+        get => _repoInternalConcurrencyCap;
+        set => SetProperty(ref _repoInternalConcurrencyCap, value);
+    }
+
+    public string RepoDownstreamConcurrencyCap
+    {
+        get => _repoDownstreamConcurrencyCap;
+        set => SetProperty(ref _repoDownstreamConcurrencyCap, value);
+    }
+
     public string EffectiveDiPreset
     {
         get => _effectiveDiPreset;
@@ -125,6 +155,18 @@ public sealed class McpPolicyViewModel : ObservableObject
     {
         get => _effectiveCustomDiDescriptor;
         set => SetProperty(ref _effectiveCustomDiDescriptor, value);
+    }
+
+    public string EffectiveInternalConcurrencyCap
+    {
+        get => _effectiveInternalConcurrencyCap;
+        set => SetProperty(ref _effectiveInternalConcurrencyCap, value);
+    }
+
+    public string EffectiveDownstreamConcurrencyCap
+    {
+        get => _effectiveDownstreamConcurrencyCap;
+        set => SetProperty(ref _effectiveDownstreamConcurrencyCap, value);
     }
 
     public string StatusMessage
@@ -161,12 +203,18 @@ public sealed class McpPolicyViewModel : ObservableObject
             GlobalDiPreset = globalPreferences.DiPreset;
             GlobalLanguagePreset = globalPreferences.LanguagePreset;
             GlobalCustomDiDescriptor = globalPreferences.CustomDiDescriptor;
+            GlobalInternalConcurrencyCap = FormatCap(globalPreferences.InternalConcurrencyCap, useDefaults: true);
+            GlobalDownstreamConcurrencyCap = FormatCap(globalPreferences.DownstreamConcurrencyCap, useDefaults: true);
             RepoDiPreset = repoPreferences.DiPreset;
             RepoLanguagePreset = repoPreferences.LanguagePreset;
             RepoCustomDiDescriptor = repoPreferences.CustomDiDescriptor;
+            RepoInternalConcurrencyCap = FormatCap(repoPreferences.InternalConcurrencyCap, useDefaults: false);
+            RepoDownstreamConcurrencyCap = FormatCap(repoPreferences.DownstreamConcurrencyCap, useDefaults: false);
             EffectiveDiPreset = effectivePreferences.DiPreset;
             EffectiveLanguagePreset = effectivePreferences.LanguagePreset;
             EffectiveCustomDiDescriptor = effectivePreferences.CustomDiDescriptor;
+            EffectiveInternalConcurrencyCap = FormatCap(effectivePreferences.InternalConcurrencyCap, useDefaults: true);
+            EffectiveDownstreamConcurrencyCap = FormatCap(effectivePreferences.DownstreamConcurrencyCap, useDefaults: true);
 
             GlobalPolicyJson = JsonSerializer.Serialize(global, DesktopJson.Default);
             RepoPolicyJson = JsonSerializer.Serialize(repo, DesktopJson.Default);
@@ -192,7 +240,10 @@ public sealed class McpPolicyViewModel : ObservableObject
                 DeserializeScope(GlobalPolicyJson),
                 GlobalDiPreset,
                 GlobalLanguagePreset,
-                GlobalCustomDiDescriptor) with
+                GlobalCustomDiDescriptor,
+                GlobalInternalConcurrencyCap,
+                GlobalDownstreamConcurrencyCap,
+                useDefaultsForCaps: true) with
             {
                 ScopeKey = "global",
                 UpdatedAt = DateTimeOffset.UtcNow
@@ -221,7 +272,10 @@ public sealed class McpPolicyViewModel : ObservableObject
                 DeserializeScope(RepoPolicyJson),
                 RepoDiPreset,
                 RepoLanguagePreset,
-                RepoCustomDiDescriptor) with
+                RepoCustomDiDescriptor,
+                RepoInternalConcurrencyCap,
+                RepoDownstreamConcurrencyCap,
+                useDefaultsForCaps: false) with
             {
                 ScopeKey = scopeKey,
                 UpdatedAt = DateTimeOffset.UtcNow
@@ -250,7 +304,10 @@ public sealed class McpPolicyViewModel : ObservableObject
         McpPolicyScopeDto scope,
         string diPreset,
         string languagePreset,
-        string customDiDescriptor)
+        string customDiDescriptor,
+        string internalConcurrencyCap,
+        string downstreamConcurrencyCap,
+        bool useDefaultsForCaps)
         => scope with
         {
             HarnessPreferences = new HarnessPreferencesDto(
@@ -260,7 +317,9 @@ public sealed class McpPolicyViewModel : ObservableObject
                 scope.HarnessPreferences?.LintEnabled ?? false,
                 scope.HarnessPreferences?.LintEngines ?? Array.Empty<string>(),
                 NormalizeText(scope.HarnessPreferences?.LintStrictness, string.Empty),
-                NormalizeText(scope.HarnessPreferences?.LintUnsupportedRepoPolicy, string.Empty))
+                NormalizeText(scope.HarnessPreferences?.LintUnsupportedRepoPolicy, string.Empty),
+                ParseCap(internalConcurrencyCap, useDefaultsForCaps),
+                ParseCap(downstreamConcurrencyCap, useDefaultsForCaps))
         };
 
     private static HarnessPreferencesDto NormalizePreferences(HarnessPreferencesDto? preferences, bool useDefaults)
@@ -271,7 +330,9 @@ public sealed class McpPolicyViewModel : ObservableObject
             preferences?.LintEnabled ?? useDefaults,
             NormalizeLintEngines(preferences?.LintEngines, useDefaults),
             NormalizeText(preferences?.LintStrictness, useDefaults ? "error" : string.Empty),
-            NormalizeText(preferences?.LintUnsupportedRepoPolicy, useDefaults ? "fail" : string.Empty));
+            NormalizeText(preferences?.LintUnsupportedRepoPolicy, useDefaults ? "fail" : string.Empty),
+            NormalizeCap(preferences?.InternalConcurrencyCap, useDefaults),
+            NormalizeCap(preferences?.DownstreamConcurrencyCap, useDefaults));
 
     private static IReadOnlyList<string> NormalizeLintEngines(IReadOnlyList<string>? lintEngines, bool useDefaults)
     {
@@ -282,6 +343,37 @@ public sealed class McpPolicyViewModel : ObservableObject
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         return normalized.Count > 0 ? normalized : fallback;
+    }
+
+    private static int? NormalizeCap(int? value, bool useDefaults)
+    {
+        if (value is null)
+        {
+            return useDefaults ? 0 : null;
+        }
+
+        return Math.Max(0, value.Value);
+    }
+
+    private static string FormatCap(int? value, bool useDefaults)
+    {
+        int? normalized = NormalizeCap(value, useDefaults);
+        return normalized is null ? string.Empty : normalized.Value.ToString();
+    }
+
+    private static int? ParseCap(string value, bool useDefaults)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return useDefaults ? 0 : null;
+        }
+
+        if (!int.TryParse(value.Trim(), out int parsed))
+        {
+            return useDefaults ? 0 : null;
+        }
+
+        return Math.Max(0, parsed);
     }
 
     private static string NormalizeText(string? value, string fallback)
