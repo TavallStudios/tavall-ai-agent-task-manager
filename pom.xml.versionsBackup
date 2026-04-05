@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>4.1.0-M4</version>
+    <version>3.4.2</version>
     <relativePath/>
   </parent>
 
@@ -35,14 +35,14 @@
   </modules>
 
   <properties>
-    <java.version>25</java.version>
+    <java.version>21</java.version>
     <archunit.version>1.4.1</archunit.version>
     <google.genai.version>1.38.0</google.genai.version>
     <mcp.sdk.version>1.0.0</mcp.sdk.version>
     <mongodb.driver.version>5.2.1</mongodb.driver.version>
     <spoon.version>11.2.1</spoon.version>
-    <checkstyle.plugin.version>3.6.0</checkstyle.plugin.version>
-    <pmd.plugin.version>3.28.0</pmd.plugin.version>
+    <checkstyle.plugin.version>3.3.1</checkstyle.plugin.version>
+    <pmd.plugin.version>3.26.0</pmd.plugin.version>
     <error.prone.version>2.32.0</error.prone.version>
     <plexus.errorprone.version>2.15.0</plexus.errorprone.version>
   </properties>
