@@ -1,11 +1,19 @@
 package com.agenttaskmanager.app.mcp;
 
+import com.agenttaskmanager.app.memory.MemoryIdentity;
+import com.agenttaskmanager.app.memory.MemoryIdentityResolver;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
 @Component
 public class McpInteractionThreadResolver {
+
+  private final MemoryIdentityResolver memoryIdentityResolver;
+
+  public McpInteractionThreadResolver(MemoryIdentityResolver memoryIdentityResolver) {
+    this.memoryIdentityResolver = memoryIdentityResolver;
+  }
 
   public McpInteractionThreadContext resolveTool(
       McpSyncServerExchange exchange,
@@ -46,26 +54,28 @@ public class McpInteractionThreadResolver {
     String sessionId = exchange == null ? "" : normalize(exchange.sessionId());
     String projectKey = firstNonBlank(safeMeta, safePayload, "projectKey");
     String repoPath = firstNonBlank(safeMeta, safePayload, "repoPath");
-    String threadKey = firstNonBlank(safeMeta, safePayload, "threadKey", "conversationKey");
-    if (threadKey.isBlank()) {
-      String scope = !projectKey.isBlank() ? projectKey : repoPath;
-      threadKey = scope.isBlank()
-          ? "mcp-http:" + fallback(sessionId, "sessionless")
-          : "mcp-http:" + fallback(sessionId, "sessionless") + ":" + scope;
-    }
     String requestedBy = exchange != null && exchange.getClientInfo() != null
         ? fallback(exchange.getClientInfo().name(), "mcp-client")
         : "mcp-client";
     String payloadSummary = safePayload.isEmpty() ? "" : safePayload.toString();
+    MemoryIdentity identity = memoryIdentityResolver.resolve(
+        projectKey,
+        firstNonBlank(safeMeta, safePayload, "threadKey", "conversationKey"),
+        sessionId,
+        requestedBy,
+        "mcp-http",
+        repoPath,
+        merge(safeMeta, safePayload)
+    );
     return new McpInteractionThreadContext(
         interactionType,
         interactionName,
         sessionId,
-        threadKey,
-        projectKey,
+        identity.threadKey(),
+        identity.projectId(),
         repoPath,
-        requestedBy,
-        "mcp-http",
+        identity.requestedBy(),
+        identity.requestedFrom(),
         summaryLabel + "=" + interactionName + (payloadSummary.isBlank() ? "" : "\narguments=" + payloadSummary),
         interactionName + " " + payloadSummary,
         safePayload,
@@ -99,5 +109,11 @@ public class McpInteractionThreadResolver {
   private String fallback(String value, String fallback) {
     String normalized = normalize(value);
     return normalized.isBlank() ? fallback : normalized;
+  }
+
+  private Map<String, Object> merge(Map<String, Object> first, Map<String, Object> second) {
+    java.util.LinkedHashMap<String, Object> merged = new java.util.LinkedHashMap<>(first);
+    merged.putAll(second);
+    return merged;
   }
 }

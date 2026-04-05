@@ -9,7 +9,8 @@ public class OrchestrationProperties {
   private String workerModel = "gpt-5.3-codex";
   private String overseerAgentId = "overseer@project-novus";
   private String cleanupAgentId = "cleanup@project-novus";
-  private boolean autonomyEnabled = true;
+  private boolean autonomyEnabled = false;
+  private boolean legacyAutonomyEnabled = false;
   private int autonomyPollIntervalMs = 15000;
   private int autonomyMaxBatchCountPerCycle = 4;
   private int autonomyMaxWorkerRunsPerCycle = 4;
@@ -62,6 +63,14 @@ public class OrchestrationProperties {
 
   public void setAutonomyPollIntervalMs(int autonomyPollIntervalMs) {
     this.autonomyPollIntervalMs = autonomyPollIntervalMs;
+  }
+
+  public boolean isLegacyAutonomyEnabled() {
+    return legacyAutonomyEnabled;
+  }
+
+  public void setLegacyAutonomyEnabled(boolean legacyAutonomyEnabled) {
+    this.legacyAutonomyEnabled = legacyAutonomyEnabled;
   }
 
   public int getAutonomyMaxBatchCountPerCycle() {

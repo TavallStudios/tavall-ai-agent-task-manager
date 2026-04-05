@@ -16,6 +16,8 @@ public class SemanticIndexProperties {
   private int chatWindowOverlap = 2;
   private List<String> reindexRepoNames = new ArrayList<>(List.of(
       "AgentTaskManager",
+      "Webstore",
+      "CustomMinecraftServer",
       "Minecraft-CTF",
       "TavallCouriers",
       "Portfolio",

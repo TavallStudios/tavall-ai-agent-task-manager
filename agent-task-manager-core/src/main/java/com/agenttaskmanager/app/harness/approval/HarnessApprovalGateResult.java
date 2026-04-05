@@ -11,6 +11,7 @@ public record HarnessApprovalGateResult(
     boolean patchScopeAllowed,
     HarnessCleanupSummary cleanup,
     HarnessValidationSummary validation,
+    HarnessJavaSymbolSummary javaSymbol,
     Map<String, Object> integrationTests,
     int workerExitCode,
     String diffArtifactId,

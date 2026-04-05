@@ -5,6 +5,7 @@ import com.agenttaskmanager.app.model.orchestration.OverseerTaskBatch;
 import com.agenttaskmanager.app.model.orchestration.TaskAssignment;
 import com.agenttaskmanager.app.model.orchestration.WorkerTask;
 import java.util.List;
+import java.util.Map;
 
 record CreateTaskBatchRequest(
     String projectKey,
@@ -15,25 +16,25 @@ record CreateTaskBatchRequest(
 ) {
 }
 
-record CreateTaskBatchResponse(OverseerTaskBatch batch) {
-}
-
 record ClaimWorkerTaskRequest(String taskId) {
 }
 
-record ClaimWorkerTaskResponse(WorkerTask workerTask) {
+record CreateTaskBatchResponse(OverseerTaskBatch batch, Map<String, Object> compatibility) {
+}
+
+record ClaimWorkerTaskResponse(WorkerTask workerTask, Map<String, Object> compatibility) {
 }
 
 record AssignWorkerTaskRequest(String workerTaskId, String agentId, String transportKind, String sessionId) {
 }
 
-record AssignWorkerTaskResponse(TaskAssignment assignment) {
+record AssignWorkerTaskResponse(TaskAssignment assignment, Map<String, Object> compatibility) {
 }
 
 record WorkerTaskUpdateRequest(String workerTaskId, String summary) {
 }
 
-record WorkerTaskResponse(WorkerTask workerTask) {
+record WorkerTaskResponse(WorkerTask workerTask, Map<String, Object> compatibility) {
 }
 
 record CleanupReviewTaskRequest(String taskId, String workerTaskId, String diffArtifactId) {

@@ -24,7 +24,7 @@ public class AutonomousLoopService {
       fixedDelayString = "${app.orchestration.autonomy-poll-interval-ms:15000}"
   )
   public void runAutonomousLoop() {
-    if (!orchestrationProperties.isAutonomyEnabled()) {
+    if (!orchestrationProperties.isAutonomyEnabled() || !orchestrationProperties.isLegacyAutonomyEnabled()) {
       return;
     }
     autonomousCycleService.runCycle(Path.of(".").toAbsolutePath());

@@ -21,7 +21,7 @@ import org.springframework.test.context.TestPropertySource;
     "logging.level.com.agenttaskmanager=INFO",
     "app.bridge.enabled=false",
     "app.orchestration.autonomy-enabled=false",
-    "app.mcp.tool-groups=clean-java-harness",
+    "app.mcp.tool-groups=tjai-harness",
     "app.orchestration.worker-command=/bin/true",
     "app.repo-catalog.roots=/srv,${java.io.tmpdir}",
     "app.mongodb.database=agent_task_manager_harness_test",

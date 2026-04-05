@@ -2,19 +2,28 @@ package com.agenttaskmanager.app;
 
 import com.agenttaskmanager.app.config.McpServerProperties;
 import com.agenttaskmanager.app.config.SecurityProperties;
+import com.agenttaskmanager.app.desktop.DesktopMcpPolicyService;
+import com.agenttaskmanager.app.desktop.DesktopOperationCatalogService;
+import com.agenttaskmanager.app.desktop.DesktopRemoteRunnerService;
+import com.agenttaskmanager.app.http.DesktopControlPlaneServlet;
+import com.agenttaskmanager.app.http.MemoryContinuityServlet;
 import com.agenttaskmanager.app.mcp.McpCatalog;
+import com.agenttaskmanager.app.memory.MemoryContinuityService;
+import com.agenttaskmanager.app.memory.MemoryRetrievalService;
+import com.agenttaskmanager.app.security.AuthenticatedClientContextHolder;
+import com.agenttaskmanager.app.security.McpApiKeyAuthenticationService;
+import com.agenttaskmanager.app.security.McpSecurityFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
-import jakarta.servlet.Filter;
 import jakarta.servlet.http.HttpServlet;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.concurrent.CountDownLatch;
 import org.apache.catalina.Context;
 import org.apache.catalina.startup.Tomcat;
@@ -83,6 +92,14 @@ public final class StandaloneAgentTaskManagerServer implements AutoCloseable {
     McpCatalog catalog = context.getBean(McpCatalog.class);
     McpServerProperties mcpServerProperties = context.getBean(McpServerProperties.class);
     SecurityProperties securityProperties = context.getBean(SecurityProperties.class);
+    AuthenticatedClientContextHolder contextHolder = context.getBean(AuthenticatedClientContextHolder.class);
+    McpApiKeyAuthenticationService apiKeyAuthenticationService = context.getBean(McpApiKeyAuthenticationService.class);
+    MemoryContinuityService continuityService = context.getBean(MemoryContinuityService.class);
+    MemoryRetrievalService retrievalService = context.getBean(MemoryRetrievalService.class);
+    DesktopMcpPolicyService mcpPolicyService = context.getBean(DesktopMcpPolicyService.class);
+    DesktopRemoteRunnerService remoteRunnerService = context.getBean(DesktopRemoteRunnerService.class);
+    DesktopOperationCatalogService operationCatalogService = context.getBean(DesktopOperationCatalogService.class);
+    ObjectMapper objectMapper = context.getBean(ObjectMapper.class);
 
     String endpoint = normalizeServletPath(mcpServerProperties.getEndpoint());
     HttpServletStreamableServerTransportProvider transportProvider =
@@ -117,7 +134,15 @@ public final class StandaloneAgentTaskManagerServer implements AutoCloseable {
     );
 
     registerMcpServlet(servletContext, endpoint, transportProvider);
-    registerMcpAuthFilter(servletContext, endpoint, securityProperties);
+    registerMcpAuthFilter(servletContext, endpoint, securityProperties, apiKeyAuthenticationService, contextHolder);
+    registerContinuityServlet(servletContext, endpoint, continuityService, retrievalService, objectMapper);
+    registerDesktopControlPlaneServlet(
+        servletContext,
+        mcpPolicyService,
+        remoteRunnerService,
+        operationCatalogService,
+        objectMapper
+    );
 
     try {
       tomcat.start();
@@ -167,9 +192,11 @@ public final class StandaloneAgentTaskManagerServer implements AutoCloseable {
   private static void registerMcpAuthFilter(
       Context servletContext,
       String endpoint,
-      SecurityProperties securityProperties
+      SecurityProperties securityProperties,
+      McpApiKeyAuthenticationService apiKeyAuthenticationService,
+      AuthenticatedClientContextHolder contextHolder
   ) {
-    Filter filter = new StandaloneMcpSecurityFilter(securityProperties);
+    var filter = new McpSecurityFilter(securityProperties, apiKeyAuthenticationService, contextHolder);
     FilterDef filterDef = new FilterDef();
     filterDef.setFilterName("agentTaskManagerMcpSecurity");
     filterDef.setFilter(filter);
@@ -180,7 +207,37 @@ public final class StandaloneAgentTaskManagerServer implements AutoCloseable {
     filterMap.setFilterName("agentTaskManagerMcpSecurity");
     filterMap.addURLPattern(endpoint);
     filterMap.addURLPattern(endpoint + "/*");
+    filterMap.addURLPattern("/api/*");
     servletContext.addFilterMap(filterMap);
+  }
+
+  private static void registerContinuityServlet(
+      Context servletContext,
+      String endpoint,
+      MemoryContinuityService continuityService,
+      MemoryRetrievalService retrievalService,
+      ObjectMapper objectMapper
+  ) {
+    HttpServlet servlet = new MemoryContinuityServlet(continuityService, retrievalService, objectMapper);
+    Tomcat.addServlet(servletContext, "agentTaskManagerContinuity", servlet);
+    servletContext.addServletMappingDecoded(endpoint + "/continuity/*", "agentTaskManagerContinuity");
+  }
+
+  private static void registerDesktopControlPlaneServlet(
+      Context servletContext,
+      DesktopMcpPolicyService mcpPolicyService,
+      DesktopRemoteRunnerService remoteRunnerService,
+      DesktopOperationCatalogService operationCatalogService,
+      ObjectMapper objectMapper
+  ) {
+    HttpServlet servlet = new DesktopControlPlaneServlet(
+        mcpPolicyService,
+        remoteRunnerService,
+        operationCatalogService,
+        objectMapper
+    );
+    Tomcat.addServlet(servletContext, "agentTaskManagerDesktopControlPlane", servlet);
+    servletContext.addServletMappingDecoded("/api/*", "agentTaskManagerDesktopControlPlane");
   }
 
   private static Path createBaseDir() {
@@ -230,64 +287,5 @@ public final class StandaloneAgentTaskManagerServer implements AutoCloseable {
       builder.append(PASSWORD_CHARS.charAt(random.nextInt(PASSWORD_CHARS.length())));
     }
     return builder.toString();
-  }
-
-  static final class StandaloneMcpSecurityFilter implements Filter {
-
-    private final SecurityProperties securityProperties;
-
-    private StandaloneMcpSecurityFilter(SecurityProperties securityProperties) {
-      this.securityProperties = securityProperties;
-    }
-
-    @Override
-    public void doFilter(
-        jakarta.servlet.ServletRequest request,
-        jakarta.servlet.ServletResponse response,
-        jakarta.servlet.FilterChain chain
-    ) throws IOException, jakarta.servlet.ServletException {
-      jakarta.servlet.http.HttpServletRequest httpRequest =
-          (jakarta.servlet.http.HttpServletRequest) request;
-      jakarta.servlet.http.HttpServletResponse httpResponse =
-          (jakarta.servlet.http.HttpServletResponse) response;
-
-      if (securityProperties.isMcpNoAuthEnabled() || proxyHeaderPresent(httpRequest) || basicAuthValid(httpRequest)) {
-        chain.doFilter(request, response);
-        return;
-      }
-
-      httpResponse.setHeader("WWW-Authenticate", "Basic realm=\"AgentTaskManager MCP\"");
-      httpResponse.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
-    }
-
-    private boolean proxyHeaderPresent(jakarta.servlet.http.HttpServletRequest request) {
-      if (!securityProperties.isProxyAuthEnabled()) {
-        return false;
-      }
-      String headerValue = request.getHeader(securityProperties.getProxyAuthHeader());
-      return headerValue != null && !headerValue.isBlank();
-    }
-
-    private boolean basicAuthValid(jakarta.servlet.http.HttpServletRequest request) {
-      String authorization = request.getHeader("Authorization");
-      if (authorization == null || !authorization.startsWith("Basic ")) {
-        return false;
-      }
-      String decoded;
-      try {
-        decoded = new String(Base64.getDecoder().decode(authorization.substring("Basic ".length())));
-      } catch (IllegalArgumentException exception) {
-        return false;
-      }
-      int separator = decoded.indexOf(':');
-      if (separator < 0) {
-        return false;
-      }
-      String username = decoded.substring(0, separator);
-      String password = decoded.substring(separator + 1);
-      return securityProperties.getUsername().equals(username)
-          && securityProperties.getPassword() != null
-          && securityProperties.getPassword().equals(password);
-    }
   }
 }

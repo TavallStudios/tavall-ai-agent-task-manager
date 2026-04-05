@@ -69,6 +69,13 @@ public class PromptRunRepository {
     updateTerminalRunState("failed", exitCode, requestId, runId, summary, threadSessionId);
   }
 
+  public void attachThreadSession(String requestId, long runId, String threadSessionId) {
+    if (threadSessionId == null || threadSessionId.isBlank()) {
+      return;
+    }
+    promptThreadRepository.recordThreadSession(requestId, runId, threadSessionId);
+  }
+
   public List<PromptRun> listRuns(String requestId) {
     return jdbcClient.sql("""
             SELECT

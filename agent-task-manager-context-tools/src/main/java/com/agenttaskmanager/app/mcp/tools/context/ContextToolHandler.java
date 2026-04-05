@@ -59,6 +59,7 @@ public class ContextToolHandler extends McpToolSupport implements McpToolProvide
             arguments -> new TaskContextResponse(sharedTaskContextService.loadTaskContext(map(arguments, ContextTaskIdRequest.class).taskId()))
         ),
         spec("loadArchitectureRules", "Load RULES.md content.", Map.of(), List.of(), arguments -> new TextPayloadResponse(readDoc("RULES.md"))),
+        spec("loadUniversalGuidance", "Load UNIVERSAL.md content.", Map.of(), List.of(), arguments -> new TextPayloadResponse(readDoc("UNIVERSAL.md"))),
         spec("loadExamples", "Load EXAMPLES.md content.", Map.of(), List.of(), arguments -> new TextPayloadResponse(readDoc("EXAMPLES.md"))),
         spec(
             "loadValidationHistory",

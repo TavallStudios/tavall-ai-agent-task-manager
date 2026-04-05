@@ -39,8 +39,8 @@ public class McpServerProcessConfigurationService {
       return backendConfiguration.get();
     }
     return switch (serverName) {
-      case "clean-java-harness" -> throw new IllegalArgumentException(
-          "clean-java-harness is bundled as a local validator/runtime dependency and is no longer launched as an MCP server."
+      case "tjai-harness", "clean-java-harness" -> throw new IllegalArgumentException(
+          "tjai-harness (clean-java-harness compatibility alias) is bundled as a local validator/runtime dependency and is no longer launched as an MCP server."
       );
       case "clean-java-mcp" -> javaModuleServer(
           serverName,

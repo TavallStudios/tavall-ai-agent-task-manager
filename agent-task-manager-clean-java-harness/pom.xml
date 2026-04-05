@@ -11,8 +11,8 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>agent-task-manager-clean-java-harness</artifactId>
-  <name>AgentTaskManager Clean Java Harness</name>
+  <artifactId>tjai-harness</artifactId>
+  <name>tjAI Harness</name>
 
   <dependencies>
     <dependency>

@@ -1,16 +1,16 @@
 package com.agenttaskmanager.app.retrieval;
 
 import com.agenttaskmanager.app.config.SemanticIndexProperties;
+import com.agenttaskmanager.app.harness.cleanjava.symbol.JavaSymbolSemanticIndexingService;
 import com.agenttaskmanager.app.model.KnownRepo;
+import com.agenttaskmanager.app.orchestration.SharedTaskContextService;
 import com.agenttaskmanager.app.service.RepoCatalogService;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
@@ -19,17 +19,26 @@ import org.springframework.stereotype.Service;
 public class ProjectSemanticIndexService {
 
   private final RepoCatalogService repoCatalogService;
+  private final JavaSymbolSemanticIndexingService javaSymbolSemanticIndexingService;
   private final SemanticIndexProperties properties;
-  private final SemanticVectorStoreService semanticVectorStoreService;
+  private final RepoSemanticFileSupport repoSemanticFileSupport;
+  private final SemanticSyncService semanticSyncService;
+  private final SharedTaskContextService sharedTaskContextService;
 
   public ProjectSemanticIndexService(
       RepoCatalogService repoCatalogService,
+      JavaSymbolSemanticIndexingService javaSymbolSemanticIndexingService,
       SemanticIndexProperties properties,
-      SemanticVectorStoreService semanticVectorStoreService
+      RepoSemanticFileSupport repoSemanticFileSupport,
+      SemanticSyncService semanticSyncService,
+      SharedTaskContextService sharedTaskContextService
   ) {
     this.repoCatalogService = repoCatalogService;
+    this.javaSymbolSemanticIndexingService = javaSymbolSemanticIndexingService;
     this.properties = properties;
-    this.semanticVectorStoreService = semanticVectorStoreService;
+    this.repoSemanticFileSupport = repoSemanticFileSupport;
+    this.semanticSyncService = semanticSyncService;
+    this.sharedTaskContextService = sharedTaskContextService;
   }
 
   public ProjectSemanticIndexSummary reindexConfiguredRepos() {
@@ -44,86 +53,42 @@ public class ProjectSemanticIndexService {
 
   public RepoSemanticSummary reindexRepo(KnownRepo repo) {
     Path repoPath = Path.of(repo.repoPath());
-    semanticVectorStoreService.deleteProject(repo.projectKey(), Map.of());
+    semanticSyncService.deleteProject(repo.projectKey(), Map.of("semanticDomain", SemanticCollectionDomain.CODE_REPO.name()), null);
+    semanticSyncService.deleteProject(repo.projectKey(), Map.of("semanticDomain", SemanticCollectionDomain.KNOWLEDGE_RULES.name()), null);
     int indexedDocs = 0;
     int indexedCodeFiles = 0;
+    int indexedJavaSymbols = 0;
     try (Stream<Path> stream = Files.walk(repoPath)) {
       List<Path> files = stream
           .filter(Files::isRegularFile)
-          .filter(this::isIndexableFile)
+          .filter(repoSemanticFileSupport::isIndexable)
           .sorted(Comparator.naturalOrder())
           .toList();
       for (Path file : files) {
-        String relativePath = repoPath.relativize(file).toString().replace('\\', '/');
-        String content = Files.readString(file, StandardCharsets.UTF_8);
-        SemanticContentType contentType = classifyFile(relativePath);
-        SemanticCollectionDomain domain = contentType == SemanticContentType.CODE
-            ? SemanticCollectionDomain.CODE_REPO
-            : SemanticCollectionDomain.KNOWLEDGE_RULES;
-        SemanticDocumentRequest request = new SemanticDocumentRequest(
-            SemanticVectorStoreService.deterministicDocumentId(repo.projectKey() + ":" + relativePath),
-            null,
-            null,
-            "project-reindex",
-            relativePath,
-            content,
-            domain,
-            contentType,
-            Map.of(
-                "sourcePath", relativePath,
-                "sourceRepo", repo.displayName(),
-                "locationLabel", repo.locationLabel()
-            )
+        String relativePath = repoSemanticFileSupport.relativePath(repoPath, file);
+        SemanticDocumentRequest request = repoSemanticFileSupport.buildRequest(repo, repoPath, file);
+        sharedTaskContextService.storeProjectSemanticDocument(
+            repo.projectKey(),
+            request,
+            repoSemanticFileSupport.upsertDedupeKey(repo, relativePath)
         );
-        semanticVectorStoreService.storeProjectDocument(repo.projectKey(), request);
-        if (domain == SemanticCollectionDomain.CODE_REPO) {
+        if (request.domain() == SemanticCollectionDomain.CODE_REPO) {
           indexedCodeFiles++;
         } else {
           indexedDocs++;
         }
       }
-      return new RepoSemanticSummary(repo.displayName(), repo.projectKey(), repo.repoPath(), indexedDocs, indexedCodeFiles);
+      indexedJavaSymbols = javaSymbolSemanticIndexingService.indexRepositoryProfiles(
+          repo.projectKey(),
+          null,
+          null,
+          repoPath,
+          SemanticSyncMode.WRITE_THROUGH
+      );
+      return new RepoSemanticSummary(repo.displayName(), repo.projectKey(), repo.repoPath(), indexedDocs, indexedCodeFiles, indexedJavaSymbols);
     } catch (IOException exception) {
       throw new IllegalStateException("Failed to reindex semantic project context for " + repo.displayName(), exception);
     }
-  }
-
-  private boolean isIndexableFile(Path path) {
-    String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
-    return lower.endsWith(".java")
-        || lower.endsWith(".kt")
-        || lower.endsWith(".groovy")
-        || lower.endsWith(".js")
-        || lower.endsWith(".ts")
-        || lower.endsWith(".tsx")
-        || lower.endsWith(".jsx")
-        || lower.endsWith(".py")
-        || lower.endsWith(".cs")
-        || lower.endsWith(".cpp")
-        || lower.endsWith(".c")
-        || lower.endsWith(".h")
-        || lower.endsWith(".hpp")
-        || lower.endsWith(".md")
-        || lower.endsWith(".txt")
-        || lower.endsWith(".json")
-        || lower.endsWith(".yml")
-        || lower.endsWith(".yaml")
-        || lower.endsWith(".xml")
-        || lower.endsWith(".properties");
-  }
-
-  private SemanticContentType classifyFile(String relativePath) {
-    String lower = relativePath.toLowerCase(Locale.ROOT);
-    if (lower.endsWith(".md")
-        || lower.endsWith(".txt")
-        || lower.endsWith(".json")
-        || lower.endsWith(".yml")
-        || lower.endsWith(".yaml")
-        || lower.endsWith(".xml")
-        || lower.endsWith(".properties")) {
-      return SemanticContentType.DOCUMENTATION;
-    }
-    return SemanticContentType.CODE;
   }
 
   public record ProjectSemanticIndexSummary(int reposReindexed, List<RepoSemanticSummary> repositories) {
@@ -134,7 +99,8 @@ public class ProjectSemanticIndexService {
       String projectKey,
       String repoPath,
       int indexedDocs,
-      int indexedCodeFiles
+      int indexedCodeFiles,
+      int indexedJavaSymbols
   ) {
     public Map<String, Object> asMap() {
       Map<String, Object> payload = new LinkedHashMap<>();
@@ -143,6 +109,7 @@ public class ProjectSemanticIndexService {
       payload.put("repoPath", repoPath);
       payload.put("indexedDocs", indexedDocs);
       payload.put("indexedCodeFiles", indexedCodeFiles);
+      payload.put("indexedJavaSymbols", indexedJavaSymbols);
       return payload;
     }
   }

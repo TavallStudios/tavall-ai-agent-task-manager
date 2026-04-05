@@ -29,6 +29,17 @@ Example MCP config files are included in:
 - `mcp-config/agent-task-manager.stdio.unix.example.json`
 - `mcp-config/agent-task-manager.stdio.windows.example.json`
 
+## Desktop Operator Surface
+
+The first-party operator experience is now desktop-first (`clients/desktop/AgentTaskManager.Desktop`) with four surfaces:
+
+- `Work`
+- `Operations`
+- `Remote`
+- `Settings`
+
+VS Code and IntelliJ companion modules are removed from first-party builds. Use the desktop surface for operational flows. Migration guidance lives in `docs/codex-client-platform/COMPANION_MIGRATION.md`.
+
 ## Modules
 
 - `agent-task-manager-core`
@@ -37,8 +48,8 @@ Example MCP config files are included in:
   The compatibility MCP HTTP adapter artifact `agent-task-manager-mcp-http`. It retains the Spring-hosted `/mcp` transport for tests and phased migration without the old dashboard, pages, or REST APIs.
 - `agent-task-manager-clean-java-mcp`
   Dedicated stdio MCP executable for clean Java rules and validation tools.
-- `agent-task-manager-clean-java-harness`
-  Bundled local validator/runtime facade for harness approval, bundled repo context, and deterministic clean Java validation. It is not a standalone MCP server.
+- `tjai-harness` (module path: `agent-task-manager-clean-java-harness`)
+  Bundled local validator/runtime facade for harness approval, bundled repo context, and deterministic clean-code validation with language-context support. It is not a standalone MCP server.
 - `agent-task-manager-artifact-tools`
   Domain module for artifact read/write MCP tools that the central MCP imports.
 - `agent-task-manager-cache-tools`
@@ -74,7 +85,7 @@ Example MCP config files are included in:
 - `com.agenttaskmanager.app.mcp.tools.*`
   Domain-scoped MCP tool modules that plug into the central catalog.
 - `com.agenttaskmanager.app.orchestration`
-  Task pooling, worker lifecycle, artifacts, cleanup review, and Codex worker transport.
+  Codex delegation runs, compatibility task-pool adapters, artifacts, cleanup review, and Codex worker transport.
 - `com.agenttaskmanager.app.harness`
   Parent-task intake, typed worker routing, shared task and agent schemas, shared persistence and dashboard models, and approval gating.
 - `com.agenttaskmanager.app.persistence`
@@ -208,8 +219,8 @@ Semantic retrieval flow:
 - HTTP MCP endpoint: `app.mcp.endpoint` with default `/mcp`
 - stdio MCP entrypoint: CLI command `serve-mcp-stdio`
 - prompts: `overseerAgent`, `workerAgent`, `cleanupAgent`
-- resources: `README.md`, `AGENTS.md`, `RULES.md`, `ARCHITECTURE.md`, `EXAMPLES.md`
-- tools: task pool, worker lifecycle, context, validation, artifact, retrieval, cache, computer-use, and decision tools
+- resources: `README.md`, `AGENTS.md`, `RULES.md`, `UNIVERSAL.md`, `ARCHITECTURE.md`, `EXAMPLES.md`
+- tools: delegation-run orchestration, legacy compatibility task-pool adapters, worker lifecycle, context, validation, artifact, retrieval, cache, computer-use, and decision tools
 
 The default no-args app path now starts [StandaloneAgentTaskManagerServer.java](/F:/workspace/AgentTaskManager/agent-task-manager-app/src/main/java/com/agenttaskmanager/app/StandaloneAgentTaskManagerServer.java), which hosts the official MCP Java SDK servlet directly on embedded Tomcat instead of relying on Spring MVC for `/mcp`. The Spring-hosted adapter remains in the repo as a compatibility module for the phase transition and existing web-based integration tests.
 
@@ -227,6 +238,16 @@ The central `agent-task-manager` MCP currently also exposes the curated harness 
 - `runCleanJavaHarness`
 - `runJavaIntegrationHarness`
 
+Canonical delegation orchestration tools:
+
+- `startDelegationRun`
+- `appendDelegationRunEvent`
+- `loadDelegationRun`
+- `listDelegationRuns`
+- `completeDelegationRun`
+
+Legacy orchestration tools (`createTaskBatch`, `claimWorkerTask`, `assignWorkerTask`, `reassignWorkerTask`, `completeWorkerTask`, `failWorkerTask`, `deadLetterWorkerTask`, `mergeWorkerOutputs`, and `runAutonomousCycle`) remain available as compatibility adapters and now return deprecation metadata plus the mapped delegation run id when available.
+
 The central MCP also exposes the external runner orchestration surface for Hytale-first computer-use work:
 
 - `registerComputerUseRunner`
@@ -238,7 +259,7 @@ The central MCP also exposes the external runner orchestration surface for Hytal
 - `waitForComputerUseVisionMatch`
 - `stopComputerUseSession`
 
-The `agent-task-manager-clean-java-harness` module is now a bundled local validator/runtime dependency for future Codex wrapping and local validation flows. It is no longer launched as a separate MCP server process.
+The `tjai-harness` module (module path `agent-task-manager-clean-java-harness`) is now a bundled local validator/runtime dependency for future Codex wrapping and local validation flows. It is no longer launched as a separate MCP server process.
 
 Codex worker runs now inject `agent-task-manager` as the default downstream central MCP server. Repository inspection and retrieval should flow through `runHarnessToolBundle`, which fans out to filesystem, ripgrep, and git on the harness host in parallel and returns one merged payload.
 Repository mutation should then use `planGitCommit`, `prepareGitBranch`, and `createGitCommit` so branch naming and verbose commit structure stay auditable inside the first-party MCP workflow.

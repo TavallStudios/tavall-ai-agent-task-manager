@@ -6,6 +6,29 @@ namespace AgentTaskManager.AutomationHost;
 
 internal sealed class AutomationCommandRouter
 {
+    private static readonly string[] SupportedCommands =
+    {
+        "ping",
+        "list_windows",
+        "wait_for_window",
+        "capture_window",
+        "capture_region",
+        "capture_stream_frame",
+        "dump_ui_tree",
+        "find_elements",
+        "invoke_element",
+        "set_value",
+        "select_element",
+        "focus_window",
+        "move_window",
+        "send_text",
+        "click_point",
+        "send_key_batch",
+        "send_mouse_batch",
+        "match_template",
+        "launch_process"
+    };
+
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly WindowQueryService _windowQueryService = new();
     private readonly UiAutomationService _uiAutomationService = new();
@@ -71,6 +94,9 @@ internal sealed class AutomationCommandRouter
             return new AutomationResponse(null, false, Error: new AutomationError("invalid_request", exception.Message));
         }
     }
+
+    internal IReadOnlyList<string> ListSupportedCommands()
+        => SupportedCommands;
 
     private IReadOnlyList<WindowSummary> HandleListWindows(JsonElement parameters)
     {

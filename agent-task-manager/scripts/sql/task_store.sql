@@ -249,6 +249,64 @@ EXECUTE FUNCTION agent_task_manager.touch_updated_at();
 CREATE INDEX IF NOT EXISTS prompt_threads_bridge_message_idx
   ON agent_task_manager.prompt_threads (bridge_target, last_message_at DESC, updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS agent_task_manager.semantic_sync_outbox (
+  outbox_id text PRIMARY KEY,
+  dedupe_key text,
+  operation_kind text NOT NULL,
+  scope_key text NOT NULL,
+  document_id text,
+  task_id text,
+  worker_task_id text,
+  semantic_kind text,
+  title text,
+  content text,
+  domain text,
+  content_type text,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  payload_filter jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status text NOT NULL DEFAULT 'queued',
+  attempt_count integer NOT NULL DEFAULT 0,
+  last_error text,
+  available_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS semantic_sync_outbox_dedupe_idx
+  ON agent_task_manager.semantic_sync_outbox (dedupe_key);
+
+CREATE INDEX IF NOT EXISTS semantic_sync_outbox_status_idx
+  ON agent_task_manager.semantic_sync_outbox (status, available_at ASC, created_at ASC);
+
+DROP TRIGGER IF EXISTS semantic_sync_outbox_touch_updated_at
+  ON agent_task_manager.semantic_sync_outbox;
+
+CREATE TRIGGER semantic_sync_outbox_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.semantic_sync_outbox
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.repo_semantic_sync_state (
+  project_key text PRIMARY KEY,
+  repo_path text NOT NULL,
+  last_synced_head text,
+  last_synced_at timestamptz,
+  last_scan_started_at timestamptz,
+  last_scan_completed_at timestamptz,
+  last_error text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+DROP TRIGGER IF EXISTS repo_semantic_sync_state_touch_updated_at
+  ON agent_task_manager.repo_semantic_sync_state;
+
+CREATE TRIGGER repo_semantic_sync_state_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.repo_semantic_sync_state
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
 CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_learning_sessions (
   session_id text PRIMARY KEY,
   bridge_session_id text REFERENCES agent_task_manager.agent_sessions(session_id) ON DELETE SET NULL,
@@ -783,6 +841,34 @@ CREATE INDEX IF NOT EXISTS computer_use_sessions_runner_status_idx
 CREATE INDEX IF NOT EXISTS computer_use_session_artifacts_session_idx
   ON agent_task_manager.computer_use_session_artifacts (session_id, artifact_kind, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS agent_task_manager.desktop_mcp_policies (
+  scope_key text PRIMARY KEY,
+  policy jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+DROP TRIGGER IF EXISTS desktop_mcp_policies_touch_updated_at
+  ON agent_task_manager.desktop_mcp_policies;
+
+CREATE TRIGGER desktop_mcp_policies_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.desktop_mcp_policies
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.desktop_remote_runner_selection (
+  selection_key text PRIMARY KEY,
+  profile_id text REFERENCES agent_task_manager.computer_use_runners(runner_id) ON DELETE SET NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+DROP TRIGGER IF EXISTS desktop_remote_runner_selection_touch_updated_at
+  ON agent_task_manager.desktop_remote_runner_selection;
+
+CREATE TRIGGER desktop_remote_runner_selection_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.desktop_remote_runner_selection
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
 CREATE TABLE IF NOT EXISTS agent_task_manager.hytale_learning_sessions (
   session_id text PRIMARY KEY,
   bridge_session_id text REFERENCES agent_task_manager.agent_sessions(session_id) ON DELETE SET NULL,
@@ -898,6 +984,47 @@ CREATE INDEX IF NOT EXISTS hytale_playbooks_scope_idx
 
 CREATE INDEX IF NOT EXISTS hytale_promotion_decisions_subject_idx
   ON agent_task_manager.hytale_promotion_decisions (subject_type, subject_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.codex_delegation_runs (
+  run_id text PRIMARY KEY,
+  task_id text REFERENCES agent_task_manager.agent_tasks(task_id) ON DELETE SET NULL,
+  project_key text,
+  repo_path text,
+  title text NOT NULL,
+  status text NOT NULL,
+  summary text NOT NULL DEFAULT '',
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS codex_delegation_runs_task_idx
+  ON agent_task_manager.codex_delegation_runs (task_id, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS codex_delegation_runs_status_idx
+  ON agent_task_manager.codex_delegation_runs (status, updated_at DESC);
+
+DROP TRIGGER IF EXISTS codex_delegation_runs_touch_updated_at
+  ON agent_task_manager.codex_delegation_runs;
+
+CREATE TRIGGER codex_delegation_runs_touch_updated_at
+BEFORE UPDATE ON agent_task_manager.codex_delegation_runs
+FOR EACH ROW
+EXECUTE FUNCTION agent_task_manager.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS agent_task_manager.codex_delegation_steps (
+  step_id text PRIMARY KEY,
+  run_id text NOT NULL REFERENCES agent_task_manager.codex_delegation_runs(run_id) ON DELETE CASCADE,
+  event_type text NOT NULL,
+  status text NOT NULL,
+  summary text NOT NULL DEFAULT '',
+  details jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS codex_delegation_steps_run_idx
+  ON agent_task_manager.codex_delegation_steps (run_id, created_at ASC);
 
 CREATE OR REPLACE VIEW agent_task_manager.worker_task_overview AS
 SELECT

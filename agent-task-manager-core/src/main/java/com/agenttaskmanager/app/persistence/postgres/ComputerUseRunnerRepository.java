@@ -4,6 +4,7 @@ import com.agenttaskmanager.app.model.computeruse.ComputerUseRunnerRegistration;
 import com.agenttaskmanager.app.model.computeruse.ComputerUseRunnerSummary;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -98,6 +99,19 @@ public class ComputerUseRunnerRepository {
         .single();
   }
 
+  public Optional<ComputerUseRunnerSummary> findRunner(String runnerId) {
+    return jdbcClient.sql("""
+            SELECT runner_id, display_name, host_name, base_url, launcher_path, client_path,
+                   status, current_lease_session_id, supported_capture_modes, capabilities,
+                   metadata, created_at, updated_at, last_seen_at
+            FROM agent_task_manager.computer_use_runners
+            WHERE runner_id = :runnerId
+            """)
+        .param("runnerId", runnerId)
+        .query((rs, rowNum) -> mapRunner(rs))
+        .optional();
+  }
+
   public void updateLease(String runnerId, String sessionId, String status) {
     jdbcClient.sql("""
             UPDATE agent_task_manager.computer_use_runners
@@ -110,6 +124,15 @@ public class ComputerUseRunnerRepository {
         .param("runnerId", runnerId)
         .param("sessionId", sessionId == null ? "" : sessionId)
         .param("status", status)
+        .update();
+  }
+
+  public void deleteRunner(String runnerId) {
+    jdbcClient.sql("""
+            DELETE FROM agent_task_manager.computer_use_runners
+            WHERE runner_id = :runnerId
+            """)
+        .param("runnerId", runnerId)
         .update();
   }
 

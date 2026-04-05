@@ -39,9 +39,10 @@ public class CodexJsonEventParser {
               messages.add(new CodexEventMessage("agent-message", "codex", text));
             }
           } else if (isToolCallItem(item)) {
-            String signature = extractToolCallSignature(item);
+            String toolName = extractToolNameValue(item);
+            String signature = extractToolCallSignature(item, toolName);
             if (!signature.isBlank()) {
-              messages.add(new CodexEventMessage("tool-call", "codex", signature));
+              messages.add(new CodexEventMessage("tool-call", "codex", signature, toolName));
             }
           } else {
             messages.add(new CodexEventMessage(
@@ -76,11 +77,11 @@ public class CodexJsonEventParser {
     if (itemType.contains("tool")) {
       return true;
     }
-    return !extractToolName(item).isBlank();
+    return !normalize(extractToolNameValue(item)).isBlank();
   }
 
-  private String extractToolCallSignature(JsonNode item) {
-    String toolName = extractToolName(item);
+  private String extractToolCallSignature(JsonNode item, String rawToolName) {
+    String toolName = normalize(rawToolName);
     if (toolName.isBlank()) {
       return "";
     }
@@ -103,25 +104,25 @@ public class CodexJsonEventParser {
     if ("plangitcommit".equals(toolName)) {
       return "planGitCommit";
     }
-    return "";
+    return toolName;
   }
 
-  private String extractToolName(JsonNode item) {
-    String directName = normalize(item.path("name").asText(""));
+  private String extractToolNameValue(JsonNode item) {
+    String directName = item.path("name").asText("").strip();
     if (!directName.isBlank()) {
       return directName;
     }
-    String toolName = normalize(item.path("tool_name").asText(""));
+    String toolName = item.path("tool_name").asText("").strip();
     if (!toolName.isBlank()) {
       return toolName;
     }
-    String camelToolName = normalize(item.path("toolName").asText(""));
+    String camelToolName = item.path("toolName").asText("").strip();
     if (!camelToolName.isBlank()) {
       return camelToolName;
     }
     JsonNode function = item.path("function");
     if (!function.isMissingNode()) {
-      String functionName = normalize(function.path("name").asText(""));
+      String functionName = function.path("name").asText("").strip();
       if (!functionName.isBlank()) {
         return functionName;
       }

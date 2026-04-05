@@ -17,6 +17,7 @@ public class DocumentationResourceProvider implements McpResourceProvider {
   private static final List<String> RESOURCE_FILES = List.of(
       "AGENTS.md",
       "RULES.md",
+      "UNIVERSAL.md",
       "ARCHITECTURE.md",
       "EXAMPLES.md",
       "GIT_WORKFLOW.md",

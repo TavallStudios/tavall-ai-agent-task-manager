@@ -10,8 +10,8 @@ Build modules:
   The compatibility MCP HTTP adapter module. It retains Spring-hosted `/mcp` transport for tests and phased migration but no longer ships dashboard pages, login views, or non-MCP REST APIs.
 - `agent-task-manager-clean-java-mcp`
   The dedicated stdio MCP module for clean Java rule loading and source-shape validation tools.
-- `agent-task-manager-clean-java-harness`
-  The dedicated stdio MCP module for the harness-core intake, routing, state, approval, bundled tool brokering, and clean Java harness tools without the servlet web surface on its classpath.
+- `tjai-harness` (module path: `agent-task-manager-clean-java-harness`)
+  The bundled harness module for intake, routing, state, approval, bundled tool brokering, and clean-code harness tools without the servlet web surface on its classpath.
 - `agent-task-manager-app`
   The final app module that assembles the shared runtime, the standalone embedded MCP HTTP runtime, and both clean Java modules into one executable.
 
@@ -19,7 +19,7 @@ Build modules:
   MCP prompts, resources, tools, and server bootstrap.
   Clean Java validation and harness tool implementations live under a dedicated `mcp.cleanjava` subpackage while preserving the existing MCP handler surface.
 - `orchestration`
-  Overseer flow, task pool, worker lifecycle, cleanup review, artifacts, shared context, and Codex worker transport.
+  Canonical Codex delegation-run flow, legacy task-pool compatibility adapters, worker lifecycle, cleanup review, artifacts, shared context, and Codex worker transport.
 - `harness`
   Parent-task intake, typed worker routing, shared task and agent schemas, shared persistence and runtime models, and approval gating.
 - `validation`
@@ -41,13 +41,13 @@ Build modules:
 
 1. The harness intake accepts parent work and resolves repository context.
 2. The routing layer creates typed worker plans for code, cleanup, computer-use, and retrieval work.
-3. The overseer creates a batch and queues those worker tasks.
-4. A worker session claims and receives a lease.
-5. `LocalCodexWorkerTransport` executes `codex exec` inside an isolated worktree.
-6. Codex uses the harness MCP surface, and the harness fans out repository tool calls in parallel when bundle tools are invoked.
-7. Worker output and diff artifacts are stored.
-8. The shared harness approval gate runs cleanup review, validation, integration tests when required, and patch-scope checks.
-9. The overseer stores decisions and patch outcomes.
+3. The canonical orchestration path starts one delegation run and persists timeline events (`spawn`, `wait`, `result`, `failure`).
+4. `LocalCodexWorkerTransport` executes one parent `codex exec` inside an isolated worktree; Codex-native multi-agent fan-out handles sub-agents.
+5. Codex uses the harness MCP surface, and the harness fans out repository tool calls in parallel when bundle tools are invoked.
+6. Worker output and diff artifacts are stored.
+7. The shared harness approval gate runs cleanup review, validation, integration tests when required, and patch-scope checks.
+8. The overseer stores decisions and patch outcomes.
+9. Legacy task-pool/autonomy tools remain as compatibility adapters that map into delegation runs and still project batch/worker state for dashboards.
 10. The shared harness state model plus MCP surfaces expose the latest state.
 
 ## Cooperative Automation Flow
@@ -93,8 +93,8 @@ Build modules:
 - stdio MCP via CLI
 - resources for docs
 - prompts for overseer, worker, and cleanup roles
-- tool groups for task pooling, worker state, shared context, validation, artifacts, retrieval, cache, and decisions
-- the dedicated `clean-java-harness` group now exposes a single harness surface for intake, routing, state, brokered tool bundles, approval, and deterministic clean Java validation
+- tool groups for canonical delegation-run orchestration, compatibility task pooling, worker state, shared context, validation, artifacts, retrieval, cache, and decisions
+- the dedicated `tjai-harness` group (with `clean-java-harness` compatibility alias) now exposes a single harness surface for intake, routing, state, brokered tool bundles, approval, and deterministic clean-code validation
 - deterministic Java work now follows one staged loop: build clean-Java task context, draft the patch, run Spoon source-shape checks, run ArchUnit architecture and cycle checks, then pass cleanup review and approval gates
 
 The default runtime path starts embedded Tomcat directly from the app module and registers the official MCP Java SDK servlet without Spring MVC in the request path. A Spring-hosted MCP adapter remains in the repo as a compatibility layer for existing integration tests and migration safety.

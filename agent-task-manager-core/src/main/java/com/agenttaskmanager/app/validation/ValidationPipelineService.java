@@ -31,20 +31,28 @@ public class ValidationPipelineService {
   private static final int MAX_INTEGRATION_OUTPUT_CHARS = 200_000;
 
   private final ArchUnitValidationService archUnitValidationService;
+  private final JavaLintValidationService javaLintValidationService;
   private final SpoonValidationService spoonValidationService;
   private final ValidationReportRepository validationReportRepository;
   private final ValidationSummaryCache validationSummaryCache;
 
   public ValidationPipelineService(
       ArchUnitValidationService archUnitValidationService,
+      JavaLintValidationService javaLintValidationService,
       SpoonValidationService spoonValidationService,
       ValidationReportRepository validationReportRepository,
       ValidationSummaryCache validationSummaryCache
   ) {
     this.archUnitValidationService = archUnitValidationService;
+    this.javaLintValidationService = javaLintValidationService;
     this.spoonValidationService = spoonValidationService;
     this.validationReportRepository = validationReportRepository;
     this.validationSummaryCache = validationSummaryCache;
+  }
+
+  public ValidationReport runJavaLintValidation(String taskId, String workerTaskId, Path repoRoot) {
+    Path normalizedRepoRoot = repoRoot.toAbsolutePath().normalize();
+    return buildReport(taskId, workerTaskId, javaLintValidationService.runValidation(normalizedRepoRoot));
   }
 
   public ValidationReport runArchUnitValidation(String taskId, String workerTaskId) {
@@ -66,6 +74,7 @@ public class ValidationPipelineService {
   public ValidationReport runValidationPipeline(String taskId, String workerTaskId, Path repoRoot) {
     List<ValidationViolation> violations = new ArrayList<>();
     Path normalizedRepoRoot = repoRoot.toAbsolutePath().normalize();
+    violations.addAll(javaLintValidationService.runValidation(normalizedRepoRoot));
     if (supportsArchUnitValidation(normalizedRepoRoot)) {
       violations.addAll(archUnitValidationService.runValidation());
     }

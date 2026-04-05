@@ -38,15 +38,17 @@ public class CleanJavaDeterministicHarnessService {
         normalizedRepoPath,
         queryText
     );
+    ValidationReport lintReport = validationPipelineService.runJavaLintValidation(taskId, workerTaskId, normalizedRepoPath);
     ValidationReport spoonReport = validationPipelineService.runSpoonValidation(taskId, workerTaskId, normalizedRepoPath);
     ValidationReport archUnitReport = validationPipelineService.runArchUnitValidation(taskId, workerTaskId, normalizedRepoPath);
     ValidationReport storedReport = validationPipelineService.storeValidationReport(
         taskId,
         workerTaskId,
-        validationPipelineService.mergeReports(taskId, workerTaskId, List.of(spoonReport, archUnitReport))
+        validationPipelineService.mergeReports(taskId, workerTaskId, List.of(lintReport, spoonReport, archUnitReport))
     );
     return new CleanJavaHarnessRunResult(
         taskContext,
+        stage("lint", lintReport.violations(), lintReport.summary(), lintReport.status()),
         stage("source-shape", spoonReport.violations(), spoonReport.summary(), spoonReport.status()),
         stage("architecture", nonCycleViolations(archUnitReport), archUnitReport.summary(), archUnitReport.status()),
         stage("cycle-check", cycleViolations(archUnitReport), cycleSummary(archUnitReport), cycleStatus(archUnitReport)),

@@ -64,6 +64,20 @@ public class ValidationToolHandler extends McpToolSupport implements McpToolProv
             }
         ),
         spec(
+            "runJavaLintValidation",
+            "Run deterministic Java lint checks (Checkstyle, PMD, Error Prone).",
+            Map.of(
+                "taskId", stringProperty("Task id."),
+                "workerTaskId", stringProperty("Worker task id."),
+                "repoPath", stringProperty("Repo path.")
+            ),
+            List.of("taskId", "repoPath"),
+            arguments -> {
+              JavaLintValidationRequest request = map(arguments, JavaLintValidationRequest.class);
+              return validationPipelineService.runJavaLintValidation(request.taskId(), request.workerTaskId(), Path.of(request.repoPath()));
+            }
+        ),
+        spec(
             "runIntegrationTests",
             "Run repository integration tests.",
             Map.of(

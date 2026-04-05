@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -62,8 +63,95 @@ public class GitWorktreeManager {
     return new GitHeadState(true, branchName, headCommitHash, headSubject, headBody);
   }
 
+  public int commitCountSince(Path workspacePath, String baseRevision) {
+    if (!isGitRepository(workspacePath)) {
+      return 0;
+    }
+    String currentHead = currentRevision(workspacePath);
+    if (currentHead.isBlank()) {
+      return 0;
+    }
+    if (baseRevision == null || baseRevision.isBlank()) {
+      return 1;
+    }
+    if (currentHead.equals(baseRevision.strip())) {
+      return 0;
+    }
+    String count = runOrBlank(workspacePath, "git", "rev-list", "--count", baseRevision.strip() + "..HEAD").strip();
+    if (count.isBlank()) {
+      return 0;
+    }
+    try {
+      return Integer.parseInt(count);
+    } catch (NumberFormatException exception) {
+      return 0;
+    }
+  }
+
   public boolean isGitRepository(Path workspacePath) {
     return Files.exists(workspacePath.resolve(".git")) || Files.isDirectory(workspacePath.resolve(".git"));
+  }
+
+  public List<WorkspaceFileChange> listWorkspaceChanges(Path workspacePath) {
+    if (!isGitRepository(workspacePath)) {
+      return List.of();
+    }
+    LinkedHashMap<String, WorkspaceFileChangeType> changes = new LinkedHashMap<>();
+    mergeNameStatusChanges(changes, runOrBlank(workspacePath, "git", "diff", "--name-status", "--find-renames", "HEAD"));
+    mergeUntrackedChanges(changes, runOrBlank(workspacePath, "git", "ls-files", "--others", "--exclude-standard"));
+    return toWorkspaceChanges(changes);
+  }
+
+  public List<WorkspaceFileChange> listWorkspaceChangesSince(Path workspacePath, String baseRevision) {
+    if (!isGitRepository(workspacePath)) {
+      return List.of();
+    }
+    LinkedHashMap<String, WorkspaceFileChangeType> changes = new LinkedHashMap<>();
+    if (baseRevision != null && !baseRevision.isBlank()) {
+      mergeNameStatusChanges(
+          changes,
+          runOrBlank(workspacePath, "git", "diff", "--name-status", "--find-renames", baseRevision, "HEAD")
+      );
+    }
+    mergeNameStatusChanges(changes, runOrBlank(workspacePath, "git", "diff", "--name-status", "--find-renames", "HEAD"));
+    mergeUntrackedChanges(changes, runOrBlank(workspacePath, "git", "ls-files", "--others", "--exclude-standard"));
+    return toWorkspaceChanges(changes);
+  }
+
+  private void mergeNameStatusChanges(LinkedHashMap<String, WorkspaceFileChangeType> changes, String diffOutput) {
+    for (String line : diffOutput.lines().toList()) {
+      if (line.isBlank()) {
+        continue;
+      }
+      List<String> parts = List.of(line.split("\\t"));
+      if (parts.isEmpty()) {
+        continue;
+      }
+      String status = parts.getFirst();
+      if (status.startsWith("R") && parts.size() >= 3) {
+        changes.put(parts.get(1), WorkspaceFileChangeType.DELETE);
+        changes.put(parts.get(2), WorkspaceFileChangeType.UPSERT);
+        continue;
+      }
+      if (parts.size() < 2) {
+        continue;
+      }
+      changes.put(parts.get(1), status.startsWith("D") ? WorkspaceFileChangeType.DELETE : WorkspaceFileChangeType.UPSERT);
+    }
+  }
+
+  private void mergeUntrackedChanges(LinkedHashMap<String, WorkspaceFileChangeType> changes, String untrackedOutput) {
+    for (String line : untrackedOutput.lines().toList()) {
+      if (!line.isBlank()) {
+        changes.put(line.strip(), WorkspaceFileChangeType.UPSERT);
+      }
+    }
+  }
+
+  private List<WorkspaceFileChange> toWorkspaceChanges(LinkedHashMap<String, WorkspaceFileChangeType> changes) {
+    return changes.entrySet().stream()
+        .map(entry -> new WorkspaceFileChange(entry.getKey(), entry.getValue()))
+        .toList();
   }
 
   private String run(Path directory, String... command) {
@@ -101,5 +189,13 @@ public class GitWorktreeManager {
       String headSubject,
       String headBody
   ) {
+  }
+
+  public record WorkspaceFileChange(String relativePath, WorkspaceFileChangeType changeType) {
+  }
+
+  public enum WorkspaceFileChangeType {
+    UPSERT,
+    DELETE
   }
 }

@@ -13,6 +13,8 @@ import com.agenttaskmanager.app.persistence.postgres.WorkerTaskRepository;
 import com.agenttaskmanager.app.retrieval.SemanticCollectionDomain;
 import com.agenttaskmanager.app.retrieval.SemanticContentType;
 import com.agenttaskmanager.app.retrieval.SemanticDocumentRequest;
+import com.agenttaskmanager.app.retrieval.SemanticSyncService;
+import com.agenttaskmanager.app.retrieval.SemanticSyncMode;
 import com.agenttaskmanager.app.retrieval.SemanticVectorStoreService;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,6 +30,7 @@ public class SharedTaskContextService {
   private static final Logger LOGGER = LoggerFactory.getLogger(SharedTaskContextService.class);
 
   private final SemanticContextCache semanticContextCache;
+  private final SemanticSyncService semanticSyncService;
   private final SemanticVectorStoreService semanticVectorStoreService;
   private final SharedTaskContextRepository sharedTaskContextRepository;
   private final TaskContextCache taskContextCache;
@@ -35,12 +38,14 @@ public class SharedTaskContextService {
 
   public SharedTaskContextService(
       SemanticContextCache semanticContextCache,
+      SemanticSyncService semanticSyncService,
       SemanticVectorStoreService semanticVectorStoreService,
       SharedTaskContextRepository sharedTaskContextRepository,
       TaskContextCache taskContextCache,
       WorkerTaskRepository workerTaskRepository
   ) {
     this.semanticContextCache = semanticContextCache;
+    this.semanticSyncService = semanticSyncService;
     this.semanticVectorStoreService = semanticVectorStoreService;
     this.sharedTaskContextRepository = sharedTaskContextRepository;
     this.taskContextCache = taskContextCache;
@@ -111,15 +116,41 @@ public class SharedTaskContextService {
       Map<String, Object> payload
   ) {
     try {
-      List<String> pointIds = semanticVectorStoreService.storeProjectDocument(
+      return storeProjectSemanticDocument(
           projectKey,
-          new SemanticDocumentRequest(null, taskId, workerTaskId, kind, title, content, domain, contentType, payload)
+          new SemanticDocumentRequest(null, taskId, workerTaskId, kind, title, content, domain, contentType, payload),
+          null
       );
+    } catch (RuntimeException exception) {
+      LOGGER.warn("Semantic project upsert failed for projectKey={}: {}", projectKey, exception.getMessage());
+      return List.of();
+    }
+  }
+
+  public List<String> storeProjectSemanticDocument(
+      String projectKey,
+      SemanticDocumentRequest request,
+      String dedupeKey
+  ) {
+    try {
+      List<String> pointIds = semanticSyncService.storeProjectDocument(projectKey, request, dedupeKey);
       semanticContextCache.clear();
       return pointIds;
     } catch (RuntimeException exception) {
       LOGGER.warn("Semantic project upsert failed for projectKey={}: {}", projectKey, exception.getMessage());
       return List.of();
+    }
+  }
+
+  public void enqueueProjectSemanticDocument(
+      String projectKey,
+      SemanticDocumentRequest request,
+      String dedupeKey
+  ) {
+    try {
+      semanticSyncService.storeProjectDocument(projectKey, request, dedupeKey, SemanticSyncMode.BACKGROUND_ONLY);
+    } catch (RuntimeException exception) {
+      LOGGER.warn("Semantic project enqueue failed for projectKey={}: {}", projectKey, exception.getMessage());
     }
   }
 
@@ -133,7 +164,7 @@ public class SharedTaskContextService {
       Map<String, Object> payload
   ) {
     try {
-      List<String> pointIds = semanticVectorStoreService.upsertKnowledgeDocument(
+      return upsertKnowledgeDocument(
           knowledgeBase,
           new SemanticDocumentRequest(
               documentId,
@@ -145,8 +176,22 @@ public class SharedTaskContextService {
               SemanticCollectionDomain.KNOWLEDGE_RULES,
               contentType,
               payload
-          )
+          ),
+          null
       );
+    } catch (RuntimeException exception) {
+      LOGGER.warn("Semantic knowledge upsert failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());
+      return List.of();
+    }
+  }
+
+  public List<String> upsertKnowledgeDocument(
+      String knowledgeBase,
+      SemanticDocumentRequest request,
+      String dedupeKey
+  ) {
+    try {
+      List<String> pointIds = semanticSyncService.storeKnowledgeDocument(knowledgeBase, request, dedupeKey);
       semanticContextCache.clear();
       return pointIds;
     } catch (RuntimeException exception) {
@@ -155,9 +200,21 @@ public class SharedTaskContextService {
     }
   }
 
+  public void enqueueKnowledgeDocument(
+      String knowledgeBase,
+      SemanticDocumentRequest request,
+      String dedupeKey
+  ) {
+    try {
+      semanticSyncService.storeKnowledgeDocument(knowledgeBase, request, dedupeKey, SemanticSyncMode.BACKGROUND_ONLY);
+    } catch (RuntimeException exception) {
+      LOGGER.warn("Semantic knowledge enqueue failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());
+    }
+  }
+
   public void deleteProjectSemanticContexts(String projectKey, Map<String, Object> payloadFilter) {
     try {
-      semanticVectorStoreService.deleteProject(projectKey, payloadFilter);
+      semanticSyncService.deleteProject(projectKey, payloadFilter, null);
       semanticContextCache.clear();
     } catch (RuntimeException exception) {
       LOGGER.warn("Semantic project delete failed for projectKey={}: {}", projectKey, exception.getMessage());
@@ -166,7 +223,7 @@ public class SharedTaskContextService {
 
   public void deleteKnowledgeContexts(String knowledgeBase, Map<String, Object> payloadFilter) {
     try {
-      semanticVectorStoreService.deleteKnowledge(knowledgeBase, payloadFilter);
+      semanticSyncService.deleteKnowledge(knowledgeBase, payloadFilter, null);
       semanticContextCache.clear();
     } catch (RuntimeException exception) {
       LOGGER.warn("Semantic knowledge delete failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());

@@ -6,6 +6,7 @@ import com.agenttaskmanager.app.harness.state.HarnessStateService;
 import com.agenttaskmanager.app.mcp.DownstreamMcpToolCall;
 import com.agenttaskmanager.app.mcp.DownstreamMcpToolClientService;
 import com.agenttaskmanager.app.mcp.DownstreamMcpToolResult;
+import com.agenttaskmanager.app.orchestration.HarnessMemoryService;
 import com.agenttaskmanager.app.orchestration.SharedTaskContextService;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -26,6 +27,7 @@ public class HarnessToolBundleService {
   private final DashboardSummaryService dashboardSummaryService;
   private final CleanJavaTaskContextService cleanJavaTaskContextService;
   private final DownstreamMcpToolClientService downstreamMcpToolClientService;
+  private final HarnessMemoryService harnessMemoryService;
   private final HarnessStateService harnessStateService;
   private final RemoteHarnessToolBundleClientService remoteHarnessToolBundleClientService;
   private final SharedTaskContextService sharedTaskContextService;
@@ -34,6 +36,7 @@ public class HarnessToolBundleService {
       DashboardSummaryService dashboardSummaryService,
       CleanJavaTaskContextService cleanJavaTaskContextService,
       DownstreamMcpToolClientService downstreamMcpToolClientService,
+      HarnessMemoryService harnessMemoryService,
       HarnessStateService harnessStateService,
       RemoteHarnessToolBundleClientService remoteHarnessToolBundleClientService,
       SharedTaskContextService sharedTaskContextService
@@ -41,6 +44,7 @@ public class HarnessToolBundleService {
     this.dashboardSummaryService = dashboardSummaryService;
     this.cleanJavaTaskContextService = cleanJavaTaskContextService;
     this.downstreamMcpToolClientService = downstreamMcpToolClientService;
+    this.harnessMemoryService = harnessMemoryService;
     this.harnessStateService = harnessStateService;
     this.remoteHarnessToolBundleClientService = remoteHarnessToolBundleClientService;
     this.sharedTaskContextService = sharedTaskContextService;
@@ -59,9 +63,6 @@ public class HarnessToolBundleService {
         request.queryText(),
         limit
     );
-    if (bundleType == HarnessToolBundleType.REPO_CONTEXT && remoteHarnessToolBundleClientService.isEnabled()) {
-      return remoteRepoContextResult(normalizedRequest);
-    }
 
     ExecutorService executor = Executors.newFixedThreadPool(bundleType == HarnessToolBundleType.REPO_CONTEXT ? 2 : 4);
     try {
@@ -89,6 +90,11 @@ public class HarnessToolBundleService {
       summary.put("downstreamErrors", repoContext.downstreamResults().stream().filter(DownstreamMcpToolResult::isError).count());
       summary.put("internalSections", sections.size() - 1);
       summary.put("repoContextSource", repoContext.source());
+      Object memorySection = sections.get("memory");
+      if (memorySection instanceof Map<?, ?> map) {
+        summary.put("memoryStatus", map.get("status"));
+        summary.put("qdrantHealth", map.get("qdrantHealth"));
+      }
       return new HarnessToolBundleResult(bundleType.value(), summary, sections, repoContext.downstreamResults());
     } finally {
       executor.shutdownNow();
@@ -133,7 +139,7 @@ public class HarnessToolBundleService {
       ));
     }
 
-    if (bundleType == HarnessToolBundleType.JAVA_CONTEXT) {
+    if (bundleType == HarnessToolBundleType.LANGUAGE_CONTEXT) {
       futures.add(CompletableFuture.supplyAsync(
           () -> Map.entry("cleanJavaRules", readDoc("RULES.md")),
           executor
@@ -146,6 +152,23 @@ public class HarnessToolBundleService {
                   request.workerTaskId(),
                   request.projectKey(),
                   Path.of(normalizeRepoPath(request.repoPath())),
+                  request.queryText()
+              )
+          ),
+          executor
+      ));
+    }
+
+    if (request.projectKey() != null && !request.projectKey().isBlank()) {
+      futures.add(CompletableFuture.supplyAsync(
+          () -> Map.entry(
+              "memory",
+              harnessMemoryService.buildBundleMemory(
+                  bundleType.value(),
+                  request.projectKey(),
+                  request.taskId(),
+                  request.workerTaskId(),
+                  request.repoPath(),
                   request.queryText()
               )
           ),
@@ -171,22 +194,6 @@ public class HarnessToolBundleService {
         downstreamCalls(bundleType, repoPath, request.queryText(), limit)
     );
     return new RepoContextBundle("local-downstream", downstreamSections(downstreamResults), downstreamResults);
-  }
-
-  private HarnessToolBundleResult remoteRepoContextResult(HarnessToolBundleRequest request) {
-    HarnessToolBundleResult remoteResult = remoteHarnessToolBundleClientService.loadRemoteRepoContext(request);
-    Map<String, Object> summary = new LinkedHashMap<>(remoteResult.summary());
-    summary.put("bundleName", HarnessToolBundleType.REPO_CONTEXT.value());
-    summary.put("taskId", request.taskId());
-    summary.put("workerTaskId", request.workerTaskId());
-    summary.put("repoPath", request.repoPath());
-    summary.put("repoContextSource", "remote-mcp");
-    return new HarnessToolBundleResult(
-        HarnessToolBundleType.REPO_CONTEXT.value(),
-        summary,
-        remoteResult.sections(),
-        remoteResult.downstreamCalls()
-    );
   }
 
   private List<DownstreamMcpToolCall> downstreamCalls(
@@ -216,7 +223,7 @@ public class HarnessToolBundleService {
       calls.add(new DownstreamMcpToolCall("files", "ripgrep", "list-files", Map.of("path", repoPath)));
     }
 
-    if (bundleType == HarnessToolBundleType.JAVA_CONTEXT) {
+    if (bundleType == HarnessToolBundleType.LANGUAGE_CONTEXT) {
       calls.add(new DownstreamMcpToolCall(
           "javaFiles",
           "ripgrep",

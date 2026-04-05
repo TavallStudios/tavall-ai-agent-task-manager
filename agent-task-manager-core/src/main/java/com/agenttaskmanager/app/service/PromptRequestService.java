@@ -89,6 +89,61 @@ public class PromptRequestService {
     return summary;
   }
 
+  public PromptRequestSummary createWorkerExecutionRequest(
+      String projectKey,
+      String repoPath,
+      String threadKey,
+      String promptText,
+      String requestedBy,
+      String requestedFrom,
+      String taskId,
+      String workerTaskId
+  ) {
+    PromptRequestSummary summary = promptRequestRepository.createWorkerRequest(
+        projectKey,
+        repoPath,
+        threadKey,
+        promptText,
+        requestedBy,
+        requestedFrom,
+        Map.of(
+            "taskId", taskId == null ? "" : taskId,
+            "workerTaskId", workerTaskId == null ? "" : workerTaskId
+        )
+    );
+    promptMemoryCaptureService.captureProjectMemory(
+        projectKey,
+        summary.requestId(),
+        workerTaskId,
+        "worker-prompt-request",
+        promptText,
+        Map.of(
+            "requestId", summary.requestId(),
+            "repoPath", repoPath,
+            "bridgeTarget", summary.bridgeTarget(),
+            "threadKey", summary.threadKey(),
+            "requestedBy", requestedBy,
+            "requestedFrom", requestedFrom == null ? "" : requestedFrom,
+            "taskId", taskId == null ? "" : taskId,
+            "workerTaskId", workerTaskId == null ? "" : workerTaskId
+        )
+    );
+    promptThreadMemoryService.lookup(summary.projectKey(), summary.threadKey(), promptText);
+    promptThreadMemoryService.capturePromptThreadMessage(
+        summary,
+        "worker-thread-message",
+        promptText,
+        Map.of(
+            "sender", requestedBy,
+            "messageKind", "worker-prompt",
+            "taskId", taskId == null ? "" : taskId,
+            "workerTaskId", workerTaskId == null ? "" : workerTaskId
+        )
+    );
+    promptThreadMemoryService.capturePromptThreadSnapshot(summary.projectKey(), summary.threadKey());
+    return summary;
+  }
+
   public List<PromptRequestSummary> list(int limit, String status) {
     return promptRequestRepository.list(limit, status);
   }

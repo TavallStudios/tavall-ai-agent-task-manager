@@ -47,9 +47,14 @@ public class HarnessTaskIntakeService {
         repo.projectKey(),
         repo.repoPath(),
         request.title(),
-        request.multiAgentEnabled(),
+        false,
         routingPlan.workerPlans(),
-        Map.of("routingSummary", routingPlan.summary(), "parentTaskType", request.type().name())
+        Map.of(
+            "routingSummary", routingPlan.summary(),
+            "parentTaskType", request.type().name(),
+            "multiAgentEnabledRequested", request.multiAgentEnabled(),
+            "multiAgentEnabledDeprecated", true
+        )
     ).taskId();
     storeContext(
         repo.projectKey(),

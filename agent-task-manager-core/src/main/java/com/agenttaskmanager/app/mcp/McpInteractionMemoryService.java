@@ -1,6 +1,8 @@
 package com.agenttaskmanager.app.mcp;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.agenttaskmanager.app.memory.MemoryRuntimeService;
+import com.agenttaskmanager.app.memory.MemoryTurnHandle;
 import com.agenttaskmanager.app.model.PromptThreadMemoryLookupResult;
 import com.agenttaskmanager.app.persistence.postgres.PromptInteractionRepository;
 import com.agenttaskmanager.app.persistence.postgres.PromptMessageRepository;
@@ -23,19 +25,22 @@ public class McpInteractionMemoryService {
   private final PromptMessageRepository promptMessageRepository;
   private final PromptThreadMemoryService promptThreadMemoryService;
   private final McpInteractionThreadResolver threadResolver;
+  private final MemoryRuntimeService memoryRuntimeService;
 
   public McpInteractionMemoryService(
       ObjectMapper objectMapper,
       PromptInteractionRepository promptInteractionRepository,
       PromptMessageRepository promptMessageRepository,
       PromptThreadMemoryService promptThreadMemoryService,
-      McpInteractionThreadResolver threadResolver
+      McpInteractionThreadResolver threadResolver,
+      MemoryRuntimeService memoryRuntimeService
   ) {
     this.objectMapper = objectMapper;
     this.promptInteractionRepository = promptInteractionRepository;
     this.promptMessageRepository = promptMessageRepository;
     this.promptThreadMemoryService = promptThreadMemoryService;
     this.threadResolver = threadResolver;
+    this.memoryRuntimeService = memoryRuntimeService;
   }
 
   public SyncToolSpecification wrapToolSpecification(SyncToolSpecification specification) {
@@ -49,7 +54,7 @@ public class McpInteractionMemoryService {
               request.meta()
           );
           String requestId = beginInteraction(context);
-          PromptThreadMemoryLookupResult lookup = captureLookup(context, requestId);
+          MemoryTurnHandle turnHandle = beginTurn(context, requestId);
           try {
             var result = specification.callHandler().apply(
                 exchange,
@@ -59,10 +64,10 @@ public class McpInteractionMemoryService {
                     .meta(request.meta())
                     .build()
             );
-            completeInteraction(context, requestId, "mcp-tool-result", summarizeSuccess(context, lookup), result);
+            completeInteraction(context, requestId, turnHandle, "mcp-tool-result", summarizeSuccess(context, turnHandle), result);
             return result;
           } catch (RuntimeException exception) {
-            failInteraction(context, requestId, "mcp-tool-failure", exception);
+            failInteraction(context, requestId, turnHandle, "mcp-tool-failure", exception);
             throw exception;
           }
         }
@@ -80,16 +85,16 @@ public class McpInteractionMemoryService {
               request.meta()
           );
           String requestId = beginInteraction(context);
-          PromptThreadMemoryLookupResult lookup = captureLookup(context, requestId);
+          MemoryTurnHandle turnHandle = beginTurn(context, requestId);
           try {
             var result = specification.promptHandler().apply(
                 exchange,
                 new GetPromptRequest(request.name(), request.arguments(), request.meta())
             );
-            completeInteraction(context, requestId, "mcp-prompt-result", summarizeSuccess(context, lookup), result);
+            completeInteraction(context, requestId, turnHandle, "mcp-prompt-result", summarizeSuccess(context, turnHandle), result);
             return result;
           } catch (RuntimeException exception) {
-            failInteraction(context, requestId, "mcp-prompt-failure", exception);
+            failInteraction(context, requestId, turnHandle, "mcp-prompt-failure", exception);
             throw exception;
           }
         }
@@ -102,13 +107,13 @@ public class McpInteractionMemoryService {
         (exchange, request) -> {
           McpInteractionThreadContext context = threadResolver.resolveResource(exchange, request.uri(), request.meta());
           String requestId = beginInteraction(context);
-          PromptThreadMemoryLookupResult lookup = captureLookup(context, requestId);
+          MemoryTurnHandle turnHandle = beginTurn(context, requestId);
           try {
             var result = specification.readHandler().apply(exchange, new ReadResourceRequest(request.uri(), request.meta()));
-            completeInteraction(context, requestId, "mcp-resource-result", summarizeSuccess(context, lookup), result);
+            completeInteraction(context, requestId, turnHandle, "mcp-resource-result", summarizeSuccess(context, turnHandle), result);
             return result;
           } catch (RuntimeException exception) {
-            failInteraction(context, requestId, "mcp-resource-failure", exception);
+            failInteraction(context, requestId, turnHandle, "mcp-resource-failure", exception);
             throw exception;
           }
         }
@@ -142,30 +147,53 @@ public class McpInteractionMemoryService {
     return requestId;
   }
 
-  private PromptThreadMemoryLookupResult captureLookup(McpInteractionThreadContext context, String requestId) {
+  private MemoryTurnHandle beginTurn(McpInteractionThreadContext context, String requestId) {
     if (context.projectKey().isBlank()) {
       return null;
     }
-    PromptThreadMemoryLookupResult lookup = promptThreadMemoryService.lookup(
-        context.projectKey(),
-        context.threadKey(),
-        context.lookupText()
-    );
-    promptMessageRepository.appendPromptMessage(requestId, null, "mcp-memory-lookup", "qdrant-memory", lookup.summary());
-    captureSemanticMessage(context, requestId, "mcp-memory-lookup", lookup.summary(), Map.of(
-        "sender", "qdrant-memory",
-        "messageKind", "memory-lookup",
-        "exactThreadFound", lookup.exactThread() != null,
-        "threadContextCount", lookup.threadContexts().size(),
-        "projectContextCount", lookup.projectContexts().size(),
-        "knowledgeContextCount", lookup.knowledgeContexts().size()
-    ));
-    return lookup;
+    try {
+      MemoryTurnHandle turnHandle = memoryRuntimeService.beginTurn(
+          requestId,
+          context.projectKey(),
+          context.threadKey(),
+          context.sessionId(),
+          context.requestedBy(),
+          context.requestedFrom(),
+          context.repoPath(),
+          context.requestSummary(),
+          context.lookupText(),
+          context.meta()
+      );
+      promptMessageRepository.appendPromptMessage(
+          requestId,
+          null,
+          "mcp-memory-lookup",
+          "memory-runtime",
+          turnHandle.hydration().summary()
+      );
+      captureSemanticMessage(context, requestId, "mcp-memory-lookup", turnHandle.hydration().summary(), Map.of(
+          "sender", "memory-runtime",
+          "messageKind", "memory-lookup",
+          "exactRecordCount", turnHandle.hydration().exactRecords().size(),
+          "semanticCandidateCount", turnHandle.hydration().semanticCandidates().size()
+      ));
+      return turnHandle;
+    } catch (RuntimeException exception) {
+      promptMessageRepository.appendPromptMessage(
+          requestId,
+          null,
+          "mcp-memory-lookup-failure",
+          "memory-runtime",
+          exception.getMessage() == null ? exception.toString() : exception.getMessage()
+      );
+      return null;
+    }
   }
 
   private void completeInteraction(
       McpInteractionThreadContext context,
       String requestId,
+      MemoryTurnHandle turnHandle,
       String messageKind,
       String summary,
       Object result
@@ -178,12 +206,16 @@ public class McpInteractionMemoryService {
         "messageKind", "success",
         "summary", summary
     ));
+    if (turnHandle != null) {
+      memoryRuntimeService.completeTurn(turnHandle, body, false);
+    }
     captureSnapshot(context);
   }
 
   private void failInteraction(
       McpInteractionThreadContext context,
       String requestId,
+      MemoryTurnHandle turnHandle,
       String messageKind,
       RuntimeException exception
   ) {
@@ -195,6 +227,9 @@ public class McpInteractionMemoryService {
         "messageKind", "failure",
         "failureType", exception.getClass().getName()
     ));
+    if (turnHandle != null) {
+      memoryRuntimeService.completeTurn(turnHandle, body, true);
+    }
     captureSnapshot(context);
   }
 
@@ -227,13 +262,14 @@ public class McpInteractionMemoryService {
     promptThreadMemoryService.capturePromptThreadSnapshot(context.projectKey(), context.threadKey());
   }
 
-  private String summarizeSuccess(McpInteractionThreadContext context, PromptThreadMemoryLookupResult lookup) {
-    if (lookup == null) {
+  private String summarizeSuccess(McpInteractionThreadContext context, MemoryTurnHandle turnHandle) {
+    if (turnHandle == null) {
       return context.interactionName() + " completed via MCP HTTP.";
     }
     return context.interactionName()
         + " completed via MCP HTTP with "
-        + (lookup.exactThread() == null ? "thread miss." : "thread hit.");
+        + turnHandle.hydration().exactRecords().size()
+        + " exact memory records.";
   }
 
   private String serialize(Object value) {

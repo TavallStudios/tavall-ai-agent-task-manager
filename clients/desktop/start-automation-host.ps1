@@ -2,7 +2,10 @@ param(
     [switch]$Build,
     [switch]$Http,
     [int]$HttpPort = 54123,
-    [string]$HttpPrefix
+    [string]$HttpPrefix,
+    [string]$AuthToken = $env:AGENT_TASK_MANAGER_COMPUTER_USE_RUNNER_AUTH_TOKEN,
+    [int]$LeaseTtlSeconds = 60,
+    [string]$ServiceVersion = "1.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,6 +38,21 @@ if ($HttpPrefix) {
 elseif ($Http) {
     $hostArgs += "--http-port"
     $hostArgs += "$HttpPort"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($AuthToken)) {
+    $hostArgs += "--auth-token"
+    $hostArgs += $AuthToken
+}
+
+if ($LeaseTtlSeconds -gt 0) {
+    $hostArgs += "--lease-ttl-seconds"
+    $hostArgs += "$LeaseTtlSeconds"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ServiceVersion)) {
+    $hostArgs += "--service-version"
+    $hostArgs += $ServiceVersion
 }
 
 & $dotnet $dllPath @hostArgs

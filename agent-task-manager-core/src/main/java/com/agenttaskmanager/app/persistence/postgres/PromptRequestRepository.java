@@ -1,5 +1,6 @@
 package com.agenttaskmanager.app.persistence.postgres;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.agenttaskmanager.app.model.bridge.BridgeClaim;
 import com.agenttaskmanager.app.model.PromptMessage;
 import com.agenttaskmanager.app.model.PromptRequestDetail;
@@ -8,6 +9,7 @@ import com.agenttaskmanager.app.model.PromptRequestSummary;
 import com.agenttaskmanager.app.model.PromptRequestNotFoundException;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -17,17 +19,20 @@ import org.springframework.stereotype.Repository;
 public class PromptRequestRepository {
 
   private final JdbcClient jdbcClient;
+  private final ObjectMapper objectMapper;
   private final PromptThreadRepository promptThreadRepository;
   private final PromptMessageRepository promptMessageRepository;
   private final PromptRunRepository promptRunRepository;
 
   public PromptRequestRepository(
       JdbcClient jdbcClient,
+      ObjectMapper objectMapper,
       PromptThreadRepository promptThreadRepository,
       PromptMessageRepository promptMessageRepository,
       PromptRunRepository promptRunRepository
   ) {
     this.jdbcClient = jdbcClient;
+    this.objectMapper = objectMapper;
     this.promptThreadRepository = promptThreadRepository;
     this.promptMessageRepository = promptMessageRepository;
     this.promptRunRepository = promptRunRepository;
@@ -42,6 +47,55 @@ public class PromptRequestRepository {
       String promptText,
       String requestedBy,
       String requestedFrom
+  ) {
+    return create(
+        projectKey,
+        repoPath,
+        bridgeTarget,
+        threadKeyOverride,
+        executionMode,
+        promptText,
+        requestedBy,
+        requestedFrom,
+        "Queued from web control plane",
+        Map.of()
+    );
+  }
+
+  public PromptRequestSummary createWorkerRequest(
+      String projectKey,
+      String repoPath,
+      String threadKey,
+      String promptText,
+      String requestedBy,
+      String requestedFrom,
+      Map<String, Object> metadata
+  ) {
+    return create(
+        projectKey,
+        repoPath,
+        "local-codex-worker",
+        threadKey,
+        "edit",
+        promptText,
+        requestedBy,
+        requestedFrom,
+        "Queued from worker transport",
+        metadata
+    );
+  }
+
+  private PromptRequestSummary create(
+      String projectKey,
+      String repoPath,
+      String bridgeTarget,
+      String threadKeyOverride,
+      String executionMode,
+      String promptText,
+      String requestedBy,
+      String requestedFrom,
+      String latestSummary,
+      Map<String, Object> metadata
   ) {
     String requestId = "pr_" + UUID.randomUUID();
     String normalizedBridgeTarget = PromptThreadRepository.normalizeBridgeTarget(bridgeTarget);
@@ -61,7 +115,8 @@ public class PromptRequestRepository {
               execution_mode,
               status,
               prompt_text,
-              latest_summary
+              latest_summary,
+              metadata
             ) VALUES (
               :requestId,
               :projectKey,
@@ -73,7 +128,8 @@ public class PromptRequestRepository {
               :executionMode,
               'queued',
               :promptText,
-              'Queued from web control plane'
+              :latestSummary,
+              CAST(:metadata AS jsonb)
             )
             """)
         .param("requestId", requestId)
@@ -85,6 +141,8 @@ public class PromptRequestRepository {
         .param("requestedFrom", requestedFrom == null ? "" : requestedFrom)
         .param("executionMode", executionMode)
         .param("promptText", promptText)
+        .param("latestSummary", latestSummary)
+        .param("metadata", writeJson(metadata))
         .update();
 
     promptThreadRepository.ensurePromptThread(threadKey, projectKey, repoPath, normalizedBridgeTarget, requestId);
@@ -291,5 +349,13 @@ public class PromptRequestRepository {
     String normalizedPath = repoPath == null ? "" : repoPath.strip().toLowerCase();
     String normalizedTarget = PromptThreadRepository.normalizeBridgeTarget(bridgeTarget);
     return normalizedTarget + ":" + normalizedPath;
+  }
+
+  private String writeJson(Map<String, Object> metadata) {
+    try {
+      return objectMapper.writeValueAsString(metadata == null ? Map.of() : metadata);
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to serialize prompt request metadata.", exception);
+    }
   }
 }

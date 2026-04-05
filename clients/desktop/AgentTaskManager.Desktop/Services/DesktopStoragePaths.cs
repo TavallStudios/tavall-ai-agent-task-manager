@@ -21,6 +21,15 @@ public static class DesktopStoragePaths
 
     public static string WorkspaceRegistryFile => Path.Combine(Root, "workspaces.json");
 
+    public static string McpPolicyDirectory => Path.Combine(Root, "McpPolicy");
+
+    public static string McpPolicyGlobalFile => Path.Combine(McpPolicyDirectory, "global-policy.json");
+
+    public static string GetMcpPolicyRepoFile(string scopeKey)
+        => Path.Combine(McpPolicyDirectory, $"{Sanitize(scopeKey)}.json");
+
+    public static string RemoteRunnerProfilesFile => Path.Combine(Root, "remote-runner-profiles.json");
+
     public static string GetSessionRuntimeDirectory(string sessionId)
         => Path.Combine(RuntimeDirectory, sessionId);
 
@@ -30,5 +39,17 @@ public static class DesktopStoragePaths
         Directory.CreateDirectory(SecretDirectory);
         Directory.CreateDirectory(DiffPreviewDirectory);
         Directory.CreateDirectory(RuntimeDirectory);
+        Directory.CreateDirectory(McpPolicyDirectory);
+    }
+
+    private static string Sanitize(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "default";
+        }
+
+        char[] invalid = Path.GetInvalidFileNameChars();
+        return string.Concat(value.Select(character => invalid.Contains(character) ? '_' : character));
     }
 }

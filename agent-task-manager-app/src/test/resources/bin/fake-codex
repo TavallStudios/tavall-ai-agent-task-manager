@@ -17,7 +17,7 @@ while (($# > 0)); do
       fi
       shift 2
       ;;
-    exec|--json|--skip-git-repo-check)
+    exec|resume|--json|--skip-git-repo-check)
       shift
       ;;
     *)
@@ -31,11 +31,29 @@ mkdir -p "$workspace"
 cd "$workspace"
 
 printf '{"type":"thread.started","thread_id":"fake-thread"}\n'
+printf '{"type":"turn.started"}\n'
 printf '{"type":"item.completed","item":{"type":"tool_call","name":"runHarnessToolBundle","arguments":{"bundleName":"worker-context"}}}\n'
 printf '{"type":"item.completed","item":{"type":"tool_call","name":"runHarnessToolBundle","arguments":{"bundleName":"repo-context"}}}\n'
+if [[ "${prompt:-}" == *"[shell-command]"* ]]; then
+  printf '{"type":"item.completed","item":{"type":"tool_call","name":"shell_command","arguments":{"command":"Get-ChildItem"}}}\n'
+fi
 printf '{"type":"item.completed","item":{"type":"agent_message","text":"fake-codex processed prompt"}}\n'
 
-if [[ -f README.md ]]; then
+if [[ "${prompt:-}" == *"[no-op]"* || "${prompt:-}" == *"[read-only]"* ]]; then
+  :
+elif [[ "${prompt:-}" == *"[java-signature-change]"* ]]; then
+  mkdir -p src/main/java/example
+  cat <<'EOF' > src/main/java/example/FixtureApp.java
+package example;
+
+public class FixtureApp {
+
+  public int greet() {
+    return 42;
+  }
+}
+EOF
+elif [[ -f README.md ]]; then
   printf '\nAutonomous update from fake codex.\n' >> README.md
 else
   mkdir -p src/main/java/example
@@ -49,21 +67,59 @@ fi
 
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   branch="atm-fakecodex-tj-v1"
-  printf '{"type":"item.completed","item":{"type":"tool_call","name":"prepareGitBranch","arguments":{"repoPath":"%s","domain":"atm","system":"fakecodex","user":"tj","version":"v1"}}}\n' "$workspace"
   git config user.email integration@example.com >/dev/null 2>&1 || true
   git config user.name "Integration Test" >/dev/null 2>&1 || true
-  if git show-ref --verify --quiet "refs/heads/$branch"; then
-    git checkout "$branch" >/dev/null 2>&1
+  if [[ "${prompt:-}" == *"[skip-git-workflow]"* ]]; then
+    :
+  elif [[ "${prompt:-}" == *"[workflow-no-commit]"* ]]; then
+    printf '%s\n' '{"type":"item.completed","item":{"type":"tool_call","name":"planGitCommit","arguments":{"changeType":"Changed"}}}'
+    printf '%s\n' '{"type":"item.completed","item":{"type":"tool_call","name":"prepareGitBranch","arguments":{"domain":"atm","system":"fakecodex","user":"tj","version":"v1"}}}'
+    if git show-ref --verify --quiet "refs/heads/$branch"; then
+      git checkout "$branch" >/dev/null 2>&1
+    else
+      git checkout -b "$branch" >/dev/null 2>&1
+    fi
+  elif [[ "${prompt:-}" == *"[double-commit]"* ]]; then
+    printf '%s\n' '{"type":"item.completed","item":{"type":"tool_call","name":"planGitCommit","arguments":{"changeType":"Changed"}}}'
+    printf '%s\n' '{"type":"item.completed","item":{"type":"tool_call","name":"prepareGitBranch","arguments":{"domain":"atm","system":"fakecodex","user":"tj","version":"v1"}}}'
+    if git show-ref --verify --quiet "refs/heads/$branch"; then
+      git checkout "$branch" >/dev/null 2>&1
+    else
+      git checkout -b "$branch" >/dev/null 2>&1
+    fi
+    git add -A
+    if ! git diff --cached --quiet; then
+      body=$'What Changed:\nRecorded the fake codex fixture update.\n\nWhy:\nKeeps the fake worker run aligned with git workflow enforcement.\n\nVerification:\nFake codex fixture execution.\n\nBranch:\natm-fakecodex-tj-v1\n\nConcern:\natm / fakecodex\n\nFinal Change: yes\nChange Type: Changed\n'
+      git commit -m 'Changed: Fake codex worker fixture update' -m "$body" >/dev/null 2>&1
+      printf '%s\n' '{"type":"item.completed","item":{"type":"tool_call","name":"createGitCommit","arguments":{"changeType":"Changed"}}}'
+      printf '\nFollow-up adjustment from fake codex.\n' >> README.md
+      git add -A
+      git commit -m 'Changed: Fake codex worker fixture follow-up' -m "$body" >/dev/null 2>&1
+    fi
+  elif [[ "${prompt:-}" == *"[generic-git-mutation]"* ]]; then
+    printf '%s\n' '{"type":"item.completed","item":{"type":"tool_call","name":"git_commit","arguments":{"message":"generic"}}}'
+    git add -A
+    if ! git diff --cached --quiet; then
+      git commit -m 'Changed: Generic git fixture update' >/dev/null 2>&1
+    fi
   else
-    git checkout -b "$branch" >/dev/null 2>&1
-  fi
-  git add -A
-  if ! git diff --cached --quiet; then
-    body=$'What Changed:\nRecorded the fake codex fixture update.\n\nWhy:\nKeeps the fake worker run aligned with git workflow enforcement.\n\nVerification:\nFake codex fixture execution.\n\nBranch:\natm-fakecodex-tj-v1\n\nConcern:\natm / fakecodex\n\nFinal Change: yes\nChange Type: Changed\n'
-    git commit -m 'Changed: Fake codex worker fixture update' -m "$body" >/dev/null 2>&1
-    printf '{"type":"item.completed","item":{"type":"tool_call","name":"createGitCommit","arguments":{"repoPath":"%s","changeType":"Changed"}}}\n' "$workspace"
+    printf '%s\n' '{"type":"item.completed","item":{"type":"tool_call","name":"planGitCommit","arguments":{"changeType":"Changed"}}}'
+    printf '%s\n' '{"type":"item.completed","item":{"type":"tool_call","name":"prepareGitBranch","arguments":{"domain":"atm","system":"fakecodex","user":"tj","version":"v1"}}}'
+    if git show-ref --verify --quiet "refs/heads/$branch"; then
+      git checkout "$branch" >/dev/null 2>&1
+    else
+      git checkout -b "$branch" >/dev/null 2>&1
+    fi
+    git add -A
+    if ! git diff --cached --quiet; then
+      body=$'What Changed:\nRecorded the fake codex fixture update.\n\nWhy:\nKeeps the fake worker run aligned with git workflow enforcement.\n\nVerification:\nFake codex fixture execution.\n\nBranch:\natm-fakecodex-tj-v1\n\nConcern:\natm / fakecodex\n\nFinal Change: yes\nChange Type: Changed\n'
+      git commit -m 'Changed: Fake codex worker fixture update' -m "$body" >/dev/null 2>&1
+      printf '%s\n' '{"type":"item.completed","item":{"type":"tool_call","name":"createGitCommit","arguments":{"changeType":"Changed"}}}'
+    fi
   fi
 fi
+
+printf '{"type":"turn.completed","usage":{"input_tokens":101,"cached_input_tokens":11,"output_tokens":41}}\n'
 
 if [[ -n "$output_file" ]]; then
   printf 'Completed autonomous worker run for %s\n' "${prompt:-prompt}" > "$output_file"

@@ -4,6 +4,7 @@ import com.agenttaskmanager.app.model.orchestration.RetrievedSemanticContext;
 import com.agenttaskmanager.app.persistence.qdrant.EmbeddingPurpose;
 import com.agenttaskmanager.app.persistence.qdrant.QdrantCollectionNameResolver;
 import com.agenttaskmanager.app.persistence.qdrant.QdrantContextStore;
+import java.time.OffsetDateTime;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,17 +19,20 @@ public class SemanticVectorStoreService {
 
   private final QdrantCollectionNameResolver collectionNameResolver;
   private final QdrantContextStore qdrantContextStore;
+  private final SemanticRetrievalReranker semanticRetrievalReranker;
   private final SemanticQueryPlanner semanticQueryPlanner;
   private final SemanticChunkingService semanticChunkingService;
 
   public SemanticVectorStoreService(
       QdrantCollectionNameResolver collectionNameResolver,
       QdrantContextStore qdrantContextStore,
+      SemanticRetrievalReranker semanticRetrievalReranker,
       SemanticQueryPlanner semanticQueryPlanner,
       SemanticChunkingService semanticChunkingService
   ) {
     this.collectionNameResolver = collectionNameResolver;
     this.qdrantContextStore = qdrantContextStore;
+    this.semanticRetrievalReranker = semanticRetrievalReranker;
     this.semanticQueryPlanner = semanticQueryPlanner;
     this.semanticChunkingService = semanticChunkingService;
   }
@@ -53,7 +57,12 @@ public class SemanticVectorStoreService {
           search.embeddingPurpose()
       ));
     }
-    return dedupeAndSort(combined);
+    return semanticRetrievalReranker.rerankProjectResults(
+        queryText,
+        dedupeAndSort(combined),
+        limit,
+        payloadFilter
+    );
   }
 
   public List<RetrievedSemanticContext> searchKnowledge(
@@ -62,12 +71,17 @@ public class SemanticVectorStoreService {
       int limit,
       Map<String, Object> payloadFilter
   ) {
-    return qdrantContextStore.searchRelatedContexts(
+    return semanticRetrievalReranker.rerankKnowledgeResults(
+        queryText,
+        qdrantContextStore.searchRelatedContexts(
         collectionNameResolver.knowledgeCollection(knowledgeBase, SemanticCollectionDomain.KNOWLEDGE_RULES),
         queryText,
         limit,
         withScope(payloadFilter, "knowledgeBase", knowledgeBase),
         EmbeddingPurpose.RETRIEVAL_QUERY
+        ),
+        limit,
+        payloadFilter
     );
   }
 
@@ -119,6 +133,7 @@ public class SemanticVectorStoreService {
       payload.put("startLine", chunk.startLine());
       payload.put("endLine", chunk.endLine());
       payload.put("title", chunk.title());
+      payload.putIfAbsent("indexedAt", OffsetDateTime.now().toString());
       pointIds.add(qdrantContextStore.upsertContext(collectionName, pointId, chunk.title(), chunk.text(), payload));
     }
     return pointIds;

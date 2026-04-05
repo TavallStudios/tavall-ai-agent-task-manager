@@ -59,7 +59,7 @@ class McpServerProcessConfigurationServiceIntegrationTest extends IntegrationTes
   void shouldRejectStandaloneHarnessServerResolution() {
     IllegalArgumentException exception = assertThrows(
         IllegalArgumentException.class,
-        () -> processConfigurationService.resolve("clean-java-harness", "project-novus")
+        () -> processConfigurationService.resolve("tjai-harness", "project-novus")
     );
 
     assertTrue(exception.getMessage().contains("no longer launched as an MCP server"));

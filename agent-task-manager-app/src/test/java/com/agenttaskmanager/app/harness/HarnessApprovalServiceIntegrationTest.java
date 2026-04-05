@@ -128,6 +128,8 @@ class HarnessApprovalServiceIntegrationTest extends IntegrationTestSupport {
     );
 
     assertTrue(result.patchScopeAllowed());
+    assertNotNull(result.validation().lint());
+    assertEquals("lint", result.validation().lint().stageName());
     assertNotNull(result.validation().sourceShape());
     assertEquals("source-shape", result.validation().sourceShape().stageName());
     assertNotNull(result.validation().architecture());

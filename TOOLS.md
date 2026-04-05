@@ -20,7 +20,7 @@ Source: [CliCommandService.java](/F:/workspace/AgentTaskManager/agent-task-manag
 | `patch-check <diffFile>` | Reads a diff file and checks whether the patch stays within allowed scope. |
 | `run-agent <taskId> <repoPath> [agentId]` | Claims one queued worker task for a batch and runs it through the local Codex worker transport. |
 | `run-workers <taskId> <repoPath> [agentPrefix]` | Repeatedly claims and runs queued worker tasks for a batch until no tasks remain. |
-| `run-autonomy-cycle [repoPath]` | Runs one autonomous orchestration cycle and prints the resulting report. |
+| `run-autonomy-cycle [repoPath]` | Runs one autonomous orchestration cycle and prints the resulting report (legacy rollback flow; disabled by default unless `app.orchestration.legacy-autonomy-enabled=true`). |
 | `print-rule-report [repoPath]` | Runs validation and prints each rule violation entry. |
 | `example-report` | Runs validation against the current repo and prints the example report payload. |
 | `serve-mcp-stdio` | Starts the central MCP server over stdio using the current MCP catalog. |
@@ -72,6 +72,7 @@ Source: [ContextToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-mana
 | --- | --- |
 | `loadTaskContext` | Loads the aggregated task context payload. |
 | `loadArchitectureRules` | Reads `RULES.md`. |
+| `loadUniversalGuidance` | Reads `UNIVERSAL.md`. |
 | `loadExamples` | Reads `EXAMPLES.md`. |
 | `loadValidationHistory` | Loads stored validation history for a task. |
 | `loadDashboardSummary` | Loads the current dashboard summary payload. |
@@ -87,13 +88,18 @@ Source: [DecisionToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-man
 
 | Tool | What it does |
 | --- | --- |
-| `createTaskBatch` | Creates an overseer task batch and queues worker tasks. |
-| `claimWorkerTask` | Claims the next queued worker task in a batch. |
-| `assignWorkerTask` | Assigns a worker task to an agent session and transport. |
-| `reassignWorkerTask` | Reassigns a worker task after timeout or failure. |
-| `completeWorkerTask` | Marks a worker task completed. |
-| `failWorkerTask` | Marks a worker task failed. |
-| `deadLetterWorkerTask` | Routes a worker task into dead-letter state. |
+| `startDelegationRun` | Starts the canonical Codex delegation run. |
+| `appendDelegationRunEvent` | Appends timeline events (`spawn`, `wait`, `result`, `failure`) to a delegation run. |
+| `loadDelegationRun` | Loads one delegation run with timeline steps. |
+| `listDelegationRuns` | Lists delegation runs, optionally filtered by status. |
+| `completeDelegationRun` | Completes a delegation run with final status and summary. |
+| `createTaskBatch` | Deprecated compatibility adapter that maps legacy batch creation to a delegation run and returns deprecation metadata. |
+| `claimWorkerTask` | Deprecated compatibility adapter that maps legacy worker-claim state to a delegation run event. |
+| `assignWorkerTask` | Deprecated compatibility adapter that maps legacy assignment state to a delegation run event. |
+| `reassignWorkerTask` | Deprecated compatibility adapter that maps legacy reassignment state to a delegation run event. |
+| `completeWorkerTask` | Deprecated compatibility adapter that maps legacy completion state to a delegation run event. |
+| `failWorkerTask` | Deprecated compatibility adapter that maps legacy failure state to a delegation run event. |
+| `deadLetterWorkerTask` | Deprecated compatibility adapter that maps legacy dead-letter state to a delegation run event. |
 | `createCleanupReviewTask` | Creates a cleanup review task for a diff artifact. |
 | `submitWorkerCheckIn` | Stores a worker progress check-in. |
 | `heartbeatWorker` | Refreshes a worker heartbeat. |
@@ -105,12 +111,12 @@ Source: [DecisionToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-man
 | `markCleanupReviewRequired` | Marks cleanup review as required. |
 | `markCleanupApproved` | Marks cleanup review approved. |
 | `markCleanupRejected` | Marks cleanup review rejected with findings. |
-| `mergeWorkerOutputs` | Merges worker output summaries for a batch. |
+| `mergeWorkerOutputs` | Deprecated compatibility adapter that merges legacy worker summaries and records a delegation-run compatibility event. |
 | `approvePatch` | Approves a patch decision after validation and cleanup review. |
 | `rejectPatch` | Rejects a patch decision and requires rework. |
 | `storeOverseerDecision` | Stores an overseer decision record. |
 | `storeRunSummary` | Stores the final run summary for a batch. |
-| `runAutonomousCycle` | Runs one autonomous orchestration cycle. |
+| `runAutonomousCycle` | Deprecated legacy autonomous scheduler entrypoint; disabled unless rollback flag is enabled. |
 | `publishDashboardUpdate` | Warms and republishes dashboard summary state. |
 
 ### Repo Workflow Tools
@@ -132,6 +138,7 @@ Source: [ValidationToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-m
 | --- | --- |
 | `runArchUnitValidation` | Runs ArchUnit validation rules. |
 | `runSpoonValidation` | Runs Spoon source-shape validation. |
+| `runJavaLintValidation` | Runs deterministic Java lint checks (Checkstyle, PMD, Error Prone). |
 | `runIntegrationTests` | Runs repository integration tests. |
 | `validatePatchScope` | Checks whether a diff stays within allowed patch scope. |
 | `storeValidationReport` | Runs validation and stores the report. |
@@ -157,7 +164,7 @@ Source: [VectorMemoryToolHandler.java](/F:/workspace/AgentTaskManager/agent-task
 | `searchPriorFixes` | Searches semantic task history for prior fixes and reviews. |
 | `attachSemanticContextToTask` | Stores shared task context and indexes the same body through the semantic pipeline. |
 
-### Harness Validator Tools
+### Harness Validator Tools (`tjai-harness`)
 
 Source: [CleanJavaHarnessToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-clean-java-harness/src/main/java/com/agenttaskmanager/app/mcp/CleanJavaHarnessToolHandler.java), [CleanJavaHarnessTools.java](/F:/workspace/AgentTaskManager/agent-task-manager-clean-java-harness/src/main/java/com/agenttaskmanager/app/mcp/cleanjava/CleanJavaHarnessTools.java)
 
@@ -168,15 +175,15 @@ These tools are exposed by the central MCP, but the implementation is backed by 
 | `intakeHarnessTask` | Accepts parent work and persists shared harness state. |
 | `routeHarnessTask` | Routes parent work into typed worker plans without creating tasks. |
 | `loadHarnessState` | Loads shared task, agent, persistence, and dashboard state for a harness task. |
-| `runHarnessToolBundle` | Runs the harness bundle broker for repo, worker, or Java context. |
+| `runHarnessToolBundle` | Runs the harness bundle broker for repo, worker, or language context (`java-context` compatibility alias). |
 | `runHarnessApprovalGate` | Runs cleanup, validation, integration-test, and patch-scope gates for a worker task. |
 | `loadCleanJavaTaskContext` | Builds deterministic clean Java task context for harness use. |
-| `runCleanJavaHarness` | Runs the full deterministic clean Java harness. |
+| `runCleanJavaHarness` | Runs the full deterministic clean Java harness (lint + Spoon + ArchUnit with cycle extraction). |
 | `runJavaIntegrationHarness` | Runs the deterministic Java integration-test harness. |
 
 ## Dedicated Clean Java MCP Tools
 
-These tools are custom, but only `clean-java-mcp` remains a dedicated stdio server. The harness module is now bundled as a local validator/runtime dependency instead of a standalone MCP server.
+These tools are custom, but only `clean-java-mcp` remains a dedicated stdio server. The `tjai-harness` module (module path `agent-task-manager-clean-java-harness`) is now bundled as a local validator/runtime dependency instead of a standalone MCP server.
 
 ### Clean Java MCP Server
 

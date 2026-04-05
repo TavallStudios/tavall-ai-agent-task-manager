@@ -70,6 +70,7 @@ class McpHttpTransportIntegrationTest extends IntegrationTestSupport {
     List<String> toolNames = extractToolNames(toolsListResponse);
 
     assertTrue(toolNames.contains("createTaskBatch"));
+    assertTrue(toolNames.contains("startDelegationRun"));
     assertTrue(toolNames.contains("loadDashboardSummary"));
     assertTrue(toolNames.contains("runIntegrationTests"));
 

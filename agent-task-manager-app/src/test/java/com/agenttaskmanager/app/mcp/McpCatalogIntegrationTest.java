@@ -21,9 +21,16 @@ class McpCatalogIntegrationTest extends IntegrationTestSupport {
         .collect(Collectors.toSet());
 
     assertTrue(toolNames.contains("createTaskBatch"));
+    assertTrue(toolNames.contains("startDelegationRun"));
+    assertTrue(toolNames.contains("appendDelegationRunEvent"));
+    assertTrue(toolNames.contains("loadDelegationRun"));
+    assertTrue(toolNames.contains("listDelegationRuns"));
+    assertTrue(toolNames.contains("completeDelegationRun"));
     assertTrue(toolNames.contains("runArchUnitValidation"));
+    assertTrue(toolNames.contains("runJavaLintValidation"));
     assertTrue(toolNames.contains("mergeWorkerOutputs"));
     assertTrue(toolNames.contains("loadDashboardSummary"));
+    assertTrue(toolNames.contains("loadUniversalGuidance"));
     assertTrue(toolNames.contains("warmDashboardCache"));
     assertTrue(toolNames.contains("intakeHarnessTask"));
     assertTrue(toolNames.contains("routeHarnessTask"));
@@ -50,6 +57,7 @@ class McpCatalogIntegrationTest extends IntegrationTestSupport {
 
     assertTrue(resourceNames.contains("AGENTS.md"));
     assertTrue(resourceNames.contains("RULES.md"));
+    assertTrue(resourceNames.contains("UNIVERSAL.md"));
     assertTrue(resourceNames.contains("ARCHITECTURE.md"));
     assertTrue(resourceNames.contains("EXAMPLES.md"));
     assertTrue(resourceNames.contains("state://dashboard/summary"));

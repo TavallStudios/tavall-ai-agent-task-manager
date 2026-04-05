@@ -7,6 +7,7 @@ namespace AgentTaskManager.Desktop.ViewModels;
 
 public sealed class MainShellViewModel
 {
+    private static readonly TimeSpan SessionPollInterval = TimeSpan.FromSeconds(5);
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly IBackendAuthService _backendAuthService;
     private readonly IDesktopConnectionSettingsService _connectionSettingsService;
@@ -19,6 +20,7 @@ public sealed class MainShellViewModel
     private readonly IDiffNavigationService _diffNavigationService;
     private readonly IDevicePresenceService _devicePresenceService;
     private CancellationTokenSource? _streamCancellationTokenSource;
+    private CancellationTokenSource? _sessionPollCancellationTokenSource;
     private bool _initialized;
     private bool _isLoadingSelectedSession;
 
@@ -38,8 +40,12 @@ public sealed class MainShellViewModel
         SignInViewModel signIn,
         WorkspacePickerViewModel workspacePicker,
         SessionListViewModel sessionList,
+        RepoTabsViewModel repos,
         SessionDetailViewModel sessionDetail,
-        StatusStripViewModel statusStrip)
+        StatusStripViewModel statusStrip,
+        OperationCatalogViewModel operations,
+        McpPolicyViewModel mcpPolicy,
+        RemoteRunnerViewModel remoteRunners)
     {
         _dispatcherQueue = DispatcherQueue.GetForCurrentThread()
             ?? throw new InvalidOperationException("MainShellViewModel must be created on the UI thread.");
@@ -58,8 +64,12 @@ public sealed class MainShellViewModel
         SignIn = signIn;
         WorkspacePicker = workspacePicker;
         SessionList = sessionList;
+        Repos = repos;
         SessionDetail = sessionDetail;
         StatusStrip = statusStrip;
+        Operations = operations;
+        McpPolicy = mcpPolicy;
+        RemoteRunners = remoteRunners;
     }
 
     public ConnectionSettingsViewModel Connection { get; }
@@ -67,8 +77,12 @@ public sealed class MainShellViewModel
     public SignInViewModel SignIn { get; }
     public WorkspacePickerViewModel WorkspacePicker { get; }
     public SessionListViewModel SessionList { get; }
+    public RepoTabsViewModel Repos { get; }
     public SessionDetailViewModel SessionDetail { get; }
     public StatusStripViewModel StatusStrip { get; }
+    public OperationCatalogViewModel Operations { get; }
+    public McpPolicyViewModel McpPolicy { get; }
+    public RemoteRunnerViewModel RemoteRunners { get; }
 
     public void HandleError(Exception exception)
     {
@@ -87,6 +101,9 @@ public sealed class MainShellViewModel
         StatusStrip.ApplySignedOut();
         await Connection.InitializeAsync(CancellationToken.None);
         await Codex.InitializeAsync(CancellationToken.None);
+        await Operations.RefreshAsync(CancellationToken.None);
+        await McpPolicy.InitializeAsync(CancellationToken.None);
+        await RemoteRunners.InitializeAsync(CancellationToken.None);
         await ReloadConnectionBindingsAsync();
 
         BackendAuthSessionDto? restored = await _backendAuthService.TryRestoreAsync(CancellationToken.None);
@@ -99,6 +116,7 @@ public sealed class MainShellViewModel
 
         SignIn.ApplySession(restored);
         await RefreshSessionsAsync();
+        StartSessionPolling();
     }
 
     public async Task SignInAsync(string password)
@@ -115,6 +133,7 @@ public sealed class MainShellViewModel
                 CancellationToken.None);
             SignIn.ApplySession(session);
             await RefreshSessionsAsync();
+            StartSessionPolling();
         }
         finally
         {
@@ -124,6 +143,7 @@ public sealed class MainShellViewModel
 
     public async Task SignOutAsync()
     {
+        StopSessionPolling();
         StopStreaming();
         await _codexRuntimeConnection.StopAllAsync(CancellationToken.None);
         await _backendAuthService.SignOutAsync(CancellationToken.None);
@@ -131,6 +151,7 @@ public sealed class MainShellViewModel
         SignIn.MarkSignedOut("Signed out from AgentTaskManager.");
         PreserveConfiguredBackendUrl();
         SessionList.Clear();
+        Repos.Clear();
         SessionDetail.Clear();
         StatusStrip.ApplySignedOut();
     }
@@ -184,7 +205,7 @@ public sealed class MainShellViewModel
 
     public async Task CreateSessionAsync()
     {
-        CreateSessionRequestDto request = WorkspacePicker.BuildCreateSessionRequest();
+        CreateSessionRequestDto request = ApplyRemoteProfileDefault(WorkspacePicker.BuildCreateSessionRequest());
         await _workspaceRegistryService.RegisterWorkspaceAsync(request.WorkspaceRoot, CancellationToken.None);
         SessionDetailDto detail = await _sessionClientService.CreateSessionAsync(request, CancellationToken.None);
         ApplySession(detail);
@@ -202,6 +223,8 @@ public sealed class MainShellViewModel
         {
             return;
         }
+
+        Repos.SelectTabForSession(selected.SessionId);
 
         if (_isLoadingSelectedSession)
         {
@@ -231,6 +254,77 @@ public sealed class MainShellViewModel
         finally
         {
             _isLoadingSelectedSession = false;
+        }
+    }
+
+    public void SelectRepoTab(string repoKey)
+        => Repos.SelectTab(repoKey);
+
+    public void SyncRepoSelectionFromSessionList()
+    {
+        if (SessionList.SelectedSession is not { } selected)
+        {
+            return;
+        }
+
+        Repos.SelectTabForSession(selected.SessionId);
+    }
+
+    public async Task LoadSelectedRepoTabAsync()
+    {
+        SessionSummaryDto? selected = Repos.GetPrimarySessionForSelectedTab();
+        if (selected == null)
+        {
+            return;
+        }
+
+        SessionList.SelectedSession = selected;
+        await LoadSelectedSessionAsync();
+    }
+
+    public async Task RunSelectedRepoNextActionAsync()
+    {
+        SessionSummaryDto? selected = Repos.GetPrimarySessionForSelectedTab();
+        if (selected == null)
+        {
+            return;
+        }
+
+        SessionList.SelectedSession = selected;
+        await LoadSelectedSessionAsync();
+
+        RepoNextAction action = Repos.SelectedTab?.NextAction ?? RepoNextAction.OpenSession;
+        switch (action)
+        {
+            case RepoNextAction.OpenFailureDetails:
+                await OpenSelectedPatchAsync();
+                await OpenSelectedWorkspaceAsync();
+                StatusStrip.SetStreamStatus("Opened workspace and patch context for the failed session.");
+                break;
+            case RepoNextAction.ReconnectRuntime:
+                await ReconnectRuntimeForSelectedSessionAsync();
+                break;
+            case RepoNextAction.WaitForVerifier:
+                StatusStrip.SetStreamStatus("Selected repository is still waiting for verifier completion.");
+                break;
+            case RepoNextAction.SubmitNextTurn:
+                if (string.IsNullOrWhiteSpace(SessionDetail.PendingPrompt))
+                {
+                    StatusStrip.SetStreamStatus("Enter a prompt in Sessions and submit the next turn.");
+                }
+                else
+                {
+                    await SubmitTurnAsync();
+                }
+
+                break;
+            case RepoNextAction.ReviewApprovedOutput:
+                await OpenSelectedPatchAsync();
+                StatusStrip.SetStreamStatus("Approved output is ready. Review output and patch details.");
+                break;
+            default:
+                await OpenSelectedWorkspaceAsync();
+                break;
         }
     }
 
@@ -294,19 +388,92 @@ public sealed class MainShellViewModel
 
     public async Task ShutdownAsync()
     {
+        StopSessionPolling();
         StopStreaming();
         await _codexRuntimeConnection.StopAllAsync(CancellationToken.None);
         await Connection.StopTransportAsync(CancellationToken.None);
     }
 
     private async Task RefreshSessionsAsync()
+        => ApplySessionSummaries(await _sessionClientService.ListSessionsAsync(CancellationToken.None));
+
+    private async Task ReconnectRuntimeForSelectedSessionAsync()
     {
-        SessionList.ReplaceSessions(await _sessionClientService.ListSessionsAsync(CancellationToken.None));
+        if (string.IsNullOrWhiteSpace(SessionDetail.SessionId))
+        {
+            return;
+        }
+
+        SessionDetailDto detail = await _sessionClientService.GetSessionAsync(SessionDetail.SessionId, CancellationToken.None);
+        ApplySession(detail);
+        await EnsureRuntimeAsync(detail);
+    }
+
+    private void ApplySessionSummaries(IReadOnlyList<SessionSummaryDto> summaries)
+    {
+        SessionList.ReplaceSessions(summaries);
+        Repos.ReplaceSessions(summaries);
         SignIn.MarkBackendHealthy();
+        if (SessionList.SelectedSession == null)
+        {
+            SessionSummaryDto? selected = Repos.GetPrimarySessionForSelectedTab();
+            if (selected != null)
+            {
+                SessionList.SelectedSession = selected;
+            }
+        }
+
+        SyncRepoSelectionFromSessionList();
         if (string.IsNullOrWhiteSpace(SessionDetail.SessionId))
         {
             StatusStrip.ApplyConnectedBackend(Connection.TransportStatus);
         }
+    }
+
+    private void StartSessionPolling()
+    {
+        StopSessionPolling();
+        if (_backendAuthService.CurrentSession == null)
+        {
+            return;
+        }
+
+        _sessionPollCancellationTokenSource = new CancellationTokenSource();
+        CancellationToken cancellationToken = _sessionPollCancellationTokenSource.Token;
+        _ = Task.Run(async () =>
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    IReadOnlyList<SessionSummaryDto> summaries = await _sessionClientService.ListSessionsAsync(cancellationToken);
+                    await _dispatcherQueue.EnqueueAsync(() => ApplySessionSummaries(summaries));
+                    await Task.Delay(SessionPollInterval, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception exception)
+                {
+                    await _dispatcherQueue.EnqueueAsync(() =>
+                        StatusStrip.SetStreamStatus($"Session refresh retrying in 5s. {exception.Message}"));
+                    await Task.Delay(SessionPollInterval, cancellationToken);
+                }
+            }
+        }, cancellationToken);
+    }
+
+    private void StopSessionPolling()
+    {
+        if (_sessionPollCancellationTokenSource == null)
+        {
+            return;
+        }
+
+        _sessionPollCancellationTokenSource.Cancel();
+        _sessionPollCancellationTokenSource.Dispose();
+        _sessionPollCancellationTokenSource = null;
     }
 
     private async Task EnsureRuntimeAsync(SessionDetailDto detail)
@@ -339,9 +506,27 @@ public sealed class MainShellViewModel
         await Connection.SaveAsync(CancellationToken.None);
     }
 
+    private CreateSessionRequestDto ApplyRemoteProfileDefault(CreateSessionRequestDto request)
+    {
+        if (RemoteRunners.SelectedProfile is not { } selectedProfile)
+        {
+            return request;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ProfileKey)
+            && !string.Equals(request.ProfileKey, Connection.PreferredProfileKey, StringComparison.OrdinalIgnoreCase))
+        {
+            return request;
+        }
+
+        return request with { ProfileKey = selectedProfile.ProfileId };
+    }
+
     private void ApplySession(SessionDetailDto detail)
     {
         SessionList.Upsert(detail.Summary);
+        Repos.UpsertSession(detail.Summary);
+        Repos.SelectTabForSession(detail.Summary.SessionId);
         SessionDetail.ApplySession(detail);
         StatusStrip.ApplySession(detail);
         StatusStrip.SetStreamStatus("Event stream connected.");
@@ -414,6 +599,7 @@ public sealed class MainShellViewModel
 
     private async Task ApplyConnectionChangeAsync(bool resetTransport)
     {
+        StopSessionPolling();
         StopStreaming();
         await _codexRuntimeConnection.StopAllAsync(CancellationToken.None);
         if (resetTransport)
@@ -422,6 +608,7 @@ public sealed class MainShellViewModel
         }
 
         SessionList.Clear();
+        Repos.Clear();
         SessionDetail.Clear();
         await ReloadConnectionBindingsAsync();
 
@@ -437,6 +624,7 @@ public sealed class MainShellViewModel
 
         SignIn.ApplySession(restored);
         await RefreshSessionsAsync();
+        StartSessionPolling();
     }
 
     private static string NormalizeBaseUrl(string? value)

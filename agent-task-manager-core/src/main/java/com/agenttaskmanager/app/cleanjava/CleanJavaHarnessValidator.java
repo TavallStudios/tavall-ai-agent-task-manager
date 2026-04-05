@@ -6,6 +6,7 @@ import com.agenttaskmanager.app.harness.cleanjava.CleanJavaDeterministicHarnessS
 import com.agenttaskmanager.app.harness.cleanjava.CleanJavaHarnessRunResult;
 import com.agenttaskmanager.app.harness.cleanjava.CleanJavaTaskContext;
 import com.agenttaskmanager.app.harness.cleanjava.CleanJavaTaskContextService;
+import com.agenttaskmanager.app.harness.cleanjava.symbol.JavaSymbolPostEditResult;
 import com.agenttaskmanager.app.harness.tools.HarnessToolBundleRequest;
 import com.agenttaskmanager.app.harness.tools.HarnessToolBundleResult;
 import com.agenttaskmanager.app.harness.tools.HarnessToolBundleService;
@@ -73,6 +74,28 @@ public class CleanJavaHarnessValidator {
         workerExitCode,
         requiresIntegrationTests,
         integrationTimeoutSeconds
+    );
+  }
+
+  public HarnessApprovalGateResult runApprovalGate(
+      String taskId,
+      String workerTaskId,
+      Path repoPath,
+      String diffArtifactId,
+      Integer workerExitCode,
+      Boolean requiresIntegrationTests,
+      Integer integrationTimeoutSeconds,
+      JavaSymbolPostEditResult javaSymbolPostEditResult
+  ) {
+    return harnessApprovalService.runApprovalGate(
+        taskId,
+        workerTaskId,
+        repoPath,
+        diffArtifactId,
+        workerExitCode,
+        requiresIntegrationTests,
+        integrationTimeoutSeconds,
+        javaSymbolPostEditResult
     );
   }
 

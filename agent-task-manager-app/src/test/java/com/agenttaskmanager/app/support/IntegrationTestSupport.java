@@ -18,6 +18,7 @@ import org.springframework.test.context.TestPropertySource;
     "logging.level.org.springframework=WARN",
     "logging.level.com.agenttaskmanager=INFO",
     "app.bridge.enabled=false",
+    "app.memory-sync.managed-repo-backfill-enabled=false",
     "app.orchestration.autonomy-enabled=false",
     "app.orchestration.worker-model=fake-model",
     "app.security.username=test-agent",
@@ -36,6 +37,14 @@ public abstract class IntegrationTestSupport {
     registry.add(
         "app.orchestration.worker-command",
         TestWorkspacePaths::fakeCodexCommand
+    );
+    registry.add(
+        "app.bridge.command",
+        TestWorkspacePaths::fakeCodexCommand
+    );
+    registry.add(
+        "app.bridge.agent-id",
+        () -> "test-bridge-agent"
     );
   }
 }

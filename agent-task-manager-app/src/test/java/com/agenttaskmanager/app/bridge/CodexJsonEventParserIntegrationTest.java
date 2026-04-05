@@ -32,4 +32,16 @@ class CodexJsonEventParserIntegrationTest extends IntegrationTestSupport {
     List<CodexEventMessage> messages = parser.parseLine(line);
     assertTrue(messages.stream().anyMatch(message -> "createGitCommit".equals(message.body())));
   }
+
+  @Test
+  void shouldExposeShellCommandToolNameForPolicyEnforcement() {
+    String line = """
+        {"type":"item.completed","item":{"type":"tool_call","name":"shell_command","arguments":{"command":"Get-ChildItem"}}}
+        """.strip();
+
+    List<CodexEventMessage> messages = parser.parseLine(line);
+    assertTrue(messages.stream().anyMatch(message -> "tool-call".equals(message.kind())));
+    assertTrue(messages.stream().anyMatch(message -> "shellcommand".equals(message.body())));
+    assertTrue(messages.stream().anyMatch(message -> "shell_command".equals(message.toolName())));
+  }
 }

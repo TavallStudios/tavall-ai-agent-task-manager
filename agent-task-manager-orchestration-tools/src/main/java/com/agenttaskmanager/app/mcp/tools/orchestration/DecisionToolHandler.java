@@ -1,5 +1,6 @@
 package com.agenttaskmanager.app.mcp.tools.orchestration;
 
+import com.agenttaskmanager.app.config.OrchestrationProperties;
 import com.agenttaskmanager.app.dashboard.DashboardSummaryService;
 import com.agenttaskmanager.app.mcp.McpJsonSchemaFactory;
 import com.agenttaskmanager.app.mcp.McpResultFactory;
@@ -7,29 +8,37 @@ import com.agenttaskmanager.app.mcp.McpToolPayloadMapper;
 import com.agenttaskmanager.app.mcp.McpToolProvider;
 import com.agenttaskmanager.app.mcp.McpToolSupport;
 import com.agenttaskmanager.app.model.orchestration.AutonomousCycleReport;
+import com.agenttaskmanager.app.model.orchestration.CodexDelegationRunSnapshot;
 import com.agenttaskmanager.app.model.orchestration.OverseerDecisionRecord;
 import com.agenttaskmanager.app.model.orchestration.PatchDecisionRecord;
 import com.agenttaskmanager.app.model.orchestration.TaskLifecycleStatus;
+import com.agenttaskmanager.app.orchestration.CodexDelegationRunService;
 import com.agenttaskmanager.app.orchestration.AutonomousCycleService;
 import com.agenttaskmanager.app.orchestration.OverseerOrchestrationService;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import java.nio.file.Path;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 @Component
 public class DecisionToolHandler extends McpToolSupport implements McpToolProvider {
 
   private final AutonomousCycleService autonomousCycleService;
+  private final CodexDelegationRunService codexDelegationRunService;
   private final OverseerOrchestrationService overseerOrchestrationService;
+  private final OrchestrationProperties orchestrationProperties;
   private final DashboardSummaryService dashboardSummaryService;
   private final McpResultFactory resultFactory;
   private final McpToolPayloadMapper payloadMapper;
 
   public DecisionToolHandler(
       AutonomousCycleService autonomousCycleService,
+      CodexDelegationRunService codexDelegationRunService,
       OverseerOrchestrationService overseerOrchestrationService,
+      OrchestrationProperties orchestrationProperties,
       DashboardSummaryService dashboardSummaryService,
       McpJsonSchemaFactory schemaFactory,
       McpResultFactory resultFactory,
@@ -37,7 +46,9 @@ public class DecisionToolHandler extends McpToolSupport implements McpToolProvid
   ) {
     super(schemaFactory);
     this.autonomousCycleService = autonomousCycleService;
+    this.codexDelegationRunService = codexDelegationRunService;
     this.overseerOrchestrationService = overseerOrchestrationService;
+    this.orchestrationProperties = orchestrationProperties;
     this.dashboardSummaryService = dashboardSummaryService;
     this.resultFactory = resultFactory;
     this.payloadMapper = payloadMapper;
@@ -51,9 +62,7 @@ public class DecisionToolHandler extends McpToolSupport implements McpToolProvid
             "Merge worker output summaries.",
             Map.of("taskId", stringProperty("Task id.")),
             List.of("taskId"),
-            arguments -> new MergeResultResponse(overseerOrchestrationService.mergeWorkerOutputs(
-                map(arguments, PatchDecisionRequest.class).taskId()
-            ))
+            arguments -> mergeWorkerOutputs(arguments)
         ),
         spec("approvePatch", "Approve a patch after validation and cleanup review.", patchDecisionProperties(), List.of("taskId"),
             arguments -> new PatchDecisionResponse(decidePatch(arguments, true))),
@@ -87,7 +96,7 @@ public class DecisionToolHandler extends McpToolSupport implements McpToolProvid
             "Run one autonomous orchestration cycle across open task batches.",
             Map.of("repoPath", stringProperty("Fallback repository path.")),
             List.of(),
-            arguments -> new AutonomousCycleResponse(runAutonomousCycle(arguments))
+            arguments -> runAutonomousCycleResponse(arguments)
         ),
         spec(
             "publishDashboardUpdate",
@@ -124,11 +133,65 @@ public class DecisionToolHandler extends McpToolSupport implements McpToolProvid
   }
 
   private AutonomousCycleReport runAutonomousCycle(Map<String, Object> arguments) {
+    if (!orchestrationProperties.isLegacyAutonomyEnabled()) {
+      return new AutonomousCycleReport(
+          0,
+          List.of(),
+          List.of(),
+          List.of(),
+          List.of(),
+          List.of(),
+          dashboardSummaryService.warmDashboardCache(),
+          OffsetDateTime.now()
+      );
+    }
     AutonomousRepoPathRequest request = map(arguments, AutonomousRepoPathRequest.class);
     Path repoPath = request.repoPath() == null || request.repoPath().isBlank()
         ? Path.of(".").toAbsolutePath()
         : Path.of(request.repoPath()).toAbsolutePath();
     return autonomousCycleService.runCycle(repoPath);
+  }
+
+  private MergeResultResponse mergeWorkerOutputs(Map<String, Object> arguments) {
+    String taskId = map(arguments, PatchDecisionRequest.class).taskId();
+    Optional<CodexDelegationRunSnapshot> snapshot = codexDelegationRunService.appendEventByTaskId(
+        taskId,
+        "compat.mergeWorkerOutputs",
+        TaskLifecycleStatus.CHECKED_IN,
+        "Legacy mergeWorkerOutputs mapped to canonical delegation run.",
+        Map.of("taskId", taskId)
+    );
+    return new MergeResultResponse(
+        overseerOrchestrationService.mergeWorkerOutputs(taskId),
+        compatibility("mergeWorkerOutputs", snapshot.map(run -> run.run().runId()).orElse(null))
+    );
+  }
+
+  private AutonomousCycleResponse runAutonomousCycleResponse(Map<String, Object> arguments) {
+    AutonomousCycleReport report = runAutonomousCycle(arguments);
+    String note = orchestrationProperties.isLegacyAutonomyEnabled()
+        ? "Legacy autonomy loop is enabled by rollback flag."
+        : "Legacy autonomy loop is disabled; use delegation run tools for canonical orchestration.";
+    return new AutonomousCycleResponse(
+        report,
+        Map.of(
+            "deprecated", true,
+            "legacyTool", "runAutonomousCycle",
+            "legacyAutonomyEnabled", orchestrationProperties.isLegacyAutonomyEnabled(),
+            "canonicalTools", List.of("startDelegationRun", "appendDelegationRunEvent", "loadDelegationRun", "listDelegationRuns", "completeDelegationRun"),
+            "notes", note
+        )
+    );
+  }
+
+  private Map<String, Object> compatibility(String legacyTool, String runId) {
+    return Map.of(
+        "deprecated", true,
+        "legacyTool", legacyTool,
+        "canonicalTools", List.of("startDelegationRun", "appendDelegationRunEvent", "loadDelegationRun", "listDelegationRuns", "completeDelegationRun"),
+        "delegationRunId", runId == null ? "" : runId,
+        "notes", "Legacy orchestration tool mapped through compatibility adapter to codex delegation run."
+    );
   }
 
   private Map<String, Object> patchDecisionProperties() {

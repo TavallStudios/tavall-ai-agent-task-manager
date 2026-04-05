@@ -8,6 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class ComputerUseProperties {
 
   private String runnerCommandPath = "/api/automation/command";
+  private String runnerCapabilitiesPath = "/api/automation/capabilities";
   private String runnerAuthToken = "";
   private int runnerLeaseTtlSeconds = 120;
   private int visionPollIntervalMs = 400;
@@ -19,6 +20,14 @@ public class ComputerUseProperties {
 
   public void setRunnerCommandPath(String runnerCommandPath) {
     this.runnerCommandPath = runnerCommandPath;
+  }
+
+  public String getRunnerCapabilitiesPath() {
+    return runnerCapabilitiesPath;
+  }
+
+  public void setRunnerCapabilitiesPath(String runnerCapabilitiesPath) {
+    this.runnerCapabilitiesPath = runnerCapabilitiesPath;
   }
 
   public String getRunnerAuthToken() {

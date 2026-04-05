@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agenttaskmanager.app.orchestration.SharedTaskContextService;
+import com.agenttaskmanager.app.model.orchestration.RetrievedSemanticContext;
 import com.agenttaskmanager.app.support.IntegrationTestSupport;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -52,6 +53,7 @@ class ProjectSemanticIndexServiceIntegrationTest extends IntegrationTestSupport 
 
     assertEquals(1, summary.reposReindexed());
     assertEquals("AgentTaskManager", summary.repositories().get(0).displayName());
+    assertTrue(summary.repositories().get(0).indexedJavaSymbols() >= 1);
     String projectKey = summary.repositories().get(0).projectKey();
 
     List<com.agenttaskmanager.app.model.orchestration.RetrievedSemanticContext> docs = sharedTaskContextService.searchProjectRelatedContexts(
@@ -68,6 +70,14 @@ class ProjectSemanticIndexServiceIntegrationTest extends IntegrationTestSupport 
         10
     );
     assertTrue(code.stream().anyMatch(item -> "CODE_REPO".equals(item.payload().get("semanticDomain"))));
+
+    List<RetrievedSemanticContext> javaSymbols = sharedTaskContextService.searchProjectRelatedContexts(
+        projectKey,
+        "Example class status method java signature",
+        10
+    );
+    assertTrue(Boolean.parseBoolean(String.valueOf(javaSymbols.getFirst().payload().get("javaSymbol"))));
+    assertEquals("example.Example", javaSymbols.getFirst().payload().get("className"));
   }
 
   private static void createRepo(Path repoPath, String docName, String docBody, String javaName) throws IOException {

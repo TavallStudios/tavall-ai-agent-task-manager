@@ -55,6 +55,21 @@ class ComputerUseRunnerServiceIntegrationTest extends IntegrationTestSupport {
   void shouldRunComputerUseSessionFlowAgainstExternalRunner() throws Exception {
     AtomicInteger templateAttempts = new AtomicInteger();
     server = HttpServer.create(new InetSocketAddress(0), 0);
+    server.createContext("/api/automation/capabilities", exchange -> {
+      String body = objectMapper.writeValueAsString(Map.of(
+          "ok", true,
+          "result", Map.of(
+              "endpoints", Map.of(
+                  "command", "/api/automation/command"
+              )
+          )
+      ));
+      exchange.getResponseHeaders().add("Content-Type", "application/json");
+      exchange.sendResponseHeaders(200, body.getBytes(StandardCharsets.UTF_8).length);
+      try (OutputStream outputStream = exchange.getResponseBody()) {
+        outputStream.write(body.getBytes(StandardCharsets.UTF_8));
+      }
+    });
     server.createContext("/api/automation/command", exchange -> {
       Map<?, ?> request = objectMapper.readValue(exchange.getRequestBody(), Map.class);
       String command = String.valueOf(request.get("command"));
@@ -151,6 +166,50 @@ class ComputerUseRunnerServiceIntegrationTest extends IntegrationTestSupport {
 
     ComputerUseSessionSummary stopped = runnerService.stopSession(session.sessionId());
     assertEquals("STOPPED", stopped.status());
+  }
+
+  @Test
+  void shouldFallbackToCompatibilityRunnerCommandPathWhenCanonicalEndpointIsMissing() throws Exception {
+    AtomicInteger templateAttempts = new AtomicInteger();
+    server = HttpServer.create(new InetSocketAddress(0), 0);
+    server.createContext("/request", exchange -> {
+      Map<?, ?> request = objectMapper.readValue(exchange.getRequestBody(), Map.class);
+      String command = String.valueOf(request.get("command"));
+      String body = responseFor(command, templateAttempts.incrementAndGet());
+      exchange.getResponseHeaders().add("Content-Type", "application/json");
+      exchange.sendResponseHeaders(200, body.getBytes(StandardCharsets.UTF_8).length);
+      try (OutputStream outputStream = exchange.getResponseBody()) {
+        outputStream.write(body.getBytes(StandardCharsets.UTF_8));
+      }
+    });
+    server.start();
+
+    ComputerUseRunnerSummary runner = runnerService.registerRunner(new ComputerUseRunnerRegistration(
+        "runner-compat",
+        "Runner Compat",
+        "compat-host",
+        "http://127.0.0.1:" + server.getAddress().getPort(),
+        "C:/HytaleLauncher.exe",
+        "C:/HytaleClient.exe",
+        List.of("graphics-capture"),
+        Map.of("gameSupport", true),
+        Map.of("surface", "compat")
+    ));
+
+    ComputerUseSessionSummary session = runnerService.startSession(new ComputerUseSessionRequest(
+        runner.runnerId(),
+        null,
+        null,
+        "hytale/launch-and-join-smoke",
+        null,
+        null,
+        List.of(),
+        List.of(),
+        Map.of(),
+        Map.of("testCase", "compatibility")
+    ));
+
+    assertEquals("RUNNING", session.status());
   }
 
   private String responseFor(String command, int attempt) throws IOException {

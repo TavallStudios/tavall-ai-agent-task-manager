@@ -315,6 +315,7 @@ public class PromptThreadRepository {
     String normalized = bridgeTarget == null ? "" : bridgeTarget.strip().toLowerCase(Locale.ROOT);
     return switch (normalized) {
       case "", "remote", "remote-headless", "local", "local-ide" -> "remote-headless";
+      case "worker", "worker-exec", "local-codex-worker" -> "local-codex-worker";
       case "mcp", "mcp-http" -> "mcp-http";
       default -> throw new IllegalArgumentException("Unsupported bridge target: " + bridgeTarget);
     };

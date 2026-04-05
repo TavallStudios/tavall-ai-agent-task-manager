@@ -6,6 +6,7 @@ public record HarnessValidationSummary(
     String reportId,
     String status,
     String summary,
+    CleanJavaValidationStageResult lint,
     CleanJavaValidationStageResult sourceShape,
     CleanJavaValidationStageResult architecture,
     CleanJavaValidationStageResult cycles

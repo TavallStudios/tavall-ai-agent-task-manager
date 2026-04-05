@@ -39,10 +39,10 @@ class HarnessToolBundleServiceIntegrationTest extends IntegrationTestSupport {
     );
 
     HarnessToolBundleResult result = harnessToolBundleService.executeBundle(
-        new HarnessToolBundleRequest("java-context", null, null, null, repoPath.toString(), "FixtureApp", 5)
+        new HarnessToolBundleRequest("language-context", null, null, "fixture-repo", repoPath.toString(), "FixtureApp", 5)
     );
 
-    assertEquals("java-context", result.bundleName());
+    assertEquals("language-context", result.bundleName());
     assertEquals(5, result.summary().get("downstreamCalls"));
     assertTrue(String.valueOf(result.sections().get("cleanJavaRules")).contains("No top-level class or interface over 300 lines."));
     CleanJavaTaskContext cleanJavaContext = (CleanJavaTaskContext) result.sections().get("cleanJavaContext");
@@ -53,11 +53,18 @@ class HarnessToolBundleServiceIntegrationTest extends IntegrationTestSupport {
 
     @SuppressWarnings("unchecked")
     Map<String, Object> downstream = (Map<String, Object>) result.sections().get("downstream");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> memory = (Map<String, Object>) result.sections().get("memory");
     assertTrue(downstream.containsKey("directory"));
     assertTrue(downstream.containsKey("gitStatus"));
     assertTrue(downstream.containsKey("gitDiff"));
     assertTrue(downstream.containsKey("search"));
     assertTrue(downstream.containsKey("javaFiles"));
+    assertEquals("retrieved", result.summary().get("memoryStatus"));
+    assertTrue(result.summary().containsKey("qdrantHealth"));
+    assertEquals("retrieved", memory.get("status"));
+    assertEquals("FixtureApp", memory.get("queryText"));
+    assertTrue(memory.containsKey("qdrantHealth"));
     assertTrue(result.downstreamCalls().stream().filter(call -> "completed".equals(call.status())).count() >= 4);
     assertTrue(((Number) result.summary().get("downstreamErrors")).longValue() <= 1);
     assertTrue(String.valueOf(downstream.get("search")).contains("FixtureApp"));

@@ -2,6 +2,7 @@ package com.agenttaskmanager.app.harness.approval;
 
 import com.agenttaskmanager.app.harness.cleanjava.CleanJavaDeterministicHarnessService;
 import com.agenttaskmanager.app.harness.cleanjava.CleanJavaHarnessRunResult;
+import com.agenttaskmanager.app.harness.cleanjava.symbol.JavaSymbolPostEditResult;
 import com.agenttaskmanager.app.model.orchestration.CleanupReviewResult;
 import com.agenttaskmanager.app.model.orchestration.CleanupReviewTask;
 import com.agenttaskmanager.app.model.orchestration.TaskLifecycleStatus;
@@ -53,12 +54,35 @@ public class HarnessApprovalService {
       Boolean requiresIntegrationTests,
       Integer integrationTimeoutSeconds
   ) {
+    return runApprovalGate(
+        taskId,
+        workerTaskId,
+        repoPath,
+        diffArtifactId,
+        workerExitCode,
+        requiresIntegrationTests,
+        integrationTimeoutSeconds,
+        null
+    );
+  }
+
+  public HarnessApprovalGateResult runApprovalGate(
+      String taskId,
+      String workerTaskId,
+      Path repoPath,
+      String diffArtifactId,
+      Integer workerExitCode,
+      Boolean requiresIntegrationTests,
+      Integer integrationTimeoutSeconds,
+      JavaSymbolPostEditResult javaSymbolPostEditResult
+  ) {
     WorkerTask workerTask = workerTaskRepository.getWorkerTask(workerTaskId);
     String diffBody = diffArtifactId == null || diffArtifactId.isBlank()
         ? ""
         : artifactService.readArtifact(diffArtifactId).orElse("");
     HarnessCleanupSummary cleanup = cleanupSummary(taskId, workerTask, diffArtifactId);
     HarnessValidationSummary validation = validationSummary(taskId, workerTask, repoPath);
+    HarnessJavaSymbolSummary javaSymbol = javaSymbolSummary(javaSymbolPostEditResult);
     boolean patchScopeAllowed = !workerTask.workerType().patchArtifactRequired()
         || validationPipelineService.validatePatchScope(diffBody);
     Map<String, Object> integrationTests = integrationTests(
@@ -68,8 +92,8 @@ public class HarnessApprovalService {
         integrationTimeoutSeconds
     );
     int exitCode = workerExitCode == null ? 0 : workerExitCode;
-    TaskLifecycleStatus taskStatus = resolveTaskStatus(exitCode, cleanup, validation, integrationTests, patchScopeAllowed);
-    String summary = buildSummary(workerTask, exitCode, cleanup, validation, integrationTests, patchScopeAllowed);
+    TaskLifecycleStatus taskStatus = resolveTaskStatus(exitCode, cleanup, validation, javaSymbol, integrationTests, patchScopeAllowed);
+    String summary = buildSummary(workerTask, exitCode, cleanup, validation, javaSymbol, integrationTests, patchScopeAllowed);
     return new HarnessApprovalGateResult(
         taskId,
         workerTaskId,
@@ -78,6 +102,7 @@ public class HarnessApprovalService {
         patchScopeAllowed,
         cleanup,
         validation,
+        javaSymbol,
         integrationTests,
         exitCode,
         diffArtifactId,
@@ -113,6 +138,7 @@ public class HarnessApprovalService {
           "Validation skipped for non-code work.",
           null,
           null,
+          null,
           null
       );
     }
@@ -128,6 +154,7 @@ public class HarnessApprovalService {
         validationReport.reportId(),
         validationReport.status(),
         validationReport.summary(),
+        harnessRun.lint(),
         harnessRun.sourceShape(),
         harnessRun.architecture(),
         harnessRun.cycles()
@@ -161,6 +188,7 @@ public class HarnessApprovalService {
       int exitCode,
       HarnessCleanupSummary cleanup,
       HarnessValidationSummary validation,
+      HarnessJavaSymbolSummary javaSymbol,
       Map<String, Object> integrationTests,
       boolean patchScopeAllowed
   ) {
@@ -176,6 +204,9 @@ public class HarnessApprovalService {
     if ("failed".equals(String.valueOf(integrationTests.get("status")))) {
       return TaskLifecycleStatus.NEEDS_REWORK;
     }
+    if ("failed".equalsIgnoreCase(javaSymbol.contractDeltaStatus())) {
+      return TaskLifecycleStatus.NEEDS_REWORK;
+    }
     if (!patchScopeAllowed) {
       return TaskLifecycleStatus.NEEDS_REWORK;
     }
@@ -187,6 +218,7 @@ public class HarnessApprovalService {
       int exitCode,
       HarnessCleanupSummary cleanup,
       HarnessValidationSummary validation,
+      HarnessJavaSymbolSummary javaSymbol,
       Map<String, Object> integrationTests,
       boolean patchScopeAllowed
   ) {
@@ -203,10 +235,26 @@ public class HarnessApprovalService {
     if ("failed".equals(String.valueOf(integrationTests.get("status")))) {
       notes.add("integration tests failed");
     }
+    if ("failed".equalsIgnoreCase(javaSymbol.contractDeltaStatus())) {
+      notes.add("java contract delta requires rework");
+    }
     if (!patchScopeAllowed) {
       notes.add("patch scope is not allowed");
     }
     String baseSummary = workerTask.workerType().name() + " worker approval gate finished.";
     return notes.isEmpty() ? baseSummary : baseSummary + " Gate result: " + String.join("; ", notes) + ".";
+  }
+
+  private HarnessJavaSymbolSummary javaSymbolSummary(JavaSymbolPostEditResult javaSymbolPostEditResult) {
+    if (javaSymbolPostEditResult == null) {
+      return new HarnessJavaSymbolSummary("skipped", false, "skipped", "Java symbol gate skipped.", "");
+    }
+    return new HarnessJavaSymbolSummary(
+        javaSymbolPostEditResult.status(),
+        javaSymbolPostEditResult.reflectionAugmented(),
+        javaSymbolPostEditResult.contractDeltaReport().status(),
+        javaSymbolPostEditResult.contractDeltaReport().summary(),
+        javaSymbolPostEditResult.artifactId()
+    );
   }
 }

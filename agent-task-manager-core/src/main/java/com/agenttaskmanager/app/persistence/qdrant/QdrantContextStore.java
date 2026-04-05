@@ -267,4 +267,12 @@ public class QdrantContextStore {
       LOGGER.warn("Qdrant unavailable. Falling back to in-memory semantic storage: {}", exception.getMessage());
     }
   }
+
+  public boolean isConfigured() {
+    return StringUtils.hasText(qdrantProperties.getBaseUrl());
+  }
+
+  public boolean isLocalFallbackEnabled() {
+    return localFallbackEnabled.get() || !isConfigured();
+  }
 }

@@ -22,6 +22,19 @@ public class WorkerPromptFactory {
   }
 
   public String buildPrompt(String projectKey, WorkerTask workerTask) {
+    return buildPrompt(
+        projectKey,
+        workerTask,
+        promptMemoryLookupService.lookup(projectKey, buildQuery(workerTask)).section(),
+        "No deterministic Java symbol context was preloaded."
+    );
+  }
+
+  public String buildPrompt(String projectKey, WorkerTask workerTask, String memorySection) {
+    return buildPrompt(projectKey, workerTask, memorySection, "No deterministic Java symbol context was preloaded.");
+  }
+
+  public String buildPrompt(String projectKey, WorkerTask workerTask, String memorySection, String javaSymbolSection) {
     return """
         Worker type: %s
         Role: %s
@@ -45,6 +58,9 @@ public class WorkerPromptFactory {
         Memory context:
         %s
 
+        Java symbol context:
+        %s
+
         Worker focus:
         %s
 
@@ -52,7 +68,7 @@ public class WorkerPromptFactory {
         %s
 
         Requirements:
-        - follow AGENTS.md, RULES.md, and ARCHITECTURE.md
+        - follow AGENTS.md, RULES.md, UNIVERSAL.md, and ARCHITECTURE.md
         - produce a concrete artifact or diff
         - keep code changes scoped and architecture-safe
         - when the task changes Java code, load the deterministic clean Java task context before editing and use the staged harness feedback before approval
@@ -68,10 +84,14 @@ public class WorkerPromptFactory {
         contextualToolPolicyService.buildPolicy(
             "edit",
             workerTask.taskRole() + " " + workerTask.title() + " " + (workerTask.latestSummary() == null ? "" : workerTask.latestSummary()),
+            true,
             true
         ),
         promptOutputGuidanceService.finalResponseContract(),
-        promptMemoryLookupService.lookup(projectKey, buildQuery(workerTask)).section(),
+        memorySection == null || memorySection.isBlank() ? "No memory context was retrieved." : memorySection.strip(),
+        javaSymbolSection == null || javaSymbolSection.isBlank()
+            ? "No deterministic Java symbol context was preloaded."
+            : javaSymbolSection.strip(),
         workerTask.workerType().promptFocus(),
         computerUseExecutionContract(workerTask)
     );

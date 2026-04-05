@@ -6,6 +6,9 @@ record ValidationRequest(String taskId, String workerTaskId) {
 record SpoonValidationRequest(String taskId, String workerTaskId, String repoPath) {
 }
 
+record JavaLintValidationRequest(String taskId, String workerTaskId, String repoPath) {
+}
+
 record IntegrationRepoPathRequest(String repoPath, Integer timeoutSeconds) {
 }
 

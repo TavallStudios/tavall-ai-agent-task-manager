@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.4.2</version>
+    <version>4.1.0-M4</version>
     <relativePath/>
   </parent>
 
@@ -35,16 +35,56 @@
   </modules>
 
   <properties>
-    <java.version>21</java.version>
+    <java.version>25</java.version>
     <archunit.version>1.4.1</archunit.version>
     <google.genai.version>1.38.0</google.genai.version>
     <mcp.sdk.version>1.0.0</mcp.sdk.version>
     <mongodb.driver.version>5.2.1</mongodb.driver.version>
     <spoon.version>11.2.1</spoon.version>
+    <checkstyle.plugin.version>3.6.0</checkstyle.plugin.version>
+    <pmd.plugin.version>3.28.0</pmd.plugin.version>
+    <error.prone.version>2.32.0</error.prone.version>
+    <plexus.errorprone.version>2.15.0</plexus.errorprone.version>
   </properties>
 
   <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-checkstyle-plugin</artifactId>
+          <version>${checkstyle.plugin.version}</version>
+          <configuration>
+            <configLocation>${maven.multiModuleProjectDirectory}/config/lint/checkstyle.xml</configLocation>
+            <includeTestSourceDirectory>true</includeTestSourceDirectory>
+            <consoleOutput>false</consoleOutput>
+            <failOnViolation>false</failOnViolation>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-pmd-plugin</artifactId>
+          <version>${pmd.plugin.version}</version>
+          <configuration>
+            <rulesets>
+              <ruleset>${maven.multiModuleProjectDirectory}/config/lint/pmd-ruleset.xml</ruleset>
+            </rulesets>
+            <includeTests>true</includeTests>
+            <failOnViolation>false</failOnViolation>
+            <targetJdk>${java.version}</targetJdk>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-pmd-plugin</artifactId>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
@@ -55,4 +95,40 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>errorprone-lint</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <fork>true</fork>
+              <showWarnings>true</showWarnings>
+              <compilerId>javac-with-errorprone</compilerId>
+              <forceJavacCompilerUse>true</forceJavacCompilerUse>
+              <compilerArgs>
+                <arg>-XDcompilePolicy=simple</arg>
+                <arg>-Xplugin:ErrorProne -XepDisableAllChecks -Xep:EqualsHashCode:ERROR -Xep:MissingOverride:ERROR -Xep:ArrayEquals:ERROR</arg>
+              </compilerArgs>
+            </configuration>
+            <dependencies>
+              <dependency>
+                <groupId>org.codehaus.plexus</groupId>
+                <artifactId>plexus-compiler-javac-errorprone</artifactId>
+                <version>${plexus.errorprone.version}</version>
+              </dependency>
+              <dependency>
+                <groupId>com.google.errorprone</groupId>
+                <artifactId>error_prone_core</artifactId>
+                <version>${error.prone.version}</version>
+              </dependency>
+            </dependencies>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

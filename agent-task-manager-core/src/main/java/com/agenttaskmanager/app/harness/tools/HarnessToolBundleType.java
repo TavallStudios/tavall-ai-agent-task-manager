@@ -5,7 +5,7 @@ import java.util.Arrays;
 public enum HarnessToolBundleType {
   REPO_CONTEXT("repo-context"),
   WORKER_CONTEXT("worker-context"),
-  JAVA_CONTEXT("java-context");
+  LANGUAGE_CONTEXT("language-context");
 
   private final String value;
 
@@ -22,6 +22,9 @@ public enum HarnessToolBundleType {
       return WORKER_CONTEXT;
     }
     String normalized = value.strip().replace('_', '-').toLowerCase();
+    if ("java-context".equals(normalized)) {
+      return LANGUAGE_CONTEXT;
+    }
     return Arrays.stream(values())
         .filter(candidate -> candidate.value.equals(normalized) || candidate.name().toLowerCase().replace('_', '-').equals(normalized))
         .findFirst()

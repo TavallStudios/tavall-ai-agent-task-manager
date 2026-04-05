@@ -102,7 +102,7 @@ That central MCP exposes the first-party tool catalog for:
 - repo snapshot staging
 - harness bundle and approval operations
 
-The harness does not spin up a standalone `clean-java-harness` MCP server anymore.
+The harness does not spin up a standalone `tjai-harness` (`clean-java-harness` compatibility alias) MCP server anymore.
 
 ### Brokers Repo And Task Context
 
@@ -132,7 +132,7 @@ The downstream tools currently used behind the broker are:
 - `ripgrep:advanced-search`
 - `ripgrep:list-files`
 
-For Java-context requests it can also request Java file listings.
+For language-context requests (including the `java-context` compatibility alias) it can also request Java file listings.
 
 ### Can Broker Repo Context Locally Or Remotely
 
@@ -203,10 +203,11 @@ The clean Java validation path is:
 `CleanJavaDeterministicHarnessService` currently runs:
 
 1. deterministic clean Java task-context build
-2. Spoon source-shape validation
-3. ArchUnit validation
-4. merged validation report storage
-5. cycle-check extraction from the ArchUnit report
+2. Java lint validation (Checkstyle, PMD, Error Prone)
+3. Spoon source-shape validation
+4. ArchUnit validation
+5. merged validation report storage
+6. cycle-check extraction from the ArchUnit report
 
 Integration testing is delegated through:
 
@@ -214,6 +215,7 @@ Integration testing is delegated through:
 
 So the bundled local validator uses:
 
+- Java lint (Checkstyle, PMD, Error Prone)
 - Spoon
 - ArchUnit
 - integration tests
@@ -254,6 +256,7 @@ Other first-party MCP tools the harness expects Codex to use when appropriate in
 
 The local validator may also use validation services equivalent to:
 
+- `runJavaLintValidation`
 - `runSpoonValidation`
 - `runArchUnitValidation`
 - `runIntegrationTests`
@@ -280,7 +283,7 @@ The current harness flow around a Codex worker run is:
 
 The current harness does not:
 
-- run as a separate `clean-java-harness` MCP server
+- run as a separate `tjai-harness` or `clean-java-harness` MCP server
 - depend on SSH mounts or live cross-host filesystem access
 - attach itself to a pre-existing Codex process after the fact
 

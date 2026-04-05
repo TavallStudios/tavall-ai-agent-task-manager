@@ -30,7 +30,8 @@ class CodexExecCommandFactoryIntegrationTest extends IntegrationTestSupport {
         Path.of("/srv/AgentTaskManager"),
         "edit",
         Path.of("/tmp/agent-task-manager-output.txt"),
-        null
+        null,
+        "Explain the current repo state"
     );
 
     assertTrue(command.contains("-c"));
@@ -50,6 +51,7 @@ class CodexExecCommandFactoryIntegrationTest extends IntegrationTestSupport {
     assertTrue(command.stream().anyMatch(item -> item.contains("serve-mcp-stdio")));
     assertTrue(command.contains("--add-dir"));
     assertTrue(command.contains("/srv"));
+    assertEquals("Explain the current repo state", command.getLast());
   }
 
   @Test

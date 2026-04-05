@@ -6,30 +6,37 @@ import com.agenttaskmanager.app.mcp.McpToolPayloadMapper;
 import com.agenttaskmanager.app.mcp.McpToolProvider;
 import com.agenttaskmanager.app.mcp.McpToolSupport;
 import com.agenttaskmanager.app.model.orchestration.CleanupReviewTask;
+import com.agenttaskmanager.app.model.orchestration.CodexDelegationRunSnapshot;
 import com.agenttaskmanager.app.model.orchestration.OverseerTaskBatch;
 import com.agenttaskmanager.app.model.orchestration.TaskAssignment;
+import com.agenttaskmanager.app.model.orchestration.TaskLifecycleStatus;
 import com.agenttaskmanager.app.model.orchestration.WorkerTransportKind;
+import com.agenttaskmanager.app.orchestration.CodexDelegationRunService;
 import com.agenttaskmanager.app.orchestration.TaskPoolService;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 @Component
 public class TaskPoolToolHandler extends McpToolSupport implements McpToolProvider {
 
   private final TaskPoolService taskPoolService;
+  private final CodexDelegationRunService codexDelegationRunService;
   private final McpResultFactory resultFactory;
   private final McpToolPayloadMapper payloadMapper;
 
   public TaskPoolToolHandler(
       TaskPoolService taskPoolService,
+      CodexDelegationRunService codexDelegationRunService,
       McpJsonSchemaFactory schemaFactory,
       McpResultFactory resultFactory,
       McpToolPayloadMapper payloadMapper
   ) {
     super(schemaFactory);
     this.taskPoolService = taskPoolService;
+    this.codexDelegationRunService = codexDelegationRunService;
     this.resultFactory = resultFactory;
     this.payloadMapper = payloadMapper;
   }
@@ -45,7 +52,7 @@ public class TaskPoolToolHandler extends McpToolSupport implements McpToolProvid
                     "projectKey", stringProperty("Project key."),
                     "sourceRepo", stringProperty("Repository path."),
                     "title", stringProperty("Batch title."),
-                    "multiAgentEnabled", booleanProperty("Whether fan-out is enabled."),
+                    "multiAgentEnabled", booleanProperty("Deprecated compatibility input. Ignored for canonical delegation flow."),
                     "workerRoles", arrayProperty("Worker role names.", stringProperty("Role name."))
                 ),
                 List.of("projectKey", "sourceRepo", "title", "workerRoles")
@@ -128,15 +135,43 @@ public class TaskPoolToolHandler extends McpToolSupport implements McpToolProvid
         request.projectKey(),
         request.sourceRepo(),
         request.title(),
-        request.multiAgentEnabled(),
+        false,
         request.workerRoles()
     );
-    return new CreateTaskBatchResponse(batch);
+    CodexDelegationRunSnapshot snapshot = codexDelegationRunService.startRun(
+        batch.taskId(),
+        request.projectKey(),
+        request.sourceRepo(),
+        request.title(),
+        Map.of(
+            "legacyTool", "createTaskBatch",
+            "multiAgentEnabledRequested", request.multiAgentEnabled(),
+            "workerRoles", request.workerRoles()
+        )
+    );
+    codexDelegationRunService.appendEvent(
+        snapshot.run().runId(),
+        "compat.createTaskBatch",
+        TaskLifecycleStatus.QUEUED,
+        "Legacy createTaskBatch mapped to canonical delegation run.",
+        Map.of("taskId", batch.taskId())
+    );
+    return new CreateTaskBatchResponse(batch, compatibility("createTaskBatch", snapshot.run().runId()));
   }
 
   private ClaimWorkerTaskResponse claimWorkerTask(Map<String, Object> arguments) {
     ClaimWorkerTaskRequest request = payloadMapper.map(arguments, ClaimWorkerTaskRequest.class);
-    return new ClaimWorkerTaskResponse(taskPoolService.claimWorkerTask(request.taskId()));
+    var workerTask = taskPoolService.claimWorkerTask(request.taskId());
+    Optional<CodexDelegationRunSnapshot> snapshot = workerTask == null
+        ? codexDelegationRunService.findLatestByTaskId(request.taskId())
+        : codexDelegationRunService.appendEventByTaskId(
+            workerTask.taskId(),
+            "compat.claimWorkerTask",
+            TaskLifecycleStatus.ASSIGNED,
+            "Legacy claimWorkerTask mapped to canonical delegation run.",
+            Map.of("workerTaskId", workerTask.workerTaskId(), "taskRole", workerTask.taskRole())
+        );
+    return new ClaimWorkerTaskResponse(workerTask, compatibility("claimWorkerTask", snapshot.map(run -> run.run().runId()).orElse(null)));
   }
 
   private AssignWorkerTaskResponse assignWorkerTask(Map<String, Object> arguments) {
@@ -147,27 +182,66 @@ public class TaskPoolToolHandler extends McpToolSupport implements McpToolProvid
         WorkerTransportKind.valueOf(request.transportKind()),
         request.sessionId()
     );
-    return new AssignWorkerTaskResponse(assignment);
+    Optional<CodexDelegationRunSnapshot> snapshot = codexDelegationRunService.appendEventByTaskId(
+        assignment.taskId(),
+        "compat.assignWorkerTask",
+        TaskLifecycleStatus.ASSIGNED,
+        "Legacy assignWorkerTask mapped to canonical delegation run.",
+        Map.of("workerTaskId", assignment.workerTaskId(), "agentId", assignment.agentId())
+    );
+    return new AssignWorkerTaskResponse(assignment, compatibility("assignWorkerTask", snapshot.map(run -> run.run().runId()).orElse(null)));
   }
 
   private WorkerTaskResponse reassignWorkerTask(Map<String, Object> arguments) {
     WorkerTaskUpdateRequest request = payloadMapper.map(arguments, WorkerTaskUpdateRequest.class);
-    return new WorkerTaskResponse(taskPoolService.reassignWorkerTask(request.workerTaskId(), request.summary()));
+    var workerTask = taskPoolService.reassignWorkerTask(request.workerTaskId(), request.summary());
+    Optional<CodexDelegationRunSnapshot> snapshot = codexDelegationRunService.appendEventByTaskId(
+        workerTask.taskId(),
+        "compat.reassignWorkerTask",
+        TaskLifecycleStatus.REASSIGNED,
+        "Legacy reassignWorkerTask mapped to canonical delegation run.",
+        Map.of("workerTaskId", workerTask.workerTaskId(), "summary", request.summary())
+    );
+    return new WorkerTaskResponse(workerTask, compatibility("reassignWorkerTask", snapshot.map(run -> run.run().runId()).orElse(null)));
   }
 
   private WorkerTaskResponse completeWorkerTask(Map<String, Object> arguments) {
     WorkerTaskUpdateRequest request = payloadMapper.map(arguments, WorkerTaskUpdateRequest.class);
-    return new WorkerTaskResponse(taskPoolService.completeWorkerTask(request.workerTaskId(), request.summary()));
+    var workerTask = taskPoolService.completeWorkerTask(request.workerTaskId(), request.summary());
+    Optional<CodexDelegationRunSnapshot> snapshot = codexDelegationRunService.appendEventByTaskId(
+        workerTask.taskId(),
+        "compat.completeWorkerTask",
+        TaskLifecycleStatus.COMPLETED,
+        "Legacy completeWorkerTask mapped to canonical delegation run.",
+        Map.of("workerTaskId", workerTask.workerTaskId(), "summary", request.summary())
+    );
+    return new WorkerTaskResponse(workerTask, compatibility("completeWorkerTask", snapshot.map(run -> run.run().runId()).orElse(null)));
   }
 
   private WorkerTaskResponse failWorkerTask(Map<String, Object> arguments) {
     WorkerTaskUpdateRequest request = payloadMapper.map(arguments, WorkerTaskUpdateRequest.class);
-    return new WorkerTaskResponse(taskPoolService.failWorkerTask(request.workerTaskId(), request.summary()));
+    var workerTask = taskPoolService.failWorkerTask(request.workerTaskId(), request.summary());
+    Optional<CodexDelegationRunSnapshot> snapshot = codexDelegationRunService.appendEventByTaskId(
+        workerTask.taskId(),
+        "compat.failWorkerTask",
+        TaskLifecycleStatus.FAILED,
+        "Legacy failWorkerTask mapped to canonical delegation run.",
+        Map.of("workerTaskId", workerTask.workerTaskId(), "summary", request.summary())
+    );
+    return new WorkerTaskResponse(workerTask, compatibility("failWorkerTask", snapshot.map(run -> run.run().runId()).orElse(null)));
   }
 
   private WorkerTaskResponse deadLetterWorkerTask(Map<String, Object> arguments) {
     WorkerTaskUpdateRequest request = payloadMapper.map(arguments, WorkerTaskUpdateRequest.class);
-    return new WorkerTaskResponse(taskPoolService.deadLetterWorkerTask(request.workerTaskId(), request.summary()));
+    var workerTask = taskPoolService.deadLetterWorkerTask(request.workerTaskId(), request.summary());
+    Optional<CodexDelegationRunSnapshot> snapshot = codexDelegationRunService.appendEventByTaskId(
+        workerTask.taskId(),
+        "compat.deadLetterWorkerTask",
+        TaskLifecycleStatus.DEAD_LETTER,
+        "Legacy deadLetterWorkerTask mapped to canonical delegation run.",
+        Map.of("workerTaskId", workerTask.workerTaskId(), "summary", request.summary())
+    );
+    return new WorkerTaskResponse(workerTask, compatibility("deadLetterWorkerTask", snapshot.map(run -> run.run().runId()).orElse(null)));
   }
 
   private CleanupReviewTaskResponse createCleanupReviewTask(Map<String, Object> arguments) {
@@ -178,6 +252,16 @@ public class TaskPoolToolHandler extends McpToolSupport implements McpToolProvid
         request.diffArtifactId()
     );
     return new CleanupReviewTaskResponse(reviewTask);
+  }
+
+  private Map<String, Object> compatibility(String legacyTool, String runId) {
+    return Map.of(
+        "deprecated", true,
+        "legacyTool", legacyTool,
+        "canonicalTools", List.of("startDelegationRun", "appendDelegationRunEvent", "loadDelegationRun", "listDelegationRuns", "completeDelegationRun"),
+        "delegationRunId", runId == null ? "" : runId,
+        "notes", "Legacy orchestration tool mapped through compatibility adapter to codex delegation run."
+    );
   }
 
   private Map<String, Object> stringProperty(String description) {

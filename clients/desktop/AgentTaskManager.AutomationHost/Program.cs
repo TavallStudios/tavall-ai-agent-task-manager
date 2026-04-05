@@ -26,11 +26,28 @@ internal static class Program
 
         if (TryGetHttpPrefix(args) is string httpPrefix)
         {
-            AutomationHttpServer httpServer = new(router, jsonOptions);
-            return await httpServer.RunAsync(httpPrefix, CancellationToken.None);
+            HostRuntimeOptions options = BuildRuntimeOptions(args, httpPrefix);
+            RunnerLeaseCoordinator leaseCoordinator = new(TimeSpan.FromSeconds(options.LeaseTtlSeconds));
+            AutomationHttpServer httpServer = new(router, jsonOptions, options, leaseCoordinator);
+            return await httpServer.RunAsync(CancellationToken.None);
         }
 
         return await commandServer.RunStdioAsync(CancellationToken.None);
+    }
+
+    private static HostRuntimeOptions BuildRuntimeOptions(string[] args, string httpPrefix)
+    {
+        string? bearerToken = TryGetArgumentValue(args, "--auth-token");
+        string? leaseTtlText = TryGetArgumentValue(args, "--lease-ttl-seconds");
+        int leaseTtlSeconds = int.TryParse(leaseTtlText, out int parsedLeaseTtl) && parsedLeaseTtl > 0
+            ? parsedLeaseTtl
+            : 60;
+        string serviceVersion = TryGetArgumentValue(args, "--service-version") ?? "1.0";
+        return new HostRuntimeOptions(
+            httpPrefix,
+            string.IsNullOrWhiteSpace(bearerToken) ? null : bearerToken.Trim(),
+            leaseTtlSeconds,
+            serviceVersion);
     }
 
     private static string? TryGetHttpPrefix(string[] args)

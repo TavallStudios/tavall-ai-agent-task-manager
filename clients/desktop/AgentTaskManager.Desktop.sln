@@ -6,6 +6,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AgentTaskManager.Desktop", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AgentTaskManager.AutomationHost", "AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj", "{949B02F6-125E-4E69-8A47-47D7D9B0FEA4}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AgentTaskManager.Desktop.IntegrationTests", "AgentTaskManager.Desktop.IntegrationTests\\AgentTaskManager.Desktop.IntegrationTests.csproj", "{A8E34963-7F57-4FD0-9EF5-8574E29D6E64}"
+EndProject
 Global
   GlobalSection(SolutionConfigurationPlatforms) = preSolution
     Debug|x64 = Debug|x64
@@ -20,5 +22,9 @@ Global
     {949B02F6-125E-4E69-8A47-47D7D9B0FEA4}.Debug|x64.Build.0 = Debug|x64
     {949B02F6-125E-4E69-8A47-47D7D9B0FEA4}.Release|x64.ActiveCfg = Release|x64
     {949B02F6-125E-4E69-8A47-47D7D9B0FEA4}.Release|x64.Build.0 = Release|x64
+    {A8E34963-7F57-4FD0-9EF5-8574E29D6E64}.Debug|x64.ActiveCfg = Debug|x64
+    {A8E34963-7F57-4FD0-9EF5-8574E29D6E64}.Debug|x64.Build.0 = Debug|x64
+    {A8E34963-7F57-4FD0-9EF5-8574E29D6E64}.Release|x64.ActiveCfg = Release|x64
+    {A8E34963-7F57-4FD0-9EF5-8574E29D6E64}.Release|x64.Build.0 = Release|x64
   EndGlobalSection
 EndGlobal

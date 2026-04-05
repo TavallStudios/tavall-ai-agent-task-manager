@@ -122,3 +122,6 @@ The external runner host supports these game-oriented commands in addition to th
 - `launch_process`
 
 These commands are enough for windowed or borderless Hytale. Exclusive fullscreen remains out of scope for v1.
+
+The canonical runner command endpoint is `/api/automation/command` with capabilities at
+`/api/automation/capabilities`. Compatibility aliases (`/request`, `/execute`) are temporary.

@@ -25,7 +25,7 @@ The system has six hard boundaries:
 
 The desktop app is the primary operator surface, but it is still a client. The backend remains the source of truth even when the active device owns the local runtime process.
 
-The desktop MVP is intentionally desktop-only. Existing IDE companion sketches in this repo are out of scope for this build and must not shape the session model.
+The desktop operator surface is intentionally desktop-only. VS Code and IntelliJ companion clients are deprecated and removed from first-party builds.
 
 ## 2. Component Diagram
 
@@ -200,6 +200,23 @@ Exact uncertainty:
 - `POST /api/codex-client/sessions/{sessionId}/runtime/connected`
 - `POST /api/codex-client/sessions/{sessionId}/runtime/disconnected`
 - `POST /api/codex-client/sessions/{sessionId}/runtime/events`
+
+### Desktop control-plane APIs
+
+- `GET /api/codex-client/operations`
+- `GET /api/desktop/mcp-policy/global`
+- `PUT /api/desktop/mcp-policy/global`
+- `GET /api/desktop/mcp-policy/repos/{scopeKey}`
+- `PUT /api/desktop/mcp-policy/repos/{scopeKey}`
+- `GET /api/desktop/mcp-policy/preview?scopeKey={scopeKey}`
+- `GET /api/desktop/remote-runners`
+- `PUT /api/desktop/remote-runners/{profileId}`
+- `DELETE /api/desktop/remote-runners/{profileId}`
+- `POST /api/desktop/remote-runners/{profileId}/select`
+- `POST /api/desktop/remote-runners/{profileId}/test`
+- `POST /api/desktop/remote-scenarios/run`
+- `GET /api/desktop/remote-scenarios/{sessionId}`
+- `GET /api/desktop/remote-scenarios/{sessionId}/artifacts`
 
 ### Auth APIs
 

@@ -34,7 +34,8 @@ public class CodexExecCommandFactory {
       Path repoPath,
       String executionMode,
       Path outputFile,
-      String resumeSessionId
+      String resumeSessionId,
+      String promptText
   ) {
     List<String> command = new ArrayList<>(ConfiguredCommandResolver.resolveCommand(properties.getCommand()));
     deterministicConfigService.appendDeterministicArguments(command, projectKey);
@@ -52,17 +53,60 @@ public class CodexExecCommandFactory {
     if (resumeSessionId != null && !resumeSessionId.isBlank()) {
       command.add(resumeSessionId);
     }
+    if (promptText != null && !promptText.isBlank()) {
+      command.add(promptText);
+    }
     return command;
   }
 
   public String buildPromptEnvelope(String executionMode, String promptText) {
-    return buildPromptEnvelope(executionMode, promptText, "No related memory context was provided.");
+    return buildPromptEnvelope(
+        executionMode,
+        promptText,
+        "No related memory context was provided.",
+        "No deterministic Java symbol context was preloaded.",
+        false
+    );
   }
 
   public String buildPromptEnvelope(String executionMode, String promptText, String memoryContext) {
+    return buildPromptEnvelope(
+        executionMode,
+        promptText,
+        memoryContext,
+        "No deterministic Java symbol context was preloaded.",
+        false
+    );
+  }
+
+  public String buildPromptEnvelope(
+      String executionMode,
+      String promptText,
+      String memoryContext,
+      boolean repoBackedWriteRun
+  ) {
+    return buildPromptEnvelope(
+        executionMode,
+        promptText,
+        memoryContext,
+        "No deterministic Java symbol context was preloaded.",
+        repoBackedWriteRun
+    );
+  }
+
+  public String buildPromptEnvelope(
+      String executionMode,
+      String promptText,
+      String memoryContext,
+      String javaSymbolContext,
+      boolean repoBackedWriteRun
+  ) {
     String normalizedMemory = memoryContext == null || memoryContext.isBlank()
         ? "No related memory context was provided."
         : memoryContext.strip();
+    String normalizedJavaSymbolContext = javaSymbolContext == null || javaSymbolContext.isBlank()
+        ? "No deterministic Java symbol context was preloaded."
+        : javaSymbolContext.strip();
     String normalizedPrompt = promptText == null || promptText.isBlank()
         ? "No user request was provided."
         : promptText.strip();
@@ -87,7 +131,13 @@ public class CodexExecCommandFactory {
         Final response contract:
         %s
 
+        Harness transcript expectation:
+        Expect chat-visible harness bootstrap, memory lookup, Java symbol preload, tool policy, observed tool calls, semantic sync, and git workflow status messages when these stages fire.
+
         Memory context:
+        %s
+
+        Java symbol context:
         %s
 
         User request:
@@ -98,9 +148,10 @@ public class CodexExecCommandFactory {
         promptOutputGuidanceService.deterministicExecutionPolicy(),
         promptOutputGuidanceService.memoryPolicy(),
         promptOutputGuidanceService.toolCombinationPatterns(),
-        contextualToolPolicyService.buildPolicy(executionMode, normalizedPrompt, false),
+        contextualToolPolicyService.buildPolicy(executionMode, normalizedPrompt, false, repoBackedWriteRun),
         promptOutputGuidanceService.finalResponseContract(),
         normalizedMemory,
+        normalizedJavaSymbolContext,
         normalizedPrompt
     );
   }

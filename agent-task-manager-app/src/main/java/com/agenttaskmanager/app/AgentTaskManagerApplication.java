@@ -6,6 +6,8 @@ import com.agenttaskmanager.app.config.CodexExecutionProperties;
 import com.agenttaskmanager.app.config.ComputerUseProperties;
 import com.agenttaskmanager.app.config.EmbeddingProperties;
 import com.agenttaskmanager.app.config.KnowledgeIndexProperties;
+import com.agenttaskmanager.app.config.MemorySyncProperties;
+import com.agenttaskmanager.app.config.MemoryRuntimeProperties;
 import com.agenttaskmanager.app.config.McpServerProperties;
 import com.agenttaskmanager.app.config.MongoProperties;
 import com.agenttaskmanager.app.config.OperatorSurfaceProperties;
@@ -41,6 +43,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     EmbeddingProperties.class,
     SemanticIndexProperties.class,
     KnowledgeIndexProperties.class,
+    MemorySyncProperties.class,
+    MemoryRuntimeProperties.class,
     OrchestrationProperties.class,
     McpServerProperties.class,
     ToolPolicyProperties.class

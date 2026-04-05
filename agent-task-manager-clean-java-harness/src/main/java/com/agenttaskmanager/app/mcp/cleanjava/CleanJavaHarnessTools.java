@@ -66,7 +66,7 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
 
   @Override
   public List<String> serverGroups() {
-    return List.of("clean-java-harness");
+    return List.of("tjai-harness", "clean-java-harness");
   }
 
   @Override
@@ -95,9 +95,9 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
         ),
         spec(
             "runHarnessToolBundle",
-            "Broker repository, retrieval, and clean Java context through one harness call that fans out downstream MCP tools in parallel.",
+            "Broker repository, retrieval, and language context through one harness call that fans out downstream MCP tools in parallel.",
             Map.of(
-                "bundleName", stringProperty("Bundle name: repo-context, worker-context, or java-context."),
+                "bundleName", stringProperty("Bundle name: repo-context, worker-context, or language-context (java-context compatibility alias)."),
                 "taskId", stringProperty("Task id."),
                 "workerTaskId", stringProperty("Worker task id."),
                 "projectKey", stringProperty("Project key for semantic retrieval."),
@@ -138,7 +138,7 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
         ),
         spec(
             "runCleanJavaHarness",
-            "Run the deterministic clean Java harness: build task context, then Spoon source-shape feedback, then ArchUnit architecture and cycle feedback.",
+            "Run the deterministic clean Java harness: build task context, then lint, Spoon source-shape feedback, and ArchUnit architecture/cycle feedback.",
             Map.of(
                 "taskId", stringProperty("Task id."),
                 "workerTaskId", stringProperty("Worker task id."),
@@ -264,7 +264,7 @@ public class CleanJavaHarnessTools extends McpToolSupport implements McpToolProv
     properties.put("requestedBy", stringProperty("Requester."));
     properties.put("requiresCleanupReview", booleanProperty("Whether cleanup review is required."));
     properties.put("requiresIntegrationTests", booleanProperty("Whether integration tests are required."));
-    properties.put("multiAgentEnabled", booleanProperty("Whether multi-agent fan-out is enabled."));
+    properties.put("multiAgentEnabled", booleanProperty("Deprecated compatibility input. Ignored for canonical delegation flow."));
     properties.put("requestedWorkerTypes", arrayProperty("Explicit worker types."));
     properties.put("changedFiles", arrayProperty("Changed files."));
     properties.put("gitBase", stringProperty("Git base revision."));

@@ -1,5 +1,6 @@
 package com.agenttaskmanager.app.orchestration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -66,6 +67,21 @@ class ContextualToolPolicyServiceIntegrationTest extends IntegrationTestSupport 
   }
 
   @Test
+  void shouldRequireGitWorkflowCallsForRepoBackedNonWorkerWrites() {
+    ContextualToolPolicyService.ToolPolicyDecision decision = service.decide(
+        "run-tests",
+        "Fix failing repo build",
+        false,
+        true
+    );
+
+    assertTrue(decision.requiredCalls().contains("plangitcommit"));
+    assertTrue(decision.requiredCalls().contains("preparegitbranch"));
+    assertTrue(decision.requiredCalls().contains("creategitcommit"));
+    assertTrue(decision.repoBackedWriteRun());
+  }
+
+  @Test
   void shouldFailAuditWhenGitWorkflowCallsAreMissingForDiffProducingWorkerRuns() {
     ContextualToolPolicyService.ToolPolicyDecision decision = service.decide(
         "edit",
@@ -81,13 +97,16 @@ class ContextualToolPolicyServiceIntegrationTest extends IntegrationTestSupport 
         diff --git a/README.md b/README.md
         +workflow
         """,
-        new ContextualToolPolicyService.GitWorkflowEvidence(true, "", "", "", "")
+        new ContextualToolPolicyService.GitWorkflowEvidence(true, "", "", "", 0, "", "")
     );
 
     assertFalse(audit.passed());
     assertTrue(audit.missingCalls().contains("plangitcommit"));
     assertTrue(audit.missingCalls().contains("preparegitbranch"));
     assertTrue(audit.missingCalls().contains("creategitcommit"));
+    assertTrue(audit.gitWorkflowRequired());
+    assertTrue(audit.diffPresent());
+    assertEquals("repo-backed write run produced a repository diff", audit.gitEnforcementReason());
   }
 
   @Test
@@ -116,7 +135,9 @@ class ContextualToolPolicyServiceIntegrationTest extends IntegrationTestSupport 
         new ContextualToolPolicyService.GitWorkflowEvidence(
             true,
             "atm-harness-tj-v1",
+            "base123",
             "abc123",
+            1,
             "Changed: Workflow update",
             """
             What Changed:
@@ -133,6 +154,103 @@ class ContextualToolPolicyServiceIntegrationTest extends IntegrationTestSupport 
 
     assertFalse(audit.passed());
     assertTrue(audit.violations().stream().anyMatch(violation -> violation.contains("gitcommit")));
+  }
+
+  @Test
+  void shouldFailAuditWhenGitWorkflowDidNotCreateANewCommit() {
+    ContextualToolPolicyService.ToolPolicyDecision decision = service.decide(
+        "edit",
+        "Implement git workflow enforcement for worker edits",
+        true
+    );
+
+    ContextualToolPolicyService.ToolPolicyAudit audit = service.audit(
+        decision,
+        Set.of(
+            "runHarnessToolBundle(worker-context)",
+            "runHarnessToolBundle(repo-context)",
+            "planGitCommit",
+            "prepareGitBranch",
+            "createGitCommit"
+        ),
+        "Completed worker run.",
+        """
+        diff --git a/README.md b/README.md
+        +workflow
+        """,
+        new ContextualToolPolicyService.GitWorkflowEvidence(
+            true,
+            "atm-harness-tj-v1",
+            "base123",
+            "base123",
+            0,
+            "Changed: Existing commit",
+            """
+            What Changed:
+            workflow
+
+            Why:
+            reason
+
+            Verification:
+            status
+            """
+        )
+    );
+
+    assertFalse(audit.passed());
+    assertTrue(audit.gitWorkflowRequired());
+    assertFalse(audit.commitCreated());
+    assertEquals(0, audit.commitCount());
+    assertTrue(audit.violations().stream().anyMatch(violation -> violation.contains("create a new commit")));
+  }
+
+  @Test
+  void shouldFailAuditWhenGitWorkflowCreatesMultipleCommitsForOnePrompt() {
+    ContextualToolPolicyService.ToolPolicyDecision decision = service.decide(
+        "edit",
+        "Implement git workflow enforcement for worker edits",
+        true
+    );
+
+    ContextualToolPolicyService.ToolPolicyAudit audit = service.audit(
+        decision,
+        Set.of(
+            "runHarnessToolBundle(worker-context)",
+            "runHarnessToolBundle(repo-context)",
+            "planGitCommit",
+            "prepareGitBranch",
+            "createGitCommit"
+        ),
+        "Completed worker run.",
+        """
+        diff --git a/README.md b/README.md
+        +workflow
+        """,
+        new ContextualToolPolicyService.GitWorkflowEvidence(
+            true,
+            "atm-harness-tj-v1",
+            "base123",
+            "head789",
+            2,
+            "Changed: Workflow update",
+            """
+            What Changed:
+            workflow
+
+            Why:
+            reason
+
+            Verification:
+            status
+            """
+        )
+    );
+
+    assertFalse(audit.passed());
+    assertTrue(audit.commitCreated());
+    assertEquals(2, audit.commitCount());
+    assertTrue(audit.violations().stream().anyMatch(violation -> violation.contains("exactly one new commit")));
   }
 
   @Test
@@ -154,5 +272,50 @@ class ContextualToolPolicyServiceIntegrationTest extends IntegrationTestSupport 
 
     assertTrue(audit.passed());
     assertFalse(audit.missingCalls().contains("runcleanjavaharness"));
+  }
+
+  @Test
+  void shouldFailAuditWhenHarnessMemoryIsMissingWhileQdrantIsHealthy() {
+    ContextualToolPolicyService.ToolPolicyDecision decision = service.decide(
+        "edit",
+        "Implement repository memory enforcement",
+        false
+    );
+
+    ContextualToolPolicyService.ToolPolicyAudit audit = service.audit(
+        decision,
+        Set.of("runHarnessToolBundle(repo-context)"),
+        "Completed worker run.",
+        "",
+        new ContextualToolPolicyService.GitWorkflowEvidence(false, "", "", "", 0, "", ""),
+        new ContextualToolPolicyService.HarnessMemoryEvidence(true, false, "missing", "HEALTHY")
+    );
+
+    assertFalse(audit.passed());
+    assertEquals("missing", audit.memoryStatus());
+    assertEquals("HEALTHY", audit.qdrantHealth());
+    assertTrue(audit.violations().stream().anyMatch(violation -> violation.contains("Harness memory context")));
+  }
+
+  @Test
+  void shouldAllowMissingHarnessMemoryWhenQdrantIsDegraded() {
+    ContextualToolPolicyService.ToolPolicyDecision decision = service.decide(
+        "edit",
+        "Implement repository memory enforcement",
+        false
+    );
+
+    ContextualToolPolicyService.ToolPolicyAudit audit = service.audit(
+        decision,
+        Set.of("runHarnessToolBundle(repo-context)"),
+        "Completed worker run.",
+        "",
+        new ContextualToolPolicyService.GitWorkflowEvidence(false, "", "", "", 0, "", ""),
+        new ContextualToolPolicyService.HarnessMemoryEvidence(true, false, "degraded", "DEGRADED")
+    );
+
+    assertTrue(audit.passed());
+    assertEquals("degraded", audit.memoryStatus());
+    assertEquals("DEGRADED", audit.qdrantHealth());
   }
 }

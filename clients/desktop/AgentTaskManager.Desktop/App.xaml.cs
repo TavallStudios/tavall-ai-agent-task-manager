@@ -32,6 +32,7 @@ public partial class App : Application
                 services.AddSingleton<IWorkspaceRegistryService, WorkspaceRegistryService>();
                 services.AddSingleton<ISessionClientService, SessionClientService>();
                 services.AddSingleton<ISessionStreamService, SessionStreamService>();
+                services.AddSingleton<IRepoNextActionService, RepoNextActionService>();
                 services.AddSingleton<IRuntimeSessionClientService, RuntimeSessionClientService>();
                 services.AddSingleton<ICodexExecutableResolverService, CodexExecutableResolverService>();
                 services.AddSingleton<ICodexEnvironmentService, DesktopCodexEnvironmentService>();
@@ -45,13 +46,20 @@ public partial class App : Application
                 services.AddSingleton<IRepoLaunchService, RepoLaunchService>();
                 services.AddSingleton<IDiffNavigationService, DiffNavigationService>();
                 services.AddSingleton<IRemoteSessionResumeService, RemoteSessionResumeService>();
+                services.AddSingleton<IOperationCatalogService, OperationCatalogService>();
+                services.AddSingleton<IMcpPolicyService, McpPolicyService>();
+                services.AddSingleton<IRemoteRunnerProfileService, RemoteRunnerProfileService>();
                 services.AddSingleton<ConnectionSettingsViewModel>();
                 services.AddSingleton<CodexSettingsViewModel>();
                 services.AddSingleton<SignInViewModel>();
                 services.AddSingleton<WorkspacePickerViewModel>();
                 services.AddSingleton<SessionListViewModel>();
+                services.AddSingleton<RepoTabsViewModel>();
                 services.AddSingleton<SessionDetailViewModel>();
                 services.AddSingleton<StatusStripViewModel>();
+                services.AddSingleton<OperationCatalogViewModel>();
+                services.AddSingleton<McpPolicyViewModel>();
+                services.AddSingleton<RemoteRunnerViewModel>();
                 services.AddSingleton<MainShellViewModel>();
             })
             .Build();

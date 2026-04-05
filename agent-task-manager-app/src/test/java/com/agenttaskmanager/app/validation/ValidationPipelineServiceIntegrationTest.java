@@ -3,6 +3,7 @@ package com.agenttaskmanager.app.validation;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.agenttaskmanager.app.model.validation.ValidationEngine;
 import com.agenttaskmanager.app.model.validation.ValidationReport;
 import com.agenttaskmanager.app.support.IntegrationTestSupport;
 import com.agenttaskmanager.app.support.TestWorkspacePaths;
@@ -35,7 +36,7 @@ class ValidationPipelineServiceIntegrationTest extends IntegrationTestSupport {
   }
 
   @Test
-  void shouldSkipArchUnitForExternalRepository(@TempDir Path tempDir) throws Exception {
+  void shouldFailLintForExternalRepository(@TempDir Path tempDir) throws Exception {
     Path repoPath = tempDir.resolve("external-repo");
     Files.createDirectories(repoPath.resolve("src/main/java/example"));
     Files.writeString(
@@ -71,11 +72,25 @@ class ValidationPipelineServiceIntegrationTest extends IntegrationTestSupport {
 
     ValidationReport report = validationPipelineService.runValidationPipeline(TASK_ID, null, repoPath);
 
-    assertEquals("passed", report.status());
+    assertEquals("failed", report.status());
+    assertTrue(report.violations().stream().anyMatch(violation -> "lint.checkstyle.unsupported-repo".equals(violation.ruleId())));
+    assertTrue(report.violations().stream().anyMatch(violation -> "lint.pmd.unsupported-repo".equals(violation.ruleId())));
+    assertTrue(report.violations().stream().anyMatch(violation -> "lint.error-prone.unsupported-repo".equals(violation.ruleId())));
   }
 
   @Test
   void shouldDetectCurrentMultiModuleProjectWithoutPackageRootRules() {
     assertTrue(AgentTaskManagerProjectLayout.isProjectRoot(TestWorkspacePaths.repoRoot()));
+  }
+
+  @Test
+  void shouldExposeUnsupportedExternalRepoAsLintToolFailure(@TempDir Path tempDir) {
+    Path repoPath = tempDir.resolve("external-lint-repo");
+    ValidationReport report = validationPipelineService.runJavaLintValidation(TASK_ID, null, repoPath);
+
+    assertEquals("failed", report.status());
+    assertTrue(report.violations().stream().anyMatch(violation -> violation.engineSource() == ValidationEngine.CHECKSTYLE));
+    assertTrue(report.violations().stream().anyMatch(violation -> violation.engineSource() == ValidationEngine.PMD));
+    assertTrue(report.violations().stream().anyMatch(violation -> violation.engineSource() == ValidationEngine.ERROR_PRONE));
   }
 }

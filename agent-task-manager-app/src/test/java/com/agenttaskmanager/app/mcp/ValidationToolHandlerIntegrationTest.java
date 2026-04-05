@@ -24,11 +24,12 @@ class ValidationToolHandlerIntegrationTest extends IntegrationTestSupport {
         handlerTools,
         "runArchUnitValidation",
         "runSpoonValidation",
+        "runJavaLintValidation",
         "runIntegrationTests",
         "validatePatchScope",
         "storeValidationReport",
         "runCleanupDiffReview"
     );
-    McpToolHandlerIntegrationAssertions.assertContainsAll(serverTools, "runArchUnitValidation", "runIntegrationTests");
+    McpToolHandlerIntegrationAssertions.assertContainsAll(serverTools, "runArchUnitValidation", "runJavaLintValidation", "runIntegrationTests");
   }
 }
