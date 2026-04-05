@@ -54,7 +54,11 @@ class StandaloneDesktopControlPlaneIntegrationTest {
                   "lintStrictness",
                   "error",
                   "lintUnsupportedRepoPolicy",
-                  "fail"
+                  "fail",
+                  "internalConcurrencyCap",
+                  4,
+                  "downstreamConcurrencyCap",
+                  2
               ),
               "tools",
               List.of()
@@ -67,6 +71,8 @@ class StandaloneDesktopControlPlaneIntegrationTest {
       assertFalse(preview.path("enabledServers").toString().contains("agent-task-manager"));
       assertEquals("mcrspeedrun-annotation-di", preview.path("harnessPreferences").path("diPreset").asText());
       assertEquals("error", preview.path("harnessPreferences").path("lintStrictness").asText());
+      assertEquals(4, preview.path("harnessPreferences").path("internalConcurrencyCap").asInt());
+      assertEquals(2, preview.path("harnessPreferences").path("downstreamConcurrencyCap").asInt());
     }
   }
 

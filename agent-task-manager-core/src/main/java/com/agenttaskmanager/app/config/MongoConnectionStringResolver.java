@@ -4,16 +4,14 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import com.agenttaskmanager.app.console.Log;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class MongoConnectionStringResolver {
 
-  private static final Logger LOG = LoggerFactory.getLogger(MongoConnectionStringResolver.class);
   private static final String DEFAULT_LOCAL_URI = "mongodb://127.0.0.1:27017";
 
   public String resolve(MongoProperties properties) {
@@ -67,7 +65,7 @@ public class MongoConnectionStringResolver {
         );
       }
     } catch (Exception exception) {
-      LOG.debug("Falling back to configured Mongo URI because docker inspection failed", exception);
+      Log.debug("Falling back to configured Mongo URI because docker inspection failed: {}", exception.getMessage());
       return null;
     }
   }

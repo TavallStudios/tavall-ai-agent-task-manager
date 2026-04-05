@@ -2,6 +2,7 @@ package com.agenttaskmanager.app;
 
 import com.agenttaskmanager.app.config.McpServerProperties;
 import com.agenttaskmanager.app.config.SecurityProperties;
+import com.agenttaskmanager.app.console.Log;
 import com.agenttaskmanager.app.desktop.DesktopMcpPolicyService;
 import com.agenttaskmanager.app.desktop.DesktopOperationCatalogService;
 import com.agenttaskmanager.app.desktop.DesktopRemoteRunnerService;
@@ -29,8 +30,6 @@ import org.apache.catalina.Context;
 import org.apache.catalina.startup.Tomcat;
 import org.apache.tomcat.util.descriptor.web.FilterDef;
 import org.apache.tomcat.util.descriptor.web.FilterMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -38,7 +37,6 @@ import org.springframework.core.env.Environment;
 
 public final class StandaloneAgentTaskManagerServer implements AutoCloseable {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(StandaloneAgentTaskManagerServer.class);
   private static final String PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
 
   private final ConfigurableApplicationContext context;
@@ -63,7 +61,7 @@ public final class StandaloneAgentTaskManagerServer implements AutoCloseable {
 
   public static void main(String[] args) {
     try (StandaloneAgentTaskManagerServer server = start(args)) {
-      LOGGER.info("AgentTaskManager standalone MCP runtime listening on {}", server.endpointUrl());
+      Log.info("AgentTaskManager standalone MCP runtime listening on {}", server.endpointUrl());
       CountDownLatch latch = new CountDownLatch(1);
       Runtime.getRuntime().addShutdownHook(new Thread(latch::countDown, "agent-task-manager-shutdown"));
       latch.await();
@@ -167,13 +165,14 @@ public final class StandaloneAgentTaskManagerServer implements AutoCloseable {
     try {
       mcpServer.close();
     } catch (Exception ignored) {
-      LOGGER.debug("Ignoring MCP server close failure.", ignored);
+      Log.debug("Ignoring MCP server close failure: {}", ignored.getMessage());
     }
     try {
       tomcat.stop();
       tomcat.destroy();
     } catch (Exception exception) {
-      LOGGER.warn("Failed to stop embedded Tomcat cleanly.", exception);
+      Log.warn("Failed to stop embedded Tomcat cleanly: {}", exception.getMessage());
+      Log.exception(exception);
     }
     transportProvider.close();
     context.close();
@@ -273,7 +272,7 @@ public final class StandaloneAgentTaskManagerServer implements AutoCloseable {
     }
     String generatedPassword = generatePassword();
     securityProperties.setPassword(generatedPassword);
-    LOGGER.warn(
+    Log.warn(
         "AGENT_TASK_MANAGER_PASSWORD was not set. Generated startup password for user '{}': {}",
         securityProperties.getUsername(),
         generatedPassword

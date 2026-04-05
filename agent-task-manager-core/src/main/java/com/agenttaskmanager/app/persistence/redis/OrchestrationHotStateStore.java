@@ -1,12 +1,11 @@
 package com.agenttaskmanager.app.persistence.redis;
 
+import com.agenttaskmanager.app.console.Log;
 import com.agenttaskmanager.app.model.orchestration.TaskLifecycleStatus;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -14,8 +13,6 @@ import org.springframework.stereotype.Repository;
 public class OrchestrationHotStateStore {
 
   private static final String ROOT = "agent-task-manager:orchestration";
-  private static final Logger LOGGER = LoggerFactory.getLogger(OrchestrationHotStateStore.class);
-
   private final InMemoryHotStateFallbackStore inMemoryHotStateFallbackStore;
   private final StringRedisTemplate redisTemplate;
   private final AtomicBoolean localFallbackEnabled = new AtomicBoolean();
@@ -283,7 +280,7 @@ public class OrchestrationHotStateStore {
 
   private void activateLocalFallback(RuntimeException exception) {
     if (localFallbackEnabled.compareAndSet(false, true)) {
-      LOGGER.warn("Redis hot-state store unavailable. Falling back to in-memory storage: {}", exception.getMessage());
+      Log.warn("Redis hot-state store unavailable. Falling back to in-memory storage: {}", exception.getMessage());
     }
   }
 }

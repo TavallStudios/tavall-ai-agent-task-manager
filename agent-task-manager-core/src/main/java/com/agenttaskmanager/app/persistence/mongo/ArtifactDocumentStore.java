@@ -1,6 +1,7 @@
 package com.agenttaskmanager.app.persistence.mongo;
 
 import com.agenttaskmanager.app.config.MongoProperties;
+import com.agenttaskmanager.app.console.Log;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
@@ -14,16 +15,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.bson.Document;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
 @Repository
 public class ArtifactDocumentStore {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(ArtifactDocumentStore.class);
 
   private final MongoDatabase database;
   private final AtomicBoolean localFallbackEnabled = new AtomicBoolean();
@@ -117,7 +114,7 @@ public class ArtifactDocumentStore {
 
   private void activateLocalFallback(RuntimeException exception) {
     if (localFallbackEnabled.compareAndSet(false, true)) {
-      LOGGER.warn("Mongo artifact store unavailable. Falling back to in-memory storage: {}", exception.getMessage());
+      Log.warn("Mongo artifact store unavailable. Falling back to in-memory storage: {}", exception.getMessage());
     }
   }
 

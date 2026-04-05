@@ -2,6 +2,7 @@ package com.agenttaskmanager.app.desktop;
 
 import static com.agenttaskmanager.app.desktop.DesktopPolicyValueSupport.castStringList;
 import static com.agenttaskmanager.app.desktop.DesktopPolicyValueSupport.readBoolean;
+import static com.agenttaskmanager.app.desktop.DesktopPolicyValueSupport.readInt;
 import static com.agenttaskmanager.app.desktop.DesktopPolicyValueSupport.readString;
 
 import java.util.LinkedHashMap;
@@ -16,6 +17,8 @@ final class DesktopHarnessPreferencePolicy {
   static final List<String> DEFAULT_LINT_ENGINES = List.of("checkstyle", "pmd", "error-prone");
   static final String DEFAULT_LINT_STRICTNESS = "error";
   static final String DEFAULT_LINT_UNSUPPORTED_REPO_POLICY = "fail";
+  static final int DEFAULT_INTERNAL_CONCURRENCY_CAP = 0;
+  static final int DEFAULT_DOWNSTREAM_CONCURRENCY_CAP = 0;
 
   private DesktopHarnessPreferencePolicy() {
   }
@@ -36,6 +39,22 @@ final class DesktopHarnessPreferencePolicy {
         "lintUnsupportedRepoPolicy",
         readString(source.get("lintUnsupportedRepoPolicy"), useDefaults ? DEFAULT_LINT_UNSUPPORTED_REPO_POLICY : "")
     );
+    if (source.containsKey("internalConcurrencyCap")) {
+      normalized.put(
+          "internalConcurrencyCap",
+          normalizeCap(readInt(source.get("internalConcurrencyCap"), useDefaults ? DEFAULT_INTERNAL_CONCURRENCY_CAP : null))
+      );
+    } else {
+      normalized.put("internalConcurrencyCap", useDefaults ? DEFAULT_INTERNAL_CONCURRENCY_CAP : null);
+    }
+    if (source.containsKey("downstreamConcurrencyCap")) {
+      normalized.put(
+          "downstreamConcurrencyCap",
+          normalizeCap(readInt(source.get("downstreamConcurrencyCap"), useDefaults ? DEFAULT_DOWNSTREAM_CONCURRENCY_CAP : null))
+      );
+    } else {
+      normalized.put("downstreamConcurrencyCap", useDefaults ? DEFAULT_DOWNSTREAM_CONCURRENCY_CAP : null);
+    }
     return normalized;
   }
 
@@ -69,6 +88,16 @@ final class DesktopHarnessPreferencePolicy {
             readString(globalNormalized.get("lintUnsupportedRepoPolicy"), DEFAULT_LINT_UNSUPPORTED_REPO_POLICY)
         )
     );
+    Integer internalCap = normalizeCap(readInt(repoNormalized.get("internalConcurrencyCap"), null));
+    if (internalCap == null) {
+      internalCap = normalizeCap(readInt(globalNormalized.get("internalConcurrencyCap"), DEFAULT_INTERNAL_CONCURRENCY_CAP));
+    }
+    merged.put("internalConcurrencyCap", internalCap);
+    Integer downstreamCap = normalizeCap(readInt(repoNormalized.get("downstreamConcurrencyCap"), null));
+    if (downstreamCap == null) {
+      downstreamCap = normalizeCap(readInt(globalNormalized.get("downstreamConcurrencyCap"), DEFAULT_DOWNSTREAM_CONCURRENCY_CAP));
+    }
+    merged.put("downstreamConcurrencyCap", downstreamCap);
     return merged;
   }
 
@@ -83,4 +112,21 @@ final class DesktopHarnessPreferencePolicy {
     }
     return useDefaults ? DEFAULT_LINT_ENGINES : List.of();
   }
+
+  static DesktopHarnessPreferenceCaps toCaps(Map<String, Object> preferences) {
+    Integer internalCap = normalizeCap(readInt(preferences.get("internalConcurrencyCap"), DEFAULT_INTERNAL_CONCURRENCY_CAP));
+    Integer downstreamCap = normalizeCap(readInt(preferences.get("downstreamConcurrencyCap"), DEFAULT_DOWNSTREAM_CONCURRENCY_CAP));
+    return new DesktopHarnessPreferenceCaps(
+        internalCap == null ? DEFAULT_INTERNAL_CONCURRENCY_CAP : internalCap,
+        downstreamCap == null ? DEFAULT_DOWNSTREAM_CONCURRENCY_CAP : downstreamCap
+    );
+  }
+
+  static Integer normalizeCap(Integer value) {
+    if (value == null) {
+      return null;
+    }
+    return Math.max(0, value);
+  }
+
 }

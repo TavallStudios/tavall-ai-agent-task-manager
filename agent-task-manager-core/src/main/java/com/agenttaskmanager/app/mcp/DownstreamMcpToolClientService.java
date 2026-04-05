@@ -1,5 +1,7 @@
 package com.agenttaskmanager.app.mcp;
 
+import com.agenttaskmanager.app.concurrent.AsyncTask;
+import com.agenttaskmanager.app.desktop.DesktopMcpPolicyService;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.ServerParameters;
@@ -18,9 +20,8 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Callable;
+import java.util.concurrent.StructuredTaskScope;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.springframework.stereotype.Service;
@@ -30,15 +31,18 @@ public class DownstreamMcpToolClientService {
 
   private static final Duration TIMEOUT = Duration.ofSeconds(20);
 
+  private final DesktopMcpPolicyService desktopMcpPolicyService;
   private final DirectRepoToolExecutionService directRepoToolExecutionService;
   private final McpJsonMapper mcpJsonMapper;
   private final McpServerProcessConfigurationService processConfigurationService;
 
   public DownstreamMcpToolClientService(
+      DesktopMcpPolicyService desktopMcpPolicyService,
       DirectRepoToolExecutionService directRepoToolExecutionService,
       McpJsonMapper mcpJsonMapper,
       McpServerProcessConfigurationService processConfigurationService
   ) {
+    this.desktopMcpPolicyService = desktopMcpPolicyService;
     this.directRepoToolExecutionService = directRepoToolExecutionService;
     this.mcpJsonMapper = mcpJsonMapper;
     this.processConfigurationService = processConfigurationService;
@@ -53,25 +57,50 @@ public class DownstreamMcpToolClientService {
         .mapToObj(index -> new IndexedCall(index, calls.get(index)))
         .toList();
 
-    ExecutorService executor = Executors.newFixedThreadPool(Math.min(indexedCalls.size(), 6));
+    int downstreamCap = desktopMcpPolicyService
+        .loadHarnessPreferenceCaps(projectKey)
+        .downstreamConcurrencyCap();
+
+    List<Callable<IndexedResult>> tasks = indexedCalls.stream()
+        .map(indexedCall -> (Callable<IndexedResult>) () -> new IndexedResult(
+            indexedCall.index(),
+            callTool(projectKey, indexedCall.call())
+        ))
+        .toList();
+
+    Map<Integer, DownstreamMcpToolResult> byIndex = new HashMap<>();
+    for (IndexedResult result : runBatchedTasks(tasks, downstreamCap)) {
+      byIndex.put(result.index(), result.result());
+    }
+
+    return indexedCalls.stream()
+        .map(indexedCall -> byIndex.getOrDefault(indexedCall.index(), missingResult(indexedCall.call())))
+        .toList();
+  }
+
+  private <T> List<T> runBatchedTasks(List<? extends Callable<? extends T>> tasks, int cap) {
+    if (tasks.isEmpty()) {
+      return List.of();
+    }
+    int batchSize = cap <= 0 ? tasks.size() : Math.min(cap, tasks.size());
+    List<T> results = new ArrayList<>(tasks.size());
+    for (int index = 0; index < tasks.size(); index += batchSize) {
+      int end = Math.min(index + batchSize, tasks.size());
+      List<? extends Callable<? extends T>> batch = tasks.subList(index, end);
+      results.addAll(runBatch(batch));
+    }
+    return results;
+  }
+
+  private <T> List<T> runBatch(List<? extends Callable<? extends T>> batch) {
+    AsyncTask.ScopeOptions options = AsyncTask.ScopeOptions.defaults().withName("downstream-tools");
     try {
-      List<CompletableFuture<IndexedResult>> futures = indexedCalls.stream()
-          .map(indexedCall -> CompletableFuture.supplyAsync(
-              () -> new IndexedResult(indexedCall.index(), callTool(projectKey, indexedCall.call())),
-              executor
-          ))
-          .toList();
-
-      Map<Integer, DownstreamMcpToolResult> byIndex = new HashMap<>();
-      futures.stream()
-          .map(CompletableFuture::join)
-          .forEach(result -> byIndex.put(result.index(), result.result()));
-
-      return indexedCalls.stream()
-          .map(indexedCall -> byIndex.getOrDefault(indexedCall.index(), missingResult(indexedCall.call())))
-          .toList();
-    } finally {
-      executor.shutdownNow();
+      return AsyncTask.runMultipleAsync(batch, options);
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Downstream tool calls interrupted.", exception);
+    } catch (StructuredTaskScope.TimeoutException | StructuredTaskScope.FailedException exception) {
+      throw new IllegalStateException("Downstream tool calls failed.", exception);
     }
   }
 

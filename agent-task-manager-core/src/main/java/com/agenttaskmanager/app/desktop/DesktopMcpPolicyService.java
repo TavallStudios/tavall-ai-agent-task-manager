@@ -87,6 +87,19 @@ public class DesktopMcpPolicyService {
     return preview;
   }
 
+  public DesktopHarnessPreferenceCaps loadHarnessPreferenceCaps(String scopeKey) {
+    String normalizedScope = normalizeScope(scopeKey);
+    Map<String, Object> global = loadGlobalPolicy();
+    Map<String, Object> repo = loadRepoPolicy(normalizedScope);
+    boolean inheritGlobal = readBoolean(repo.get("inheritGlobal"), true);
+    Map<String, Object> mergedHarnessPreferences = mergeHarnessPreferences(
+        castObjectMap(global.get("harnessPreferences")),
+        castObjectMap(repo.get("harnessPreferences")),
+        inheritGlobal
+    );
+    return DesktopHarnessPreferencePolicy.toCaps(mergedHarnessPreferences);
+  }
+
   private Map<String, Object> normalizePolicy(Map<String, Object> policy, String scopeKey, boolean defaultInheritGlobal) {
     Map<String, Object> source = policy == null ? Map.of() : policy;
     boolean globalScope = "global".equalsIgnoreCase(normalizeScope(scopeKey));
@@ -245,7 +258,9 @@ public class DesktopMcpPolicyService {
         "lintEnabled", DesktopHarnessPreferencePolicy.DEFAULT_LINT_ENABLED,
         "lintEngines", DesktopHarnessPreferencePolicy.DEFAULT_LINT_ENGINES,
         "lintStrictness", DesktopHarnessPreferencePolicy.DEFAULT_LINT_STRICTNESS,
-        "lintUnsupportedRepoPolicy", DesktopHarnessPreferencePolicy.DEFAULT_LINT_UNSUPPORTED_REPO_POLICY
+        "lintUnsupportedRepoPolicy", DesktopHarnessPreferencePolicy.DEFAULT_LINT_UNSUPPORTED_REPO_POLICY,
+        "internalConcurrencyCap", DesktopHarnessPreferencePolicy.DEFAULT_INTERNAL_CONCURRENCY_CAP,
+        "downstreamConcurrencyCap", DesktopHarnessPreferencePolicy.DEFAULT_DOWNSTREAM_CONCURRENCY_CAP
     ));
     defaultPolicy.put("updatedAt", OffsetDateTime.now().toString());
     return defaultPolicy;

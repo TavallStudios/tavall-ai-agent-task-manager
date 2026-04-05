@@ -40,6 +40,24 @@ final class DesktopPolicyValueSupport {
     return fallback;
   }
 
+  static Integer readInt(Object value, Integer fallback) {
+    if (value instanceof Number number) {
+      return number.intValue();
+    }
+    if (value instanceof String text) {
+      String normalized = text.strip();
+      if (normalized.isBlank()) {
+        return fallback;
+      }
+      try {
+        return Integer.parseInt(normalized);
+      } catch (NumberFormatException ignored) {
+        return fallback;
+      }
+    }
+    return fallback;
+  }
+
   static Map<String, Object> castObjectMap(Object value) {
     if (!(value instanceof Map<?, ?> map)) {
       return Map.of();

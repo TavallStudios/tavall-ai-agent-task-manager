@@ -1,6 +1,7 @@
 package com.agenttaskmanager.app.persistence.mongo;
 
 import com.agenttaskmanager.app.config.MongoProperties;
+import com.agenttaskmanager.app.console.Log;
 import com.agenttaskmanager.app.harness.cleanjava.symbol.JavaContractDeltaReport;
 import com.agenttaskmanager.app.harness.cleanjava.symbol.JavaReflectionAugmentationResult;
 import com.agenttaskmanager.app.harness.cleanjava.symbol.JavaSymbolNeighborhood;
@@ -18,16 +19,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.bson.Document;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
 @Repository
 public class JavaSymbolDocumentStore {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(JavaSymbolDocumentStore.class);
 
   private final MongoDatabase database;
   private final ObjectMapper objectMapper;
@@ -154,7 +151,7 @@ public class JavaSymbolDocumentStore {
 
   private void activateLocalFallback(RuntimeException exception) {
     if (localFallbackEnabled.compareAndSet(false, true)) {
-      LOGGER.warn("Mongo Java symbol store unavailable. Falling back to in-memory storage: {}", exception.getMessage());
+      Log.warn("Mongo Java symbol store unavailable. Falling back to in-memory storage: {}", exception.getMessage());
     }
   }
 

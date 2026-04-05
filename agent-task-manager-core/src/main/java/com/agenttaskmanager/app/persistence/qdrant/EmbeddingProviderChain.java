@@ -1,18 +1,15 @@
 package com.agenttaskmanager.app.persistence.qdrant;
 
 import com.agenttaskmanager.app.config.EmbeddingProperties;
+import com.agenttaskmanager.app.console.Log;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class EmbeddingProviderChain {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddingProviderChain.class);
 
   private final int dimensions;
   private final List<EmbeddingProvider> orderedProviders;
@@ -65,7 +62,8 @@ public class EmbeddingProviderChain {
         }
         throw new IllegalStateException("Embedding provider returned a vector with the wrong size.");
       } catch (RuntimeException exception) {
-        LOGGER.warn("Embedding provider {} failed. Falling back to the next provider.", provider.providerId(), exception);
+        Log.warn("Embedding provider {} failed. Falling back to the next provider: {}", provider.providerId(), exception.getMessage());
+        Log.exception(exception);
         failures.add(provider.providerId() + ": " + exception.getMessage());
       }
     }

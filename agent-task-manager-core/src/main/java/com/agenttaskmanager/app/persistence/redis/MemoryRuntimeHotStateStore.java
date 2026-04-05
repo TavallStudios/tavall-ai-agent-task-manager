@@ -1,5 +1,6 @@
 package com.agenttaskmanager.app.persistence.redis;
 
+import com.agenttaskmanager.app.console.Log;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
@@ -7,15 +8,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class MemoryRuntimeHotStateStore {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(MemoryRuntimeHotStateStore.class);
   private static final String ROOT = "agent-task-manager:memory-runtime";
 
   private final ObjectMapper objectMapper;
@@ -143,7 +141,7 @@ public class MemoryRuntimeHotStateStore {
 
   private void activateFallback(RuntimeException exception) {
     if (localFallbackEnabled.compareAndSet(false, true)) {
-      LOGGER.warn("Memory hot-state Redis unavailable. Falling back to in-memory cache: {}", exception.getMessage());
+      Log.warn("Memory hot-state Redis unavailable. Falling back to in-memory cache: {}", exception.getMessage());
     }
   }
 }

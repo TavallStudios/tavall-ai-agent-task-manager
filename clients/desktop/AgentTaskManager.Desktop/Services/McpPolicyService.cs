@@ -228,7 +228,7 @@ public sealed class McpPolicyService : IMcpPolicyService
             [new McpServerPolicyDto("agent-task-manager", true)],
             [new McpToolPolicyDto("agent-task-manager", "runHarnessToolBundle(repo-context)", true)],
             [new McpToolPresetDto("tjai-harness-clean-code", "tjAI Harness Clean Code", ["runHarnessToolBundle(language-context)", "runCleanJavaHarness"])],
-            new HarnessPreferencesDto("service-loader", "java", "", true, ["checkstyle", "pmd", "error-prone"], "error", "fail"),
+            new HarnessPreferencesDto("service-loader", "java", "", true, ["checkstyle", "pmd", "error-prone"], "error", "fail", 0, 0),
             DateTimeOffset.UtcNow));
 
     private static McpPolicyScopeDto BuildDefaultRepoPolicy(string scopeKey)
@@ -238,7 +238,7 @@ public sealed class McpPolicyService : IMcpPolicyService
             [],
             [],
             [],
-            new HarnessPreferencesDto("", "", "", null, [], "", ""),
+            new HarnessPreferencesDto("", "", "", null, [], "", "", null, null),
             DateTimeOffset.UtcNow));
 
     private static McpPolicyScopeDto Normalize(McpPolicyScopeDto policy)
@@ -270,6 +270,8 @@ public sealed class McpPolicyService : IMcpPolicyService
         string defaultLintStrictness = useDefaults ? "error" : string.Empty;
         string defaultLintUnsupportedPolicy = useDefaults ? "fail" : string.Empty;
         IReadOnlyList<string> defaultLintEngines = useDefaults ? ["checkstyle", "pmd", "error-prone"] : [];
+        int? defaultInternalCap = useDefaults ? 0 : null;
+        int? defaultDownstreamCap = useDefaults ? 0 : null;
         return new HarnessPreferencesDto(
             NormalizeText(preferences?.DiPreset, defaultDi),
             NormalizeText(preferences?.LanguagePreset, defaultLanguage),
@@ -277,7 +279,9 @@ public sealed class McpPolicyService : IMcpPolicyService
             preferences?.LintEnabled ?? defaultLintEnabled,
             NormalizeLintEngines(preferences?.LintEngines, defaultLintEngines),
             NormalizeText(preferences?.LintStrictness, defaultLintStrictness),
-            NormalizeText(preferences?.LintUnsupportedRepoPolicy, defaultLintUnsupportedPolicy));
+            NormalizeText(preferences?.LintUnsupportedRepoPolicy, defaultLintUnsupportedPolicy),
+            NormalizeCap(preferences?.InternalConcurrencyCap, defaultInternalCap),
+            NormalizeCap(preferences?.DownstreamConcurrencyCap, defaultDownstreamCap));
     }
 
     private static HarnessPreferencesDto MergeHarnessPreferences(
@@ -297,7 +301,9 @@ public sealed class McpPolicyService : IMcpPolicyService
             repo.LintEnabled ?? global.LintEnabled ?? true,
             NormalizeLintEngines(repo.LintEngines, NormalizeLintEngines(global.LintEngines, ["checkstyle", "pmd", "error-prone"])),
             NormalizeText(repo.LintStrictness, NormalizeText(global.LintStrictness, "error")),
-            NormalizeText(repo.LintUnsupportedRepoPolicy, NormalizeText(global.LintUnsupportedRepoPolicy, "fail")));
+            NormalizeText(repo.LintUnsupportedRepoPolicy, NormalizeText(global.LintUnsupportedRepoPolicy, "fail")),
+            NormalizeCap(repo.InternalConcurrencyCap, NormalizeCap(global.InternalConcurrencyCap, 0)),
+            NormalizeCap(repo.DownstreamConcurrencyCap, NormalizeCap(global.DownstreamConcurrencyCap, 0)));
     }
 
     private static IReadOnlyList<string> NormalizeLintEngines(IReadOnlyList<string>? values, IReadOnlyList<string> fallback)
@@ -308,6 +314,16 @@ public sealed class McpPolicyService : IMcpPolicyService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         return normalized.Count > 0 ? normalized : fallback;
+    }
+
+    private static int? NormalizeCap(int? value, int? fallback)
+    {
+        if (value is null)
+        {
+            return fallback;
+        }
+
+        return Math.Max(0, value.Value);
     }
 
     private static string NormalizeText(string? value, string fallback)

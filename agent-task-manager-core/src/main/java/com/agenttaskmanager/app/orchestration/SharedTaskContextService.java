@@ -5,6 +5,7 @@ import cache.CacheSource;
 import cache.CacheType;
 import cache.SemanticContextCache;
 import cache.TaskContextCache;
+import com.agenttaskmanager.app.console.Log;
 import com.agenttaskmanager.app.model.orchestration.RetrievedSemanticContext;
 import com.agenttaskmanager.app.model.orchestration.SharedTaskContext;
 import com.agenttaskmanager.app.model.orchestration.WorkerTask;
@@ -20,14 +21,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class SharedTaskContextService {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(SharedTaskContextService.class);
 
   private final SemanticContextCache semanticContextCache;
   private final SemanticSyncService semanticSyncService;
@@ -122,7 +119,7 @@ public class SharedTaskContextService {
           null
       );
     } catch (RuntimeException exception) {
-      LOGGER.warn("Semantic project upsert failed for projectKey={}: {}", projectKey, exception.getMessage());
+      Log.warn("Semantic project upsert failed for projectKey={}: {}", projectKey, exception.getMessage());
       return List.of();
     }
   }
@@ -137,7 +134,7 @@ public class SharedTaskContextService {
       semanticContextCache.clear();
       return pointIds;
     } catch (RuntimeException exception) {
-      LOGGER.warn("Semantic project upsert failed for projectKey={}: {}", projectKey, exception.getMessage());
+      Log.warn("Semantic project upsert failed for projectKey={}: {}", projectKey, exception.getMessage());
       return List.of();
     }
   }
@@ -150,7 +147,7 @@ public class SharedTaskContextService {
     try {
       semanticSyncService.storeProjectDocument(projectKey, request, dedupeKey, SemanticSyncMode.BACKGROUND_ONLY);
     } catch (RuntimeException exception) {
-      LOGGER.warn("Semantic project enqueue failed for projectKey={}: {}", projectKey, exception.getMessage());
+      Log.warn("Semantic project enqueue failed for projectKey={}: {}", projectKey, exception.getMessage());
     }
   }
 
@@ -180,7 +177,7 @@ public class SharedTaskContextService {
           null
       );
     } catch (RuntimeException exception) {
-      LOGGER.warn("Semantic knowledge upsert failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());
+      Log.warn("Semantic knowledge upsert failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());
       return List.of();
     }
   }
@@ -195,7 +192,7 @@ public class SharedTaskContextService {
       semanticContextCache.clear();
       return pointIds;
     } catch (RuntimeException exception) {
-      LOGGER.warn("Semantic knowledge upsert failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());
+      Log.warn("Semantic knowledge upsert failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());
       return List.of();
     }
   }
@@ -208,7 +205,7 @@ public class SharedTaskContextService {
     try {
       semanticSyncService.storeKnowledgeDocument(knowledgeBase, request, dedupeKey, SemanticSyncMode.BACKGROUND_ONLY);
     } catch (RuntimeException exception) {
-      LOGGER.warn("Semantic knowledge enqueue failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());
+      Log.warn("Semantic knowledge enqueue failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());
     }
   }
 
@@ -217,7 +214,7 @@ public class SharedTaskContextService {
       semanticSyncService.deleteProject(projectKey, payloadFilter, null);
       semanticContextCache.clear();
     } catch (RuntimeException exception) {
-      LOGGER.warn("Semantic project delete failed for projectKey={}: {}", projectKey, exception.getMessage());
+      Log.warn("Semantic project delete failed for projectKey={}: {}", projectKey, exception.getMessage());
     }
   }
 
@@ -226,7 +223,7 @@ public class SharedTaskContextService {
       semanticSyncService.deleteKnowledge(knowledgeBase, payloadFilter, null);
       semanticContextCache.clear();
     } catch (RuntimeException exception) {
-      LOGGER.warn("Semantic knowledge delete failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());
+      Log.warn("Semantic knowledge delete failed for knowledgeBase={}: {}", knowledgeBase, exception.getMessage());
     }
   }
 
@@ -235,7 +232,7 @@ public class SharedTaskContextService {
       semanticVectorStoreService.deleteLegacyCollection();
       semanticContextCache.clear();
     } catch (RuntimeException exception) {
-      LOGGER.warn("Legacy semantic collection delete failed: {}", exception.getMessage());
+      Log.warn("Legacy semantic collection delete failed: {}", exception.getMessage());
     }
   }
 
@@ -301,7 +298,7 @@ public class SharedTaskContextService {
           ))
           .toList();
     } catch (RuntimeException exception) {
-      LOGGER.warn(
+      Log.warn(
           "Semantic search failed for collectionKey={} query='{}': {}",
           collectionKey,
           queryText,

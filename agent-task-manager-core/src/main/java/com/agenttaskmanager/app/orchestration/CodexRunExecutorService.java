@@ -2,13 +2,18 @@ package com.agenttaskmanager.app.orchestration;
 
 import com.agenttaskmanager.app.bridge.CodexEventMessage;
 import com.agenttaskmanager.app.bridge.CodexJsonEventParser;
+import com.agenttaskmanager.app.concurrent.AsyncTask;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.StructuredTaskScope;
 import java.util.function.Consumer;
 import org.springframework.stereotype.Service;
 
@@ -37,10 +42,11 @@ public class CodexRunExecutorService {
     CodexRuntimePlatform runtimePlatform = request.runtimePlatformOverride() == null
         ? codexRuntimePlatformDetector.detectCurrentPlatform()
         : request.runtimePlatformOverride();
-    Set<String> observedToolCalls = new LinkedHashSet<>();
-    Set<CodexToolCallObservation> observedToolCallDetails = new LinkedHashSet<>();
-    String stdout = readStream(process, true, observedToolCalls, observedToolCallDetails, request.eventConsumer());
-    String stderr = readStream(process, false, observedToolCalls, request.eventConsumer());
+    Set<String> observedToolCalls = Collections.synchronizedSet(new LinkedHashSet<>());
+    Set<CodexToolCallObservation> observedToolCallDetails = Collections.synchronizedSet(new LinkedHashSet<>());
+    List<String> outputs = readOutputs(process, observedToolCalls, observedToolCallDetails, request.eventConsumer());
+    String stdout = outputs.get(0);
+    String stderr = outputs.get(1);
     int exitCode = waitFor(process);
     String finalMessage = readOutputFile(request);
     GitWorktreeManager.GitHeadState finalGitState = gitWorktreeManager.loadHeadState(request.workspacePath());
@@ -87,6 +93,36 @@ public class CodexRunExecutorService {
     } catch (IOException exception) {
       throw new IllegalStateException("Failed to start Codex execution.", exception);
     }
+  }
+
+  private List<String> readOutputs(
+      Process process,
+      Set<String> observedToolCalls,
+      Set<CodexToolCallObservation> observedToolCallDetails,
+      Consumer<CodexEventMessage> eventConsumer
+  ) {
+    List<Callable<String>> tasks = List.of(
+        () -> readStream(process, true, observedToolCalls, observedToolCallDetails, eventConsumer),
+        () -> readStream(process, false, observedToolCalls, eventConsumer)
+    );
+    try {
+      return AsyncTask.runMultipleAsync(tasks, AsyncTask.ScopeOptions.defaults().withName("codex-run-output"));
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+    } catch (StructuredTaskScope.TimeoutException | StructuredTaskScope.FailedException ignored) {
+    }
+    return readOutputsSequential(process, observedToolCalls, observedToolCallDetails, eventConsumer);
+  }
+
+  private List<String> readOutputsSequential(
+      Process process,
+      Set<String> observedToolCalls,
+      Set<CodexToolCallObservation> observedToolCallDetails,
+      Consumer<CodexEventMessage> eventConsumer
+  ) {
+    String stdout = readStream(process, true, observedToolCalls, observedToolCallDetails, eventConsumer);
+    String stderr = readStream(process, false, observedToolCalls, eventConsumer);
+    return List.of(stdout, stderr);
   }
 
   private String readStream(

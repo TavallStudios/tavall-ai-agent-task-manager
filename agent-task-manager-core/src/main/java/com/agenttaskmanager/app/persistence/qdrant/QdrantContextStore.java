@@ -1,6 +1,7 @@
 package com.agenttaskmanager.app.persistence.qdrant;
 
 import com.agenttaskmanager.app.config.QdrantProperties;
+import com.agenttaskmanager.app.console.Log;
 import com.agenttaskmanager.app.model.orchestration.RetrievedSemanticContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,15 +16,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
 @Repository
 public class QdrantContextStore {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(QdrantContextStore.class);
 
   private final HttpClient httpClient;
   private final EmbeddingProviderChain embeddingProviderChain;
@@ -264,7 +261,7 @@ public class QdrantContextStore {
 
   private void activateLocalFallback(IllegalStateException exception) {
     if (localFallbackEnabled.compareAndSet(false, true)) {
-      LOGGER.warn("Qdrant unavailable. Falling back to in-memory semantic storage: {}", exception.getMessage());
+      Log.warn("Qdrant unavailable. Falling back to in-memory semantic storage: {}", exception.getMessage());
     }
   }
 

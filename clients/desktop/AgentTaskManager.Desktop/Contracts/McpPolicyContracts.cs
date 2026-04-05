@@ -21,7 +21,9 @@ public sealed record HarnessPreferencesDto(
     bool? LintEnabled,
     IReadOnlyList<string> LintEngines,
     string LintStrictness,
-    string LintUnsupportedRepoPolicy);
+    string LintUnsupportedRepoPolicy,
+    int? InternalConcurrencyCap,
+    int? DownstreamConcurrencyCap);
 
 public sealed record McpPolicyScopeDto(
     string ScopeKey,

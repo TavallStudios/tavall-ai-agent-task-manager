@@ -1,12 +1,11 @@
 package com.agenttaskmanager.app.config;
 
+import com.agenttaskmanager.app.console.Log;
 import java.security.SecureRandom;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
-import org.springframework.boot.autoconfigure.web.ServerProperties;
+import org.springframework.boot.web.server.autoconfigure.ServerProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -33,7 +32,6 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(SecurityConfig.class);
   private static final String PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
 
   @Bean
@@ -122,8 +120,7 @@ public class SecurityConfig {
       UserDetailsService userDetailsService,
       PasswordEncoder passwordEncoder
   ) {
-    DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-    provider.setUserDetailsService(userDetailsService);
+    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
     provider.setPasswordEncoder(passwordEncoder);
     return provider;
   }
@@ -133,7 +130,7 @@ public class SecurityConfig {
     String rawPassword = properties.getPassword();
     if (rawPassword == null || rawPassword.isBlank()) {
       rawPassword = generatePassword();
-      LOGGER.warn(
+      Log.warn(
           "AGENT_TASK_MANAGER_PASSWORD was not set. Generated startup password for user '{}': {}",
           properties.getUsername(),
           rawPassword

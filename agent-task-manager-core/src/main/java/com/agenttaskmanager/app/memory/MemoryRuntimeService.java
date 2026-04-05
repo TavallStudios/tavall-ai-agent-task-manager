@@ -1,6 +1,7 @@
 package com.agenttaskmanager.app.memory;
 
 import com.agenttaskmanager.app.config.MemoryRuntimeProperties;
+import com.agenttaskmanager.app.console.Log;
 import com.agenttaskmanager.app.orchestration.SharedTaskContextService;
 import com.agenttaskmanager.app.persistence.postgres.MemoryEventRepository;
 import com.agenttaskmanager.app.persistence.postgres.MemoryRecordRepository;
@@ -15,15 +16,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class MemoryRuntimeService {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(MemoryRuntimeService.class);
 
   private final MemoryRuntimeProperties properties;
   private final MemoryContinuityService continuityService;
@@ -179,7 +176,8 @@ public class MemoryRuntimeService {
       hotStateStore.incrementCounter("pipeline-complete");
       return result;
     } catch (RuntimeException exception) {
-      LOGGER.warn("Memory runtime completion failed for requestId={}: {}", handle.requestId(), exception.getMessage());
+      Log.warn("Memory runtime completion failed for requestId={}: {}", handle.requestId(), exception.getMessage());
+      Log.exception(exception);
       eventRepository.recordEvent(
           handle.requestId(),
           "complete",

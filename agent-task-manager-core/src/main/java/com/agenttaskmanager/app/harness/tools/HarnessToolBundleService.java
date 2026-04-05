@@ -1,6 +1,8 @@
 package com.agenttaskmanager.app.harness.tools;
 
+import com.agenttaskmanager.app.concurrent.AsyncTask;
 import com.agenttaskmanager.app.dashboard.DashboardSummaryService;
+import com.agenttaskmanager.app.desktop.DesktopMcpPolicyService;
 import com.agenttaskmanager.app.harness.cleanjava.CleanJavaTaskContextService;
 import com.agenttaskmanager.app.harness.state.HarnessStateService;
 import com.agenttaskmanager.app.mcp.DownstreamMcpToolCall;
@@ -16,9 +18,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Callable;
+import java.util.concurrent.StructuredTaskScope;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -26,6 +27,7 @@ public class HarnessToolBundleService {
 
   private final DashboardSummaryService dashboardSummaryService;
   private final CleanJavaTaskContextService cleanJavaTaskContextService;
+  private final DesktopMcpPolicyService desktopMcpPolicyService;
   private final DownstreamMcpToolClientService downstreamMcpToolClientService;
   private final HarnessMemoryService harnessMemoryService;
   private final HarnessStateService harnessStateService;
@@ -35,6 +37,7 @@ public class HarnessToolBundleService {
   public HarnessToolBundleService(
       DashboardSummaryService dashboardSummaryService,
       CleanJavaTaskContextService cleanJavaTaskContextService,
+      DesktopMcpPolicyService desktopMcpPolicyService,
       DownstreamMcpToolClientService downstreamMcpToolClientService,
       HarnessMemoryService harnessMemoryService,
       HarnessStateService harnessStateService,
@@ -43,6 +46,7 @@ public class HarnessToolBundleService {
   ) {
     this.dashboardSummaryService = dashboardSummaryService;
     this.cleanJavaTaskContextService = cleanJavaTaskContextService;
+    this.desktopMcpPolicyService = desktopMcpPolicyService;
     this.downstreamMcpToolClientService = downstreamMcpToolClientService;
     this.harnessMemoryService = harnessMemoryService;
     this.harnessStateService = harnessStateService;
@@ -64,119 +68,129 @@ public class HarnessToolBundleService {
         limit
     );
 
-    ExecutorService executor = Executors.newFixedThreadPool(bundleType == HarnessToolBundleType.REPO_CONTEXT ? 2 : 4);
-    try {
-      List<CompletableFuture<Map.Entry<String, Object>>> internalFutures = internalSections(normalizedRequest, bundleType, executor);
-      CompletableFuture<RepoContextBundle> repoContextFuture = CompletableFuture.supplyAsync(
-          () -> loadRepoContext(normalizedRequest, bundleType, repoPath, limit),
-          executor
-      );
+    List<Callable<SectionResult>> tasks = new ArrayList<>();
+    tasks.addAll(internalSectionTasks(normalizedRequest, bundleType));
+    tasks.add(() -> new SectionResult(
+        "repoContext",
+        loadRepoContext(normalizedRequest, bundleType, repoPath, limit)
+    ));
 
-      Map<String, Object> sections = new LinkedHashMap<>();
-      for (CompletableFuture<Map.Entry<String, Object>> future : internalFutures) {
-        Map.Entry<String, Object> section = future.join();
-        sections.put(section.getKey(), section.getValue());
+    int internalCap = desktopMcpPolicyService
+        .loadHarnessPreferenceCaps(normalizedRequest.projectKey())
+        .internalConcurrencyCap();
+    List<SectionResult> results = runBatchedTasks(tasks, internalCap, "harness-bundle-" + bundleType.value());
+
+    Map<String, Object> sections = new LinkedHashMap<>();
+    RepoContextBundle repoContext = null;
+    for (SectionResult result : results) {
+      if ("repoContext".equals(result.key())) {
+        repoContext = (RepoContextBundle) result.value();
+      } else {
+        sections.put(result.key(), result.value());
       }
-
-      RepoContextBundle repoContext = repoContextFuture.join();
-      sections.put("downstream", repoContext.downstreamSections());
-
-      Map<String, Object> summary = new LinkedHashMap<>();
-      summary.put("bundleName", bundleType.value());
-      summary.put("taskId", normalizedRequest.taskId());
-      summary.put("workerTaskId", normalizedRequest.workerTaskId());
-      summary.put("repoPath", repoPath);
-      summary.put("downstreamCalls", repoContext.downstreamResults().size());
-      summary.put("downstreamErrors", repoContext.downstreamResults().stream().filter(DownstreamMcpToolResult::isError).count());
-      summary.put("internalSections", sections.size() - 1);
-      summary.put("repoContextSource", repoContext.source());
-      Object memorySection = sections.get("memory");
-      if (memorySection instanceof Map<?, ?> map) {
-        summary.put("memoryStatus", map.get("status"));
-        summary.put("qdrantHealth", map.get("qdrantHealth"));
-      }
-      return new HarnessToolBundleResult(bundleType.value(), summary, sections, repoContext.downstreamResults());
-    } finally {
-      executor.shutdownNow();
     }
+    if (repoContext == null) {
+      repoContext = loadRepoContext(normalizedRequest, bundleType, repoPath, limit);
+    }
+    sections.put("downstream", repoContext.downstreamSections());
+
+    Map<String, Object> summary = new LinkedHashMap<>();
+    summary.put("bundleName", bundleType.value());
+    summary.put("taskId", normalizedRequest.taskId());
+    summary.put("workerTaskId", normalizedRequest.workerTaskId());
+    summary.put("repoPath", repoPath);
+    summary.put("downstreamCalls", repoContext.downstreamResults().size());
+    summary.put("downstreamErrors", repoContext.downstreamResults().stream().filter(DownstreamMcpToolResult::isError).count());
+    summary.put("internalSections", sections.size() - 1);
+    summary.put("repoContextSource", repoContext.source());
+    Object memorySection = sections.get("memory");
+    if (memorySection instanceof Map<?, ?> map) {
+      summary.put("memoryStatus", map.get("status"));
+      summary.put("qdrantHealth", map.get("qdrantHealth"));
+    }
+    return new HarnessToolBundleResult(bundleType.value(), summary, sections, repoContext.downstreamResults());
   }
 
-  private List<CompletableFuture<Map.Entry<String, Object>>> internalSections(
+  private List<Callable<SectionResult>> internalSectionTasks(
       HarnessToolBundleRequest request,
-      HarnessToolBundleType bundleType,
-      ExecutorService executor
+      HarnessToolBundleType bundleType
   ) {
-    List<CompletableFuture<Map.Entry<String, Object>>> futures = new ArrayList<>();
+    List<Callable<SectionResult>> tasks = new ArrayList<>();
 
     if (request.taskId() != null && !request.taskId().isBlank()
         && bundleType != HarnessToolBundleType.REPO_CONTEXT) {
-      futures.add(CompletableFuture.supplyAsync(
-          () -> Map.entry("harnessState", harnessStateService.loadState(request.taskId())),
-          executor
-      ));
-      futures.add(CompletableFuture.supplyAsync(
-          () -> Map.entry("taskContext", sharedTaskContextService.loadTaskContext(request.taskId())),
-          executor
-      ));
-      futures.add(CompletableFuture.supplyAsync(
-          () -> Map.entry("sharedTaskContext", sharedTaskContextService.listSharedTaskContext(request.taskId())),
-          executor
-      ));
+      tasks.add(() -> new SectionResult("harnessState", harnessStateService.loadState(request.taskId())));
+      tasks.add(() -> new SectionResult("taskContext", sharedTaskContextService.loadTaskContext(request.taskId())));
+      tasks.add(() -> new SectionResult("sharedTaskContext", sharedTaskContextService.listSharedTaskContext(request.taskId())));
     }
 
     if (request.queryText() != null && !request.queryText().isBlank()
         && bundleType != HarnessToolBundleType.REPO_CONTEXT) {
-      futures.add(CompletableFuture.supplyAsync(
-          () -> Map.entry("semanticContext", semanticContext(request.projectKey(), request.queryText(), normalizeLimit(request.limit()))),
-          executor
+      tasks.add(() -> new SectionResult(
+          "semanticContext",
+          semanticContext(request.projectKey(), request.queryText(), normalizeLimit(request.limit()))
       ));
     }
 
     if (bundleType == HarnessToolBundleType.WORKER_CONTEXT) {
-      futures.add(CompletableFuture.supplyAsync(
-          () -> Map.entry("dashboardSummary", dashboardSummaryService.loadDashboardSummary()),
-          executor
-      ));
+      tasks.add(() -> new SectionResult("dashboardSummary", dashboardSummaryService.loadDashboardSummary()));
     }
 
     if (bundleType == HarnessToolBundleType.LANGUAGE_CONTEXT) {
-      futures.add(CompletableFuture.supplyAsync(
-          () -> Map.entry("cleanJavaRules", readDoc("RULES.md")),
-          executor
-      ));
-      futures.add(CompletableFuture.supplyAsync(
-          () -> Map.entry(
-              "cleanJavaContext",
-              cleanJavaTaskContextService.buildContext(
-                  request.taskId(),
-                  request.workerTaskId(),
-                  request.projectKey(),
-                  Path.of(normalizeRepoPath(request.repoPath())),
-                  request.queryText()
-              )
-          ),
-          executor
+      tasks.add(() -> new SectionResult("cleanJavaRules", readDoc("RULES.md")));
+      tasks.add(() -> new SectionResult(
+          "cleanJavaContext",
+          cleanJavaTaskContextService.buildContext(
+              request.taskId(),
+              request.workerTaskId(),
+              request.projectKey(),
+              Path.of(normalizeRepoPath(request.repoPath())),
+              request.queryText()
+          )
       ));
     }
 
     if (request.projectKey() != null && !request.projectKey().isBlank()) {
-      futures.add(CompletableFuture.supplyAsync(
-          () -> Map.entry(
-              "memory",
-              harnessMemoryService.buildBundleMemory(
-                  bundleType.value(),
-                  request.projectKey(),
-                  request.taskId(),
-                  request.workerTaskId(),
-                  request.repoPath(),
-                  request.queryText()
-              )
-          ),
-          executor
+      tasks.add(() -> new SectionResult(
+          "memory",
+          harnessMemoryService.buildBundleMemory(
+              bundleType.value(),
+              request.projectKey(),
+              request.taskId(),
+              request.workerTaskId(),
+              request.repoPath(),
+              request.queryText()
+          )
       ));
     }
 
-    return futures;
+    return tasks;
+  }
+
+  private <T> List<T> runBatchedTasks(List<? extends Callable<? extends T>> tasks, int cap, String scopeName) {
+    if (tasks.isEmpty()) {
+      return List.of();
+    }
+    int batchSize = cap <= 0 ? tasks.size() : Math.min(cap, tasks.size());
+    List<T> results = new ArrayList<>(tasks.size());
+    for (int index = 0; index < tasks.size(); index += batchSize) {
+      int end = Math.min(index + batchSize, tasks.size());
+      List<? extends Callable<? extends T>> batch = tasks.subList(index, end);
+      results.addAll(runBatch(batch, scopeName));
+    }
+    return results;
+  }
+
+  private <T> List<T> runBatch(List<? extends Callable<? extends T>> batch, String scopeName) {
+    AsyncTask.ScopeOptions options = AsyncTask.ScopeOptions.defaults().withName(scopeName);
+    try {
+      return AsyncTask.runMultipleAsync(batch, options);
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Harness bundle tasks interrupted.", exception);
+    } catch (StructuredTaskScope.TimeoutException | StructuredTaskScope.FailedException exception) {
+      throw new IllegalStateException("Harness bundle tasks failed.", exception);
+    }
   }
 
   private RepoContextBundle loadRepoContext(
@@ -305,5 +319,8 @@ public class HarnessToolBundleService {
       Map<String, Object> downstreamSections,
       List<DownstreamMcpToolResult> downstreamResults
   ) {
+  }
+
+  private record SectionResult(String key, Object value) {
   }
 }

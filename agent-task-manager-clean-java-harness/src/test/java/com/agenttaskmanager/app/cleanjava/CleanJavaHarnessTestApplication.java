@@ -6,6 +6,8 @@ import com.agenttaskmanager.app.config.CodexExecutionProperties;
 import com.agenttaskmanager.app.config.ComputerUseProperties;
 import com.agenttaskmanager.app.config.EmbeddingProperties;
 import com.agenttaskmanager.app.config.KnowledgeIndexProperties;
+import com.agenttaskmanager.app.config.MemoryRuntimeProperties;
+import com.agenttaskmanager.app.config.MemorySyncProperties;
 import com.agenttaskmanager.app.config.McpServerProperties;
 import com.agenttaskmanager.app.config.MongoProperties;
 import com.agenttaskmanager.app.config.OperatorSurfaceProperties;
@@ -17,13 +19,15 @@ import com.agenttaskmanager.app.config.SemanticIndexProperties;
 import com.agenttaskmanager.app.config.TaskRuntimeProperties;
 import com.agenttaskmanager.app.config.ToolPolicyProperties;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication(
     scanBasePackages = {"com.agenttaskmanager.app", "cache"},
-    exclude = MongoAutoConfiguration.class
+    excludeName = {
+        "org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration",
+        "org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration"
+    }
 )
 @EnableScheduling
 @EnableConfigurationProperties({
@@ -40,6 +44,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     EmbeddingProperties.class,
     SemanticIndexProperties.class,
     KnowledgeIndexProperties.class,
+    MemorySyncProperties.class,
+    MemoryRuntimeProperties.class,
     OrchestrationProperties.class,
     McpServerProperties.class,
     ToolPolicyProperties.class

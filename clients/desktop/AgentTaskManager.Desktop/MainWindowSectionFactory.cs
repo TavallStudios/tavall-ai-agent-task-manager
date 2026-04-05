@@ -243,6 +243,8 @@ internal static class MainWindowSectionFactory
                 "Global language preset",
                 MainWindowElementFactory.BoundComboBox("McpPolicy.LanguagePresetOptions", "McpPolicy.GlobalLanguagePreset")),
             MainWindowElementFactory.BoundTextBox("Global custom DI descriptor", "McpPolicy.GlobalCustomDiDescriptor"),
+            MainWindowElementFactory.BoundTextBox("Global internal concurrency cap (0 = unlimited)", "McpPolicy.GlobalInternalConcurrencyCap"),
+            MainWindowElementFactory.BoundTextBox("Global downstream concurrency cap (0 = unlimited)", "McpPolicy.GlobalDownstreamConcurrencyCap"),
             MainWindowElementFactory.Label("Repo Harness Overrides", MainWindowElementFactory.SemiBoldWeight, 15),
             MainWindowElementFactory.LabeledField(
                 "Repo DI preset",
@@ -251,10 +253,14 @@ internal static class MainWindowSectionFactory
                 "Repo language preset",
                 MainWindowElementFactory.BoundComboBox("McpPolicy.LanguagePresetOptions", "McpPolicy.RepoLanguagePreset")),
             MainWindowElementFactory.BoundTextBox("Repo custom DI descriptor", "McpPolicy.RepoCustomDiDescriptor"),
+            MainWindowElementFactory.BoundTextBox("Repo internal concurrency cap (blank = inherit)", "McpPolicy.RepoInternalConcurrencyCap"),
+            MainWindowElementFactory.BoundTextBox("Repo downstream concurrency cap (blank = inherit)", "McpPolicy.RepoDownstreamConcurrencyCap"),
             MainWindowElementFactory.Label("Effective Harness Preferences", MainWindowElementFactory.SemiBoldWeight, 15),
             MainWindowElementFactory.ReadOnlyBoundValue("Effective DI preset", "McpPolicy.EffectiveDiPreset"),
             MainWindowElementFactory.ReadOnlyBoundValue("Effective language preset", "McpPolicy.EffectiveLanguagePreset"),
             MainWindowElementFactory.ReadOnlyBoundValue("Effective custom DI descriptor", "McpPolicy.EffectiveCustomDiDescriptor"),
+            MainWindowElementFactory.ReadOnlyBoundValue("Effective internal concurrency cap", "McpPolicy.EffectiveInternalConcurrencyCap"),
+            MainWindowElementFactory.ReadOnlyBoundValue("Effective downstream concurrency cap", "McpPolicy.EffectiveDownstreamConcurrencyCap"),
             MainWindowElementFactory.BoundMultilineTextBox("Global policy JSON", "McpPolicy.GlobalPolicyJson", 170),
             MainWindowElementFactory.BoundMultilineTextBox("Repo policy JSON", "McpPolicy.RepoPolicyJson", 170),
             MainWindowElementFactory.BoundMultilineTextBox("Merged preview", "McpPolicy.MergedPreviewJson", 170)), 0, 1);
