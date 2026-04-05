@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AgentTaskManager.Desktop")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9af67fcd3e5a4963f2bed9f7d849bd21c96c93b7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c30778bb3f74dae72624e86f6e75463ec888d2eb")]
 [assembly: System.Reflection.AssemblyProductAttribute("AgentTaskManager.Desktop")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AgentTaskManager.Desktop")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

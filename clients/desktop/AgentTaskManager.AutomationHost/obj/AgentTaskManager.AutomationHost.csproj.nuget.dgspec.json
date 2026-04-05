@@ -10,7 +10,7 @@
         "projectUniqueName": "F:\\workspace\\AgentTaskManager\\clients\\desktop\\AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj",
         "projectName": "AgentTaskManager.AutomationHost",
         "projectPath": "F:\\workspace\\AgentTaskManager\\clients\\desktop\\AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj",
-        "packagesPath": "F:\\workspace\\AgentTaskManager\\.dotnet-home\\.nuget\\packages\\",
+        "packagesPath": "C:\\Users\\TJ\\.nuget\\packages\\",
         "outputPath": "F:\\workspace\\AgentTaskManager\\clients\\desktop\\AgentTaskManager.AutomationHost\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
@@ -41,7 +41,7 @@
           ]
         },
         "restoreAuditProperties": {
-          "enableAudit": "false",
+          "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
         },

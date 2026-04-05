@@ -4,7 +4,12 @@ namespace AgentTaskManager.AutomationHost;
 
 internal sealed record AutomationRequest(string? Id, string Command, JsonElement Parameters);
 
-internal sealed record AutomationResponse(string? Id, bool Ok, object? Result = null, AutomationError? Error = null);
+internal sealed record AutomationResponse(
+    string? Id,
+    bool Ok,
+    object? Result = null,
+    AutomationError? Error = null,
+    IReadOnlyDictionary<string, object?>? Metadata = null);
 
 internal sealed record AutomationError(string Code, string Message);
 

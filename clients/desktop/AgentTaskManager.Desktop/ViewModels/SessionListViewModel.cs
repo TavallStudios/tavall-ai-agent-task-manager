@@ -26,7 +26,14 @@ public sealed class SessionListViewModel : ObservableObject
 
     public void ReplaceSessions(IEnumerable<SessionSummaryDto> sessions)
     {
-        Sessions.ReplaceWith(sessions.OrderByDescending(item => item.LastEventAt));
+        string? selectedSessionId = SelectedSession?.SessionId;
+        List<SessionSummaryDto> ordered = sessions
+            .OrderByDescending(item => item.LastEventAt)
+            .ToList();
+        Sessions.ReplaceWith(ordered);
+        SelectedSession = selectedSessionId == null
+            ? ordered.FirstOrDefault()
+            : ordered.FirstOrDefault(item => item.SessionId == selectedSessionId) ?? ordered.FirstOrDefault();
         StatusMessage = Sessions.Count == 0
             ? "No sessions are available for this account."
             : $"Loaded {Sessions.Count} recent sessions.";

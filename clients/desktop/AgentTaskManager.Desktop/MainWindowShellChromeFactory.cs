@@ -63,7 +63,7 @@ internal static class MainWindowShellChromeFactory
             {
                 MainWindowElementFactory.Label("Operator Surface", MainWindowElementFactory.BoldWeight, 28),
                 MainWindowElementFactory.Label(
-                    "Switch between local and remote backends, reuse the installed Codex setup, and drive sessions, review, and diagnostics from one desktop console.",
+                    "Drive Work, Operations, Remote, and Settings from one desktop operator surface with managed compatibility adapters.",
                     MainWindowElementFactory.MediumWeight,
                     13,
                     MainWindowElementFactory.TextSecondaryBrush),

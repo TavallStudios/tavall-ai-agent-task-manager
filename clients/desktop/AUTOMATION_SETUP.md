@@ -43,7 +43,18 @@ To run it as an HTTP listener instead of stdio:
 F:\workspace\AgentTaskManager\clients\desktop\start-automation-host.ps1 -Build -HttpPort 54123
 ```
 
-The listener accepts `POST /request` with the same JSON envelope as stdio and `GET /health` for readiness checks.
+Canonical HTTP endpoints:
+
+- `POST /api/automation/command`
+- `GET /api/automation/health`
+- `GET /api/automation/capabilities`
+- `POST /api/automation/lease/heartbeat`
+
+Compatibility aliases remain for one release cycle:
+
+- `POST /request`
+- `POST /execute`
+- `GET /health`
 
 ## Useful Commands
 
@@ -142,7 +153,7 @@ When another process should own orchestration, start the host in HTTP mode and p
 ```powershell
 $response = Invoke-RestMethod `
   -Method Post `
-  -Uri 'http://127.0.0.1:54123/request' `
+  -Uri 'http://127.0.0.1:54123/api/automation/command' `
   -ContentType 'application/json' `
   -Body '{"id":"ping","command":"ping","parameters":{}}'
 

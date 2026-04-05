@@ -75,6 +75,11 @@ public interface ISessionStreamService
         CancellationToken cancellationToken);
 }
 
+public interface IRepoNextActionService
+{
+    RepoNextAction Resolve(SessionSummaryDto summary);
+}
+
 public interface IRuntimeSessionClientService
 {
     Task MarkConnectedAsync(string sessionId, RuntimeConnectedRequestDto request, CancellationToken cancellationToken);
@@ -160,4 +165,27 @@ public interface IDiffNavigationService
 public interface IRemoteSessionResumeService
 {
     Task<SessionDetailDto> ResumeAsync(string sessionId, CancellationToken cancellationToken);
+}
+
+public interface IOperationCatalogService
+{
+    Task<IReadOnlyList<OperationGroupDto>> ListOperationGroupsAsync(CancellationToken cancellationToken);
+}
+
+public interface IMcpPolicyService
+{
+    Task<McpPolicyScopeDto> LoadGlobalPolicyAsync(CancellationToken cancellationToken);
+    Task<McpPolicyScopeDto> LoadRepoPolicyAsync(string scopeKey, CancellationToken cancellationToken);
+    Task SaveGlobalPolicyAsync(McpPolicyScopeDto policy, CancellationToken cancellationToken);
+    Task SaveRepoPolicyAsync(McpPolicyScopeDto policy, CancellationToken cancellationToken);
+    Task<McpPolicyPreviewDto> LoadMergedPreviewAsync(string scopeKey, CancellationToken cancellationToken);
+}
+
+public interface IRemoteRunnerProfileService
+{
+    Task<IReadOnlyList<RemoteRunnerProfileDto>> ListProfilesAsync(CancellationToken cancellationToken);
+    Task<RemoteRunnerProfileDto> SaveProfileAsync(RemoteRunnerProfileDto profile, string? runnerAuthToken, CancellationToken cancellationToken);
+    Task DeleteProfileAsync(string profileId, CancellationToken cancellationToken);
+    Task SelectProfileAsync(string profileId, CancellationToken cancellationToken);
+    Task<RemoteRunnerConnectionTestDto> TestProfileAsync(RemoteRunnerProfileDto profile, CancellationToken cancellationToken);
 }

@@ -10,13 +10,16 @@ public sealed class CodexWorkspaceConfigurationService : ICodexWorkspaceConfigur
     private const string OriginatorOverride = "agenttaskmanager_desktop";
     private readonly ICodexEnvironmentService _codexEnvironmentService;
     private readonly IDesktopConnectionSettingsService _connectionSettingsService;
+    private readonly IMcpPolicyService _mcpPolicyService;
 
     public CodexWorkspaceConfigurationService(
         ICodexEnvironmentService codexEnvironmentService,
-        IDesktopConnectionSettingsService connectionSettingsService)
+        IDesktopConnectionSettingsService connectionSettingsService,
+        IMcpPolicyService mcpPolicyService)
     {
         _codexEnvironmentService = codexEnvironmentService;
         _connectionSettingsService = connectionSettingsService;
+        _mcpPolicyService = mcpPolicyService;
     }
 
     public async Task<RuntimeLaunchEnvelopeDto> BuildLaunchEnvelopeAsync(SessionDetailDto session, CancellationToken cancellationToken)
@@ -37,6 +40,12 @@ public sealed class CodexWorkspaceConfigurationService : ICodexWorkspaceConfigur
         string preferredModel = string.IsNullOrWhiteSpace(session.RuntimeConnection.PreferredModel)
             ? "gpt-5.3-codex"
             : session.RuntimeConnection.PreferredModel;
+        McpPolicyPreviewDto? mergedPolicy = await TryLoadMergedPolicyAsync(binding.ProfileKey, cancellationToken);
+        IReadOnlyList<string> requiredServers = mergedPolicy is { EnabledServers.Count: > 0 }
+            ? mergedPolicy.EnabledServers
+            : binding.McpServers.Select(server => server.Name).ToList();
+        HarnessPreferencesDto harnessPreferences = mergedPolicy?.HarnessPreferences
+            ?? new HarnessPreferencesDto("service-loader", "java", string.Empty, true, ["checkstyle", "pmd", "error-prone"], "error", "fail");
 
         var arguments = new List<string>
         {
@@ -53,7 +62,18 @@ public sealed class CodexWorkspaceConfigurationService : ICodexWorkspaceConfigur
             ["CODEX_HOME"] = setup.CodexHomePath,
             ["AGENTTASKMANAGER_SESSION_ID"] = session.Summary.SessionId,
             ["AGENTTASKMANAGER_RUNTIME_ID"] = session.RuntimeConnection.RuntimeId,
-            ["AGENTTASKMANAGER_CODEX_AUTH_MODE"] = setup.AuthMode
+            ["AGENTTASKMANAGER_CODEX_AUTH_MODE"] = setup.AuthMode,
+            ["AGENTTASKMANAGER_MCP_POLICY_SCOPE"] = binding.ProfileKey,
+            ["AGENTTASKMANAGER_MCP_POLICY_ENABLED_TOOLS"] = mergedPolicy is { EnabledTools.Count: > 0 }
+                ? string.Join(",", mergedPolicy.EnabledTools)
+                : string.Empty,
+            ["AGENTTASKMANAGER_HARNESS_DI_PRESET"] = harnessPreferences.DiPreset,
+            ["AGENTTASKMANAGER_HARNESS_LANGUAGE_PRESET"] = harnessPreferences.LanguagePreset,
+            ["AGENTTASKMANAGER_HARNESS_CUSTOM_DI_DESCRIPTOR"] = harnessPreferences.CustomDiDescriptor,
+            ["AGENTTASKMANAGER_HARNESS_LINT_ENABLED"] = (harnessPreferences.LintEnabled ?? true) ? "true" : "false",
+            ["AGENTTASKMANAGER_HARNESS_LINT_ENGINES"] = string.Join(",", harnessPreferences.LintEngines),
+            ["AGENTTASKMANAGER_HARNESS_LINT_STRICTNESS"] = harnessPreferences.LintStrictness,
+            ["AGENTTASKMANAGER_HARNESS_LINT_UNSUPPORTED_REPO_POLICY"] = harnessPreferences.LintUnsupportedRepoPolicy
         };
 
         await PersistSnapshotAsync(
@@ -79,7 +99,7 @@ public sealed class CodexWorkspaceConfigurationService : ICodexWorkspaceConfigur
             binding.WorkingDirectory,
             binding.ProfileKey,
             preferredModel,
-            binding.McpServers.Select(server => server.Name).ToList(),
+            requiredServers,
             binding.ConfigLayers,
             binding.ApprovalPolicy,
             binding.SandboxMode,
@@ -87,6 +107,18 @@ public sealed class CodexWorkspaceConfigurationService : ICodexWorkspaceConfigur
             true,
             true,
             $"Launches the official OpenAI codex app-server locally using CODEX_HOME={setup.CodexHomePath}.");
+    }
+
+    private async Task<McpPolicyPreviewDto?> TryLoadMergedPolicyAsync(string scopeKey, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _mcpPolicyService.LoadMergedPreviewAsync(scopeKey, cancellationToken);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static async Task PersistSnapshotAsync(

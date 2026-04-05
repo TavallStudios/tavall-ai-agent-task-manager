@@ -1,4 +1,6 @@
 using AgentTaskManager.Desktop.ViewModels;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Graphics;
@@ -10,6 +12,8 @@ public sealed class MainWindow : Window
 {
     private readonly FrameworkElement _rootContent;
     private readonly PasswordBox _backendPasswordBox;
+    private readonly RepoTabViewRenderer _repoTabViewRenderer;
+    private bool _repoTabsRebuildPending;
 
     public MainShellViewModel ViewModel { get; }
 
@@ -22,6 +26,7 @@ public sealed class MainWindow : Window
         _rootContent.DataContext = ViewModel;
         _rootContent.Loaded += OnRootLoaded;
         _backendPasswordBox = controls.BackendPasswordBox;
+        _repoTabViewRenderer = new RepoTabViewRenderer(controls.RepoTabView);
         controls.SignInButton.Click += OnSignIn;
         controls.SignOutButton.Click += OnSignOut;
         controls.SaveConnectionButton.Click += OnSaveConnectionProfile;
@@ -39,7 +44,21 @@ public sealed class MainWindow : Window
         controls.SubmitTurnButton.Click += OnSubmitTurn;
         controls.OpenSelectedPatchButton.Click += OnOpenSelectedPatch;
         controls.OpenSelectedFileButton.Click += OnOpenSelectedFile;
+        controls.RepoNextActionButton.Click += OnRunRepoNextAction;
+        controls.RefreshOperationsButton.Click += OnRefreshOperations;
+        controls.NewRemoteRunnerProfileButton.Click += OnNewRemoteRunnerProfile;
+        controls.SaveRemoteRunnerProfileButton.Click += OnSaveRemoteRunnerProfile;
+        controls.DeleteRemoteRunnerProfileButton.Click += OnDeleteRemoteRunnerProfile;
+        controls.SelectRemoteRunnerProfileButton.Click += OnSelectRemoteRunnerProfile;
+        controls.TestRemoteRunnerProfileButton.Click += OnTestRemoteRunnerProfile;
+        controls.RefreshMcpPolicyButton.Click += OnRefreshMcpPolicy;
+        controls.SaveGlobalMcpPolicyButton.Click += OnSaveGlobalMcpPolicy;
+        controls.SaveRepoMcpPolicyButton.Click += OnSaveRepoMcpPolicy;
+        controls.RepoTabView.SelectionChanged += OnRepoTabSelectionChanged;
         controls.SessionListView.SelectionChanged += OnSessionSelectionChanged;
+        ViewModel.Repos.Tabs.CollectionChanged += OnRepoTabsCollectionChanged;
+        ViewModel.Repos.PropertyChanged += OnRepoTabsPropertyChanged;
+        RebuildRepoTabs();
         Closed += OnWindowClosed;
         Content = _rootContent;
 
@@ -64,6 +83,8 @@ public sealed class MainWindow : Window
         DesktopDiagnosticsLog.WriteInfo("Main window closing. Shutting down managed desktop services.");
         try
         {
+            ViewModel.Repos.Tabs.CollectionChanged -= OnRepoTabsCollectionChanged;
+            ViewModel.Repos.PropertyChanged -= OnRepoTabsPropertyChanged;
             await ViewModel.ShutdownAsync();
         }
         catch (Exception exception)
@@ -138,7 +159,11 @@ public sealed class MainWindow : Window
 
     private async void OnSessionSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        await RunUiActionAsync(() => ViewModel.LoadSelectedSessionAsync());
+        await RunUiActionAsync(async () =>
+        {
+            await ViewModel.LoadSelectedSessionAsync();
+            ViewModel.SyncRepoSelectionFromSessionList();
+        });
     }
 
     private async void OnResumeSelectedSession(object sender, RoutedEventArgs e)
@@ -165,6 +190,113 @@ public sealed class MainWindow : Window
     {
         await RunUiActionAsync(() => ViewModel.OpenSelectedFileAsync());
     }
+
+    private async void OnRepoTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_repoTabViewRenderer.IsSyncing)
+        {
+            return;
+        }
+
+        if (!_repoTabViewRenderer.TryGetSelectedRepoKey(out string repoKey))
+        {
+            return;
+        }
+
+        await RunUiActionAsync(async () =>
+        {
+            ViewModel.SelectRepoTab(repoKey);
+            await ViewModel.LoadSelectedRepoTabAsync();
+        });
+    }
+
+    private async void OnRunRepoNextAction(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(() => ViewModel.RunSelectedRepoNextActionAsync());
+    }
+
+    private async void OnRefreshOperations(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(() => ViewModel.Operations.RefreshAsync(CancellationToken.None));
+    }
+
+    private async void OnNewRemoteRunnerProfile(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(() =>
+        {
+            ViewModel.RemoteRunners.NewProfile();
+            return Task.CompletedTask;
+        });
+    }
+
+    private async void OnSaveRemoteRunnerProfile(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(() => ViewModel.RemoteRunners.SaveAsync(CancellationToken.None));
+    }
+
+    private async void OnDeleteRemoteRunnerProfile(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(() => ViewModel.RemoteRunners.DeleteSelectedAsync(CancellationToken.None));
+    }
+
+    private async void OnSelectRemoteRunnerProfile(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            await ViewModel.RemoteRunners.SelectDefaultAsync(CancellationToken.None);
+            if (ViewModel.RemoteRunners.SelectedProfile is { } selected)
+            {
+                ViewModel.Connection.PreferredProfileKey = selected.ProfileId;
+                await ViewModel.SaveConnectionAsync();
+            }
+        });
+    }
+
+    private async void OnTestRemoteRunnerProfile(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(() => ViewModel.RemoteRunners.TestSelectedAsync(CancellationToken.None));
+    }
+
+    private async void OnRefreshMcpPolicy(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(() => ViewModel.McpPolicy.RefreshAsync(CancellationToken.None));
+    }
+
+    private async void OnSaveGlobalMcpPolicy(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(() => ViewModel.McpPolicy.SaveGlobalAsync(CancellationToken.None));
+    }
+
+    private async void OnSaveRepoMcpPolicy(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(() => ViewModel.McpPolicy.SaveRepoAsync(CancellationToken.None));
+    }
+
+    private void OnRepoTabsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (_repoTabsRebuildPending)
+        {
+            return;
+        }
+
+        _repoTabsRebuildPending = true;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            _repoTabsRebuildPending = false;
+            RebuildRepoTabs();
+        });
+    }
+
+    private void OnRepoTabsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(RepoTabsViewModel.SelectedTab))
+        {
+            _repoTabViewRenderer.SyncSelected(ViewModel.Repos.SelectedTab?.RepoKey);
+        }
+    }
+
+    private void RebuildRepoTabs()
+        => _repoTabViewRenderer.Rebuild(ViewModel.Repos.Tabs, ViewModel.Repos.SelectedTab?.RepoKey);
 
     private async Task RunUiActionAsync(Func<Task> action)
     {

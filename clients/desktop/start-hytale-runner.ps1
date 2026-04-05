@@ -46,6 +46,8 @@ Write-Host ""
 Write-Host "Suggested AgentTaskManager env overrides:"
 Write-Host "  AGENT_TASK_MANAGER_HYTALE_LAUNCHER_PATH=$HytaleLauncherPath"
 Write-Host "  AGENT_TASK_MANAGER_HYTALE_CLIENT_PATH=$HytaleClientPath"
+Write-Host "  AGENT_TASK_MANAGER_COMPUTER_USE_RUNNER_COMMAND_PATH=/api/automation/command"
+Write-Host "  AGENT_TASK_MANAGER_COMPUTER_USE_RUNNER_CAPABILITIES_PATH=/api/automation/capabilities"
 Write-Host ""
 
 $arguments = @{}
