@@ -29,6 +29,15 @@ Example MCP config files are included in:
 - `mcp-config/tavall-ai.stdio.unix.example.json`
 - `mcp-config/tavall-ai.stdio.windows.example.json`
 
+### MCP Stdio Options
+
+- `TAVALL_AI_STDIO_PROTOCOL=auto|content-length|line`
+  Controls stdio framing auto-detect and overrides when needed. Default is `auto`.
+- `TAVALL_AI_STDIO_DISABLE_DB=1`
+  Disables embedded Postgres for stdio-only smoke tests or CI runs. Persistence-backed tools are unavailable in this mode.
+- `AGENT_TASK_MANAGER_CODEX_MCP_SERVER_BIN_DIR=/path/to/mcp-servers/bin`
+  Preferred location for local MCP binaries (git/ripgrep/etc) before falling back to `PATH`.
+
 ## Desktop Operator Surface
 
 The first-party operator experience is now desktop-first (`clients/desktop/AgentTaskManager.Desktop`) with four surfaces:
@@ -335,7 +344,6 @@ The MCP surface now also exposes canonical semantic/context tool names that matc
 For AgentTaskManager itself, custom memory no longer depends on the legacy file-backed `memory` MCP server. Prompt and task memory flow through the harness semantic pipeline, which chunks payloads, embeds them, stores them in Qdrant with metadata, and retrieves the original chunk text/code back into worker context.
 
 Tool modules are now split by domain/concern instead of keeping every handler inside `tavall-ai-core`. The central MCP imports dedicated artifact, cache, context, orchestration, repo-workflow, validation, and vector-memory tool modules, leaving `tavall-ai-core` focused on shared runtime services and MCP infrastructure.
-
 
 
 

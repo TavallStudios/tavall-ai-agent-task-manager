@@ -9,6 +9,12 @@ Scope:
 - downstream generic git mutation tools are intentionally not part of the AgentTaskManager commit workflow
 - excludes MCP prompts, resources, and HTTP endpoints
 
+## MCP Runtime Notes
+
+- `TAVALL_AI_STDIO_PROTOCOL=auto|content-length|line` controls stdio framing.
+- `TAVALL_AI_STDIO_DISABLE_DB=1` disables embedded Postgres for stdio-only smoke runs (persistence-backed tools are unavailable).
+- `AGENT_TASK_MANAGER_CODEX_MCP_SERVER_BIN_DIR=/path/to/mcp-servers/bin` sets the preferred local MCP binaries path.
+
 ## CLI Commands
 
 Source: [CliCommandService.java](/F:/workspace/AgentTaskManager/tavall-ai-core/src/main/java/com/agenttaskmanager/app/cli/CliCommandService.java), [AgentTaskManagerLauncher.java](/F:/workspace/AgentTaskManager/tavall-ai-app/src/main/java/com/agenttaskmanager/app/AgentTaskManagerLauncher.java)
@@ -196,6 +202,5 @@ Source: [CleanJavaMcpTools.java](/F:/workspace/AgentTaskManager/tavall-ai-clean-
 | `runCleanJavaArchUnit` | Runs clean Java ArchUnit rules against a repo. |
 | `runCleanJavaSpoon` | Runs clean Java Spoon source-shape rules. |
 | `validateCleanJavaPatchScope` | Validates clean Java patch scope. |
-
 
 
