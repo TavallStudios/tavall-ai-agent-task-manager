@@ -12,13 +12,18 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$jarPath = Join-Path $repoRoot 'tavall-ai-app\target\tavall-ai-app-0.1.0-SNAPSHOT.jar'
+$targetDir = Join-Path $repoRoot 'tavall-ai-app\target'
+$jarPath = Get-ChildItem -Path $targetDir -Filter 'tavall-ai-app-*.jar' |
+    Where-Object { $_.Name -notmatch 'sources|javadoc|tests|plain|original' } |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+$jarPath = if ($jarPath) { $jarPath.FullName } else { $null }
 $logDir = Join-Path $repoRoot ".tmp\local-backend\$Port"
 $stdoutPath = Join-Path $logDir 'stdout.log'
 $stderrPath = Join-Path $logDir 'stderr.log'
 
-if (-not (Test-Path $jarPath)) {
-    throw "Jar not found at '$jarPath'. Build it first with: mvn -pl tavall-ai-app -am -DskipTests package"
+if (-not $jarPath -or -not (Test-Path $jarPath)) {
+    throw "Jar not found in '$targetDir'. Build it first with: mvn -pl tavall-ai-app -am -Dmaven.test.skip=true package"
 }
 
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -26,6 +31,7 @@ if (Test-Path $stdoutPath) { Remove-Item $stdoutPath -Force }
 if (Test-Path $stderrPath) { Remove-Item $stderrPath -Force }
 
 $arguments = @(
+    '--enable-preview',
     '-jar',
     $jarPath,
     "--server.port=$Port",
