@@ -6,7 +6,7 @@ The browser control surface for this flow lives at `/computer-use` on the AgentT
 
 ## Components
 
-- Control plane: `agent-task-manager-app`
+- Control plane: `tavall-ai-app`
 - Windows runner host: `clients/desktop/AgentTaskManager.AutomationHost`
 - Hytale-first MCP surface:
   - `registerComputerUseRunner`
@@ -125,3 +125,4 @@ These commands are enough for windowed or borderless Hytale. Exclusive fullscree
 
 The canonical runner command endpoint is `/api/automation/command` with capabilities at
 `/api/automation/capabilities`. Compatibility aliases (`/request`, `/execute`) are temporary.
+

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${1:-${AGENT_TASK_MANAGER_MCP_BASE_URL:-https://docs.tavall.org/agent-task-manager}}"
+BASE_URL="${1:-${AGENT_TASK_MANAGER_MCP_BASE_URL:-https://docs.tavall.org/tavall-ai}}"
 USERNAME="${2:-${AGENT_TASK_MANAGER_USERNAME:-agent}}"
 PASSWORD="${3:-${AGENT_TASK_MANAGER_PASSWORD:-}}"
 
@@ -71,3 +71,4 @@ echo
 echo
 echo "Dashboard summary event:"
 cat "${tmpdir}/summary.sse"
+
