@@ -14,11 +14,10 @@ def plugin_root() -> Path:
 
 
 def has_repo_layout(candidate: Path) -> bool:
-  return (
-      (candidate / "pom.xml").is_file()
-      and (candidate / "tavall-ai-app").is_dir()
-      and (candidate / "tavall-ai").is_dir()
-  )
+  has_app = (candidate / "tavall-ai-app").is_dir()
+  has_core = (candidate / "tavall-ai-core").is_dir()
+  has_legacy_root = (candidate / "agent-task-manager").is_dir()
+  return (candidate / "pom.xml").is_file() and has_app and (has_core or has_legacy_root)
 
 
 def candidate_repo_roots() -> list[Path]:
@@ -76,13 +75,26 @@ def resolve_maven_command() -> str | None:
   return None
 
 
-def app_jar_path(repo_root: Path) -> Path:
-  return repo_root / "tavall-ai-app" / "target" / "tavall-ai-app-0.1.0-SNAPSHOT.jar"
+def app_jar_candidates(repo_root: Path) -> list[Path]:
+  target_dir = repo_root / "tavall-ai-app" / "target"
+  if not target_dir.is_dir():
+    return []
+  candidates = [
+      path
+      for path in target_dir.glob("tavall-ai-app-*.jar")
+      if not path.name.endswith(('-sources.jar', '-javadoc.jar', '-tests.jar', '-plain.jar'))
+  ]
+  return sorted(candidates, key=lambda item: item.stat().st_mtime, reverse=True)
+
+
+def app_jar_path(repo_root: Path) -> Path | None:
+  candidates = app_jar_candidates(repo_root)
+  return candidates[0] if candidates else None
 
 
 def ensure_app_jar(repo_root: Path) -> Path:
   jar_path = app_jar_path(repo_root)
-  if jar_path.is_file():
+  if jar_path and jar_path.is_file():
     return jar_path
 
   maven_command = resolve_maven_command()
@@ -96,8 +108,9 @@ def ensure_app_jar(repo_root: Path) -> Path:
       cwd=repo_root,
       check=True,
   )
-  if not jar_path.is_file():
-    raise RuntimeError(f"Expected ATM app jar at {jar_path} after build, but it was not created.")
+  jar_path = app_jar_path(repo_root)
+  if not jar_path or not jar_path.is_file():
+    raise RuntimeError("Expected ATM app jar after build, but it was not created.")
   return jar_path
 
 
