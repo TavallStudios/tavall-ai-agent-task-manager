@@ -71,9 +71,9 @@ Source: [ContextToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-conte
 | Tool | What it does |
 | --- | --- |
 | `loadTaskContext` | Loads the aggregated task context payload. |
-| `loadArchitectureRules` | Reads `RULES.md`. |
-| `loadUniversalGuidance` | Reads `UNIVERSAL.md`. |
-| `loadExamples` | Reads `EXAMPLES.md`. |
+| `loadArchitectureRules` | Reads `docs/RULES.md`. |
+| `loadUniversalGuidance` | Reads `docs/UNIVERSAL.md`. |
+| `loadExamples` | Reads `docs/EXAMPLES.md`. |
 | `loadValidationHistory` | Loads stored validation history for a task. |
 | `loadDashboardSummary` | Loads the current dashboard summary payload. |
 | `loadChatState` | Loads a chat thread detail payload. |

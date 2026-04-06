@@ -219,7 +219,7 @@ Semantic retrieval flow:
 - HTTP MCP endpoint: `app.mcp.endpoint` with default `/mcp`
 - stdio MCP entrypoint: CLI command `serve-mcp-stdio`
 - prompts: `overseerAgent`, `workerAgent`, `cleanupAgent`
-- resources: `README.md`, `AGENTS.md`, `RULES.md`, `UNIVERSAL.md`, `ARCHITECTURE.md`, `EXAMPLES.md`
+- resources: `README.md`, `docs/AGENTS.md`, `docs/RULES.md`, `docs/UNIVERSAL.md`, `docs/ARCHITECTURE.md`, `docs/EXAMPLES.md`
 - tools: delegation-run orchestration, legacy compatibility task-pool adapters, worker lifecycle, context, validation, artifact, retrieval, cache, computer-use, and decision tools
 
 The default no-args app path now starts [StandaloneAgentTaskManagerServer.java](/F:/workspace/AgentTaskManager/tavall-ai-app/src/main/java/com/agenttaskmanager/app/StandaloneAgentTaskManagerServer.java), which hosts the official MCP Java SDK servlet directly on embedded Tomcat instead of relying on Spring MVC for `/mcp`. The Spring-hosted adapter remains in the repo as a compatibility module for the phase transition and existing web-based integration tests.

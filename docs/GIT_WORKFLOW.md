@@ -27,4 +27,4 @@ Grouping rules:
 
 - commit one concern at a time
 - grouped commits are allowed only when the file set still represents one coherent concern or an explicit mixed-domain override exists
-- supporting root docs such as `README.md` and `TOOLS.md` can accompany a single primary concern, but mixed source domains should be split before committing
+- supporting docs such as `README.md` and `docs/TOOLS.md` can accompany a single primary concern, but mixed source domains should be split before committing
