@@ -3,6 +3,7 @@ package org.tavall.ai.app.harness.tools;
 import org.tavall.ai.app.concurrent.AsyncTask;
 import org.tavall.ai.app.dashboard.DashboardSummaryService;
 import org.tavall.ai.app.desktop.DesktopMcpPolicyService;
+import org.tavall.ai.app.desktop.DownstreamMcpMode;
 import org.tavall.ai.app.harness.cleanjava.CleanJavaTaskContextService;
 import org.tavall.ai.app.harness.state.HarnessStateService;
 import org.tavall.ai.app.mcp.DownstreamMcpToolCall;
@@ -199,15 +200,47 @@ public class HarnessToolBundleService {
       String repoPath,
       int limit
   ) {
-    if (remoteHarnessToolBundleClientService.isEnabled()) {
-      HarnessToolBundleResult remoteResult = remoteHarnessToolBundleClientService.loadRemoteRepoContext(request);
-      return new RepoContextBundle("remote-mcp", downstreamSection(remoteResult), remoteResult.downstreamCalls());
+    DownstreamMcpMode mode = desktopMcpPolicyService
+        .loadHarnessPreferenceCaps(request.projectKey())
+        .downstreamMcpMode();
+    boolean remoteEnabled = remoteHarnessToolBundleClientService.isEnabled();
+
+    if (mode == DownstreamMcpMode.REMOTE_ONLY && remoteEnabled) {
+      try {
+        HarnessToolBundleResult remoteResult = remoteHarnessToolBundleClientService.loadRemoteRepoContext(request);
+        return new RepoContextBundle("remote-mcp", downstreamSection(remoteResult), remoteResult.downstreamCalls());
+      } catch (Exception exception) {
+        // fall back to local if remote fails
+      }
     }
-    List<DownstreamMcpToolResult> downstreamResults = downstreamMcpToolClientService.callTools(
+
+    List<DownstreamMcpToolResult> localResults = downstreamMcpToolClientService.callTools(
         request.projectKey(),
         downstreamCalls(bundleType, repoPath, request.queryText(), limit)
     );
-    return new RepoContextBundle("local-downstream", downstreamSections(downstreamResults), downstreamResults);
+    RepoContextBundle localBundle = new RepoContextBundle(
+        "local-downstream",
+        downstreamSections(localResults),
+        localResults
+    );
+
+    if (mode == DownstreamMcpMode.LOCAL_THEN_REMOTE && remoteEnabled && hasDownstreamErrors(localResults)) {
+      try {
+        HarnessToolBundleResult remoteResult = remoteHarnessToolBundleClientService.loadRemoteRepoContext(request);
+        return new RepoContextBundle("remote-mcp", downstreamSection(remoteResult), remoteResult.downstreamCalls());
+      } catch (Exception exception) {
+        return localBundle;
+      }
+    }
+
+    return localBundle;
+  }
+
+  private boolean hasDownstreamErrors(List<DownstreamMcpToolResult> results) {
+    if (results == null || results.isEmpty()) {
+      return false;
+    }
+    return results.stream().anyMatch(DownstreamMcpToolResult::isError);
   }
 
   private List<DownstreamMcpToolCall> downstreamCalls(

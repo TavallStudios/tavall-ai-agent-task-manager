@@ -1,5 +1,9 @@
 package org.tavall.ai.app.desktop;
 
-public record DesktopHarnessPreferenceCaps(int internalConcurrencyCap, int downstreamConcurrencyCap) {
+public record DesktopHarnessPreferenceCaps(
+    int internalConcurrencyCap,
+    int downstreamConcurrencyCap,
+    DownstreamMcpMode downstreamMcpMode
+) {
 }
 
