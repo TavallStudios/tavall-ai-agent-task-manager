@@ -61,6 +61,7 @@ def build_start_command(
 ) -> list[str]:
   return [
       java_command,
+      "--enable-preview",
       "-jar",
       str(jar_path),
       f"--server.port={port}",

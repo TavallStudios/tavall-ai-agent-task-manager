@@ -4,7 +4,13 @@ from __future__ import annotations
 import argparse
 import os
 
-from _atm_plugin_common import ensure_app_jar, fail, resolve_java_command, resolve_repo_root
+from _atm_plugin_common import (
+    acquire_mcp_stdio_lock,
+    ensure_app_jar,
+    fail,
+    resolve_java_command,
+    resolve_repo_root,
+)
 
 
 def parse_args() -> tuple[argparse.Namespace, list[str]]:
@@ -33,13 +39,14 @@ def main() -> int:
 
   try:
     jar_path = ensure_app_jar(repo_root)
+    acquire_mcp_stdio_lock(repo_root, jar_path)
     java_command = resolve_java_command()
   except RuntimeError as error:
     return fail(str(error))
   except Exception as error:
     return fail(f"Failed to prepare the ATM MCP runtime: {error}")
 
-  command = [java_command, "-jar", str(jar_path), "serve-mcp-stdio", *remainder]
+  command = [java_command, "--enable-preview", "-jar", str(jar_path), "serve-mcp-stdio", *remainder]
   os.execvp(command[0], command)
   return 0
 
