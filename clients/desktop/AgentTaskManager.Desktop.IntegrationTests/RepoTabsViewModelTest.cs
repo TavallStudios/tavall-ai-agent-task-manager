@@ -5,7 +5,7 @@ using Xunit;
 
 namespace AgentTaskManager.Desktop.IntegrationTests;
 
-public sealed class RepoTabsViewModelIntegrationTests
+public sealed class RepoTabsViewModelTest
 {
     private readonly RepoTabsViewModel _viewModel = new(new RepoNextActionService());
 

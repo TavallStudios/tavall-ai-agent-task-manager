@@ -4,7 +4,7 @@ using Xunit;
 
 namespace AgentTaskManager.Desktop.IntegrationTests;
 
-public sealed class RepoNextActionServiceIntegrationTests
+public sealed class RepoNextActionServiceTest
 {
     private readonly RepoNextActionService _service = new();
 
