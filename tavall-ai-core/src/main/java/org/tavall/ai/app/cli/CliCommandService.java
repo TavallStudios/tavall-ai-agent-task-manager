@@ -8,6 +8,7 @@ import org.tavall.ai.app.model.orchestration.TaskAssignment;
 import org.tavall.ai.app.model.orchestration.WorkerExecutionRequest;
 import org.tavall.ai.app.model.orchestration.WorkerTransportKind;
 import org.tavall.ai.app.retrieval.ProjectSemanticIndexService;
+import org.tavall.ai.app.runtime.ServerRuntimeLock;
 import org.tavall.ai.app.model.validation.ValidationReport;
 import org.tavall.ai.app.orchestration.AutonomousCycleService;
 import org.tavall.ai.app.orchestration.LocalCodexWorkerTransport;
@@ -196,22 +197,28 @@ public class CliCommandService {
   }
 
   private int serveMcpStdio() {
-    StdioServerTransportProvider transportProvider = new StdioServerTransportProvider(mcpJsonMapper);
-    McpServer.sync(transportProvider)
-        .serverInfo("AgentTaskManager MCP CLI", "0.1.0")
-        .instructions("Use the task runtime, validation, cleanup, and semantic retrieval tools.")
-        .jsonMapper(mcpJsonMapper)
-        .tools(mcpCatalog.toolSpecifications())
-        .resources(mcpCatalog.resourceSpecifications())
-        .prompts(mcpCatalog.promptSpecifications())
-        .build();
-    print("Serving MCP over stdio.");
-    try {
-      new CountDownLatch(1).await();
-      return 0;
-    } catch (InterruptedException exception) {
-      Thread.currentThread().interrupt();
-      return 1;
+    try (ServerRuntimeLock runtimeLock = ServerRuntimeLock.acquire("mcp-stdio")) {
+      if (runtimeLock == null) {
+        printError("Another Tavall AI server is already running. Stop it before starting stdio.");
+        return 1;
+      }
+      StdioServerTransportProvider transportProvider = new StdioServerTransportProvider(mcpJsonMapper);
+      McpServer.sync(transportProvider)
+          .serverInfo("AgentTaskManager MCP CLI", "0.1.0")
+          .instructions("Use the task runtime, validation, cleanup, and semantic retrieval tools.")
+          .jsonMapper(mcpJsonMapper)
+          .tools(mcpCatalog.toolSpecifications())
+          .resources(mcpCatalog.resourceSpecifications())
+          .prompts(mcpCatalog.promptSpecifications())
+          .build();
+      printError("Serving MCP over stdio.");
+      try {
+        new CountDownLatch(1).await();
+        return 0;
+      } catch (InterruptedException exception) {
+        Thread.currentThread().interrupt();
+        return 1;
+      }
     }
   }
 
@@ -268,6 +275,10 @@ public class CliCommandService {
 
   private void print(String value) {
     System.out.println(value);
+  }
+
+  private void printError(String value) {
+    System.err.println(value);
   }
 
   private record PatchCheckResponse(boolean allowed) {

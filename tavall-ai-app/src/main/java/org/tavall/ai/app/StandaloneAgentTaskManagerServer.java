@@ -10,6 +10,7 @@ import org.tavall.ai.app.http.DesktopControlPlaneServlet;
 import org.tavall.ai.app.http.MemoryContinuityServlet;
 import org.tavall.ai.app.mcp.McpCatalog;
 import org.tavall.ai.app.memory.MemoryContinuityService;
+import org.tavall.ai.app.runtime.ServerRuntimeLock;
 import org.tavall.ai.app.memory.MemoryRetrievalService;
 import org.tavall.ai.app.security.AuthenticatedClientContextHolder;
 import org.tavall.ai.app.security.McpApiKeyAuthenticationService;
@@ -60,11 +61,17 @@ public final class StandaloneAgentTaskManagerServer implements AutoCloseable {
   }
 
   public static void main(String[] args) {
-    try (StandaloneAgentTaskManagerServer server = start(args)) {
-      Log.info("AgentTaskManager standalone MCP runtime listening on {}", server.endpointUrl());
-      CountDownLatch latch = new CountDownLatch(1);
-      Runtime.getRuntime().addShutdownHook(new Thread(latch::countDown, "tavall-ai-shutdown"));
-      latch.await();
+    try (ServerRuntimeLock runtimeLock = ServerRuntimeLock.acquire("mcp-http")) {
+      if (runtimeLock == null) {
+        Log.warn("Another Tavall AI server is already running. Stop it before starting HTTP MCP.");
+        return;
+      }
+      try (StandaloneAgentTaskManagerServer server = start(args)) {
+        Log.info("AgentTaskManager standalone MCP runtime listening on {}", server.endpointUrl());
+        CountDownLatch latch = new CountDownLatch(1);
+        Runtime.getRuntime().addShutdownHook(new Thread(latch::countDown, "tavall-ai-shutdown"));
+        latch.await();
+      }
     } catch (InterruptedException exception) {
       Thread.currentThread().interrupt();
       throw new IllegalStateException("Standalone MCP runtime interrupted.", exception);
