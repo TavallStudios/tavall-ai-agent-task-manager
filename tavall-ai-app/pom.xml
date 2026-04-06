@@ -98,7 +98,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
-          <mainClass>org.tavall.ai.app.Tavall AILauncher</mainClass>
+          <mainClass>org.tavall.ai.app.AgentTaskManagerLauncher</mainClass>
         </configuration>
       </plugin>
     </plugins>
