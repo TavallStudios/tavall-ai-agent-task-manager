@@ -7,3 +7,7 @@ agent-task-manager/scripts/__pycache__/
 .dotnet-home/
 .vscode/
 bridge-client/__pycache__/
+
+# .NET build outputs
+clients/desktop/**/bin/
+clients/desktop/**/obj/
