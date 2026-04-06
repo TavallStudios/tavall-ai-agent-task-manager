@@ -21,10 +21,10 @@ It is intentionally separate from the WinUI desktop client in this repository. A
 - expose delegated tool detail pages that stay wired to the parent MCP settings form
 - expose a schema-driven plugin registry with:
   - `generic`
-  - `agent-task-manager`
+  - `tavall-ai`
   - `chrome-devtools`
 - map known tool catalogs for:
-  - `agent-task-manager`
+  - `tavall-ai`
   - `chrome-devtools`
   - `filesystem`
   - `git`
@@ -98,3 +98,4 @@ That creates a self-contained bundle in `Documents\MCP Manager Bundle` with:
 - v1 prefers deterministic rendering over comment-preserving round-trips.
 - When a source format cannot be preserved losslessly, the manager writes explicit manager-owned metadata instead of pretending to preserve untouched structure.
 - Secrets are still represented as config/env references in v1. OS keychain integration is intentionally deferred.
+

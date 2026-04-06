@@ -1,5 +1,5 @@
 {
-  "baseUrl": "https://docs.tavall.org/agent-task-manager",
+  "baseUrl": "https://docs.tavall.org/tavall-ai",
   "username": "agent",
   "password": "replace-me",
   "providerUrl": "http://127.0.0.1:4141/automation/execute",
@@ -9,7 +9,7 @@
   "repoPath": "F:\\\\workspace\\\\AgentTaskManager",
   "pollInterval": 2,
   "pythonCommand": "py -3",
-  "sessionFile": "C:\\\\Users\\\\YOUR_USER\\\\.agent-task-manager\\\\local-automation-session.json",
+  "sessionFile": "C:\\\\Users\\\\YOUR_USER\\\\.tavall-ai\\\\local-automation-session.json",
   "commands": [
     "hytale.launch-launcher",
     "hytale.launch-client",
@@ -21,3 +21,4 @@
     "hyrhythm.capture-state"
   ]
 }
+

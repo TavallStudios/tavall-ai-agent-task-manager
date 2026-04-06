@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "agent-task-manager": {
+    "tavall-ai": {
       "disabled": true,
       "env": {
         "AGENT_TASK_MANAGER_CODEX_REMOTE_TOOL_EXECUTION_ENABLED": "true",
@@ -10,15 +10,15 @@
         "Authorization": "Basic YWdlbnQ6NVdneU42aHJsYS9OamJEVVUySnJKNzJQWG9mem5xSXk="
       },
       "transport": "http",
-      "url": "https://docs.tavall.org/agent-task-manager/mcp"
+      "url": "https://docs.tavall.org/tavall-ai/mcp"
     }
   },
   "x-mcp-manager": {
     "generatedAt": "2026-03-31T03:01:15Z",
     "servers": {
-      "agent-task-manager": {
+      "tavall-ai": {
         "healthStatus": "unknown",
-        "pluginId": "agent-task-manager",
+        "pluginId": "tavall-ai",
         "scope": "workspace",
         "settings": {
           "cleanCodeMode": "balanced",
@@ -37,3 +37,4 @@
     "version": 1
   }
 }
+

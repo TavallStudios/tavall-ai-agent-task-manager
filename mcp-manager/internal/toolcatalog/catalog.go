@@ -66,7 +66,7 @@ func (catalog *Catalog) ForBackend(documentID string, ownerServerName string, ba
 			BackendName:     backend.DisplayName,
 			OwnerDocumentID: documentID,
 			OwnerServerName: ownerServerName,
-			OwnerPluginID:   "agent-task-manager",
+			OwnerPluginID:   "tavall-ai",
 			OwnerEnabled:    backend.Enabled,
 		})
 	}
@@ -81,7 +81,7 @@ func (catalog *Catalog) ForBackend(documentID string, ownerServerName string, ba
 
 func templatesForServer(server model.ManagedServer) []entryTemplate {
 	switch catalogKey(server) {
-	case "agent-task-manager":
+	case "tavall-ai":
 		return agentTaskManagerTemplates()
 	case "chrome-devtools":
 		return chromeDevToolsTemplates()
@@ -99,8 +99,8 @@ func templatesForServer(server model.ManagedServer) []entryTemplate {
 }
 
 func catalogKey(server model.ManagedServer) string {
-	if strings.EqualFold(server.PluginID, "agent-task-manager") {
-		return "agent-task-manager"
+	if strings.EqualFold(server.PluginID, "tavall-ai") {
+		return "tavall-ai"
 	}
 	if strings.EqualFold(server.PluginID, "chrome-devtools") {
 		return "chrome-devtools"
@@ -108,8 +108,8 @@ func catalogKey(server model.ManagedServer) string {
 
 	name := normalizeKey(server.Name)
 	switch {
-	case strings.Contains(name, "agent-task-manager"):
-		return "agent-task-manager"
+	case strings.Contains(name, "tavall-ai"):
+		return "tavall-ai"
 	case strings.Contains(name, "chrome-devtools"):
 		return "chrome-devtools"
 	case strings.Contains(name, "filesystem"):
@@ -124,8 +124,8 @@ func catalogKey(server model.ManagedServer) string {
 
 	command := normalizeKey(server.Command + " " + strings.Join(server.Args, " "))
 	switch {
-	case strings.Contains(command, "agent-task-manager"):
-		return "agent-task-manager"
+	case strings.Contains(command, "tavall-ai"):
+		return "tavall-ai"
 	case strings.Contains(command, "chrome-devtools-mcp"):
 		return "chrome-devtools"
 	case strings.Contains(command, "filesystem"):
@@ -193,7 +193,7 @@ func fallbackSettingsHint(value string, server model.ManagedServer) string {
 
 func toolSource(server model.ManagedServer) string {
 	switch catalogKey(server) {
-	case "agent-task-manager":
+	case "tavall-ai":
 		return "AgentTaskManager first-party tool catalog"
 	case "chrome-devtools":
 		return "Chrome DevTools MCP command surface"
@@ -203,3 +203,4 @@ func toolSource(server model.ManagedServer) string {
 		return "Discovered MCP tool catalog"
 	}
 }
+

@@ -584,7 +584,7 @@
                 {{range .Definition.Presets}}
                   <button class="secondary" type="submit" name="action" value="quick-preset:{{.ID}}">{{.Label}}</button>
                 {{end}}
-                {{if eq .Server.PluginID "agent-task-manager"}}
+                {{if eq .Server.PluginID "tavall-ai"}}
                   <button class="secondary" type="submit" name="action" value="quick-connection-local">Use Local ATM</button>
                   <button class="secondary" type="submit" name="action" value="quick-connection-remote">Use Remote ATM</button>
                   <button class="danger" type="submit" name="action" value="quick-clear-credentials">Clear Credentials</button>
@@ -604,7 +604,7 @@
                   <label>Preset label</label>
                   <input type="text" name="server.{{.Server.Name}}.preset" value="{{.Server.Preset}}">
                 </div>
-                {{if eq .Server.PluginID "agent-task-manager"}}
+                {{if eq .Server.PluginID "tavall-ai"}}
                   <div class="field">
                     <label>Connection mode</label>
                     <select name="server.{{.Server.Name}}.field.connectionMode">
@@ -664,7 +664,7 @@
                 {{end}}
               </div>
 
-              {{if and (eq .Server.PluginID "agent-task-manager") (gt (len .Backends.Connectors) 0)}}
+              {{if and (eq .Server.PluginID "tavall-ai") (gt (len .Backends.Connectors) 0)}}
                 <section class="stack-card" style="margin-top:18px; background:var(--panel-strong);">
                   <div class="eyebrow">Backends</div>
                   <h3 style="margin:0 0 10px;">Managed backend connectors</h3>
@@ -724,7 +724,7 @@
                     <textarea name="server.{{.Server.Name}}.extraJson">{{jsonBlock .Server.Extra}}</textarea>
                     <div class="muted">Direct edit path for extra server config beyond command, args, URL, env, and typed plugin fields.</div>
                   </div>
-                  {{if eq .Server.PluginID "agent-task-manager"}}
+                  {{if eq .Server.PluginID "tavall-ai"}}
                     <div class="field">
                       <label>Raw backend registry JSON</label>
                       <textarea name="backendRegistryJson">{{jsonBlock .Backends}}</textarea>
@@ -837,3 +837,4 @@
 </body>
 </html>
 {{end}}
+

@@ -37,7 +37,7 @@ func (server *Server) handleAPIOverview(writer http.ResponseWriter, request *htt
 			continue
 		}
 		for _, serverItem := range profile.Servers {
-			if !strings.EqualFold(serverItem.PluginID, "agent-task-manager") && !strings.EqualFold(serverItem.Name, "agent-task-manager") {
+			if !strings.EqualFold(serverItem.PluginID, "tavall-ai") && !strings.EqualFold(serverItem.Name, "tavall-ai") {
 				continue
 			}
 			registry, registryErr := server.service.BackendRegistry(document.ID)
@@ -155,3 +155,4 @@ func writeJSON(writer http.ResponseWriter, status int, value any) {
 	encoder.SetIndent("", "  ")
 	_ = encoder.Encode(value)
 }
+

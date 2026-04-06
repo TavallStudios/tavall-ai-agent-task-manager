@@ -10,7 +10,7 @@ func TestDiscoverDocumentsAcrossSupportedLocations(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, ".codex", "config.toml"), mustReadFixture(t, filepath.Join("..", "..", "testdata", "codex-config.toml")))
 	writeFile(t, filepath.Join(root, ".mcp.json"), []byte("{\"mcpServers\":{\"local\":{\"command\":\"npx\",\"args\":[\"-y\",\"filesystem-mcp\"]}}}\n"))
-	writeFile(t, filepath.Join(root, "mcp-config", "agent-task-manager.json"), mustReadFixture(t, filepath.Join("..", "..", "testdata", "atm-config.json")))
+	writeFile(t, filepath.Join(root, "mcp-config", "tavall-ai.json"), mustReadFixture(t, filepath.Join("..", "..", "testdata", "atm-config.json")))
 
 	documents, err := DiscoverDocuments([]string{root})
 	if err != nil {
@@ -64,3 +64,4 @@ func writeFile(t *testing.T, path string, content []byte) {
 		t.Fatalf("write %s: %v", path, err)
 	}
 }
+

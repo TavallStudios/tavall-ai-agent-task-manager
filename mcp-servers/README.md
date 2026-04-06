@@ -6,4 +6,5 @@ Resolution order for local fallback servers is:
 2. `AGENT_TASK_MANAGER_CODEX_MCP_SERVER_BIN_DIR`
 3. the system `PATH`
 
-The intended use is fallback-only. The default runtime path is the central `agent-task-manager` MCP over local stdio, with repo-context tool execution brokered to the configured remote MCP endpoint.
+The intended use is fallback-only. The default runtime path is the central `tavall-ai` MCP over local stdio, with repo-context tool execution brokered to the configured remote MCP endpoint.
+
