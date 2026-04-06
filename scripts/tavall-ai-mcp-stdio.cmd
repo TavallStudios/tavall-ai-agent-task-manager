@@ -38,5 +38,16 @@ if not defined JAR_PATH (
   exit /b 1
 )
 
-java --enable-preview -jar "%JAR_PATH%" serve-mcp-stdio %*
+set "BRIDGE_SCRIPT=%REPO_ROOT%\scripts\mcp_stdio_json_bridge.py"
+set "BRIDGE_ARGS=--cwd \"%REPO_ROOT%\" --jar-path \"%JAR_PATH%\""
+
+if defined TAVALL_AI_STDIO_PROTOCOL (
+  if not "%TAVALL_AI_STDIO_PROTOCOL%"=="" set "BRIDGE_ARGS=%BRIDGE_ARGS% --protocol %TAVALL_AI_STDIO_PROTOCOL%"
+)
+
+if defined TAVALL_AI_STDIO_DISABLE_DB (
+  if not "%TAVALL_AI_STDIO_DISABLE_DB%"=="" set "BRIDGE_ARGS=%BRIDGE_ARGS% --disable-db"
+)
+
+python "%BRIDGE_SCRIPT%" %BRIDGE_ARGS% -- %*
 

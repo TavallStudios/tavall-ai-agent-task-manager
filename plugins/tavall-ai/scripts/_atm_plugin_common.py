@@ -106,7 +106,15 @@ def ensure_app_jar(repo_root: Path) -> Path:
     )
 
   subprocess.run(
-      [maven_command, "-q", "-pl", "tavall-ai-app", "-am", "package"],
+      [
+          maven_command,
+          "-q",
+          "-pl",
+          "tavall-ai-app",
+          "-am",
+          "-Dmaven.test.skip=true",
+          "package",
+      ],
       cwd=repo_root,
       check=True,
   )
