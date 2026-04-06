@@ -158,7 +158,7 @@ internal sealed class WindowCaptureService
 
     private static string ResolveOutputPath(string? outputPath, string defaultFileName)
     {
-        string resolvedPath = outputPath ?? Path.Combine(Path.GetTempPath(), "agent-task-manager-automation", defaultFileName);
+        string resolvedPath = outputPath ?? Path.Combine(Path.GetTempPath(), "tavall-ai-automation", defaultFileName);
         string? directory = Path.GetDirectoryName(resolvedPath);
         if (!string.IsNullOrWhiteSpace(directory))
         {
@@ -168,3 +168,4 @@ internal sealed class WindowCaptureService
         return resolvedPath;
     }
 }
+

@@ -71,7 +71,7 @@ public sealed class DesktopRemoteDefaultsDetector
             AuthMode: DesktopAuthModes.Basic,
             DirectBackendBaseUrl: string.IsNullOrWhiteSpace(remoteHost)
                 ? "http://127.0.0.1:9000"
-                : "http://127.0.0.1:9000/agent-task-manager",
+                : "http://127.0.0.1:9000/tavall-ai",
             RemoteHost: remoteHost,
             RemoteSshPort: 22,
             RemoteUser: remoteUser,
@@ -126,3 +126,4 @@ public sealed class DesktopRemoteDefaultsDetector
         return null;
     }
 }
+

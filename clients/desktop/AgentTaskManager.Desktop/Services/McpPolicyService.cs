@@ -225,8 +225,8 @@ public sealed class McpPolicyService : IMcpPolicyService
         => Normalize(new McpPolicyScopeDto(
             "global",
             true,
-            [new McpServerPolicyDto("agent-task-manager", true)],
-            [new McpToolPolicyDto("agent-task-manager", "runHarnessToolBundle(repo-context)", true)],
+            [new McpServerPolicyDto("tavall-ai", true)],
+            [new McpToolPolicyDto("tavall-ai", "runHarnessToolBundle(repo-context)", true)],
             [new McpToolPresetDto("tjai-harness-clean-code", "tjAI Harness Clean Code", ["runHarnessToolBundle(language-context)", "runCleanJavaHarness"])],
             new HarnessPreferencesDto("service-loader", "java", "", true, ["checkstyle", "pmd", "error-prone"], "error", "fail", 0, 0),
             DateTimeOffset.UtcNow));
@@ -332,3 +332,4 @@ public sealed class McpPolicyService : IMcpPolicyService
     private static string NormalizeScope(string? scopeKey)
         => string.IsNullOrWhiteSpace(scopeKey) ? "workspace-default" : scopeKey.Trim();
 }
+

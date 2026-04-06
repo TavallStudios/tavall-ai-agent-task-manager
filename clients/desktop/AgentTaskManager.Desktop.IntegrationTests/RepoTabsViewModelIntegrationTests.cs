@@ -94,7 +94,7 @@ public sealed class RepoTabsViewModelIntegrationTests
         => new(
             SessionId: sessionId,
             Title: sessionId,
-            ProjectKey: "agent-task-manager",
+            ProjectKey: "tavall-ai",
             RepoPath: repoPath,
             WorkspaceRoot: workspaceRoot,
             ClientSurface: "DESKTOP",
@@ -107,3 +107,4 @@ public sealed class RepoTabsViewModelIntegrationTests
             ActiveTurnId: lifecycleState == "ACTIVE" ? "turn_1" : null,
             RuntimeId: "runtime_1");
 }
+
