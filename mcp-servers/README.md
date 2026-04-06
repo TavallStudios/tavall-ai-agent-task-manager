@@ -8,3 +8,4 @@ Resolution order for local fallback servers is:
 
 The intended use is fallback-only. The default runtime path is the central `tavall-ai` MCP over local stdio, with repo-context tool execution brokered to the configured remote MCP endpoint.
 
+Default repo-local wrappers (`git`/`ripgrep`) invoke `npx` so they work without extra setup when Node is available. Override them with real binaries in the same folder when you want fully local installs.
