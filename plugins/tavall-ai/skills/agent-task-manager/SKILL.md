@@ -1,5 +1,5 @@
 ---
-name: agent-task-manager
+name: tavall-ai
 description: Manage the AgentTaskManager plugin-managed cross-project harness and task runtime. Use when Codex needs the installed AgentTaskManager plugin to own local MCP registration, optional operator-surface startup, repo-context or worker-context MCP usage, Java validation and approval flow, deterministic git workflow through `planGitCommit` / `prepareGitBranch` / `createGitCommit`, or shared Redis/Postgres task coordination across repos.
 ---
 
@@ -34,7 +34,7 @@ Use this plugin-local skill when the AgentTaskManager plugin is installed.
 
 ## Fallback Policy
 
-- Prefer the plugin-managed `agent-task-manager` MCP server before direct per-tool MCP injection.
+- Prefer the plugin-managed `tavall-ai` MCP server before direct per-tool MCP injection.
 - Let repo-context inspection prefer remote brokering first, then local downstream MCP, and only then controlled local fallback.
 - Treat direct shell or ripgrep or file probing as fallback-only when harness tools are unavailable or failing.
 - Do not use raw shell git mutation as the primary path.
@@ -46,3 +46,4 @@ Use this plugin-local skill when the AgentTaskManager plugin is installed.
 - This plugin owns runtime registration and startup helpers. The skill owns workflow and policy.
 - Keep commits concern-scoped and use verbose commit bodies through the first-party MCP git workflow, one new commit per prompt when a diff exists.
 - If the repo root cannot be inferred automatically, set `AGENT_TASK_MANAGER_REPO_ROOT`.
+

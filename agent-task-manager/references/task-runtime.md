@@ -17,19 +17,19 @@ Redis is the ephemeral coordination layer. Default connection:
 - host: `127.0.0.1`
 - port: `6379`
 - db: `5`
-- key namespace: `agent-task-manager:tasks:*`
+- key namespace: `tavall-ai:tasks:*`
 
 Current keys:
 
-- `agent-task-manager:tasks:multi_agent:enabled`
+- `tavall-ai:tasks:multi_agent:enabled`
   - global feature flag
   - `1` means multi-agent tasking is enabled
   - `0` means tasks should stay single-agent by default
-- `agent-task-manager:tasks:active`
+- `tavall-ai:tasks:active`
   - set of active task ids
-- `agent-task-manager:tasks:checkpoints`
+- `tavall-ai:tasks:checkpoints`
   - sorted set of checkpoint keys by unix timestamp
-- `agent-task-manager:tasks:checkpoint:{task_id}:{agent_id}`
+- `tavall-ai:tasks:checkpoint:{task_id}:{agent_id}`
   - hash for the latest ephemeral checkpoint from one agent on one task
   - intended TTL: 48 hours by default
 
@@ -46,8 +46,8 @@ Redis should not be treated as the durable viewer or audit log.
 
 Postgres is the durable source of truth for the task viewer. The schema is installed by:
 
-- [bootstrap_task_store.sh](/srv/AgentTaskManager/agent-task-manager/scripts/bootstrap_task_store.sh)
-- [task_store.sql](/srv/AgentTaskManager/agent-task-manager/scripts/sql/task_store.sql)
+- [bootstrap_task_store.sh](/srv/AgentTaskManager/tavall-ai/scripts/bootstrap_task_store.sh)
+- [task_store.sql](/srv/AgentTaskManager/tavall-ai/scripts/sql/task_store.sql)
 
 Schema name:
 
@@ -69,24 +69,24 @@ Tables:
 
 ## Shell Entry Points
 
-- [set_multi_agent_mode.sh](/srv/AgentTaskManager/agent-task-manager/scripts/set_multi_agent_mode.sh)
+- [set_multi_agent_mode.sh](/srv/AgentTaskManager/tavall-ai/scripts/set_multi_agent_mode.sh)
   - enables, disables, or inspects the global multi-agent flag
-- [upsert_task.sh](/srv/AgentTaskManager/agent-task-manager/scripts/upsert_task.sh)
+- [upsert_task.sh](/srv/AgentTaskManager/tavall-ai/scripts/upsert_task.sh)
   - creates or updates a durable task row
-- [record_checkpoint.sh](/srv/AgentTaskManager/agent-task-manager/scripts/record_checkpoint.sh)
+- [record_checkpoint.sh](/srv/AgentTaskManager/tavall-ai/scripts/record_checkpoint.sh)
   - writes an ephemeral checkpoint to Redis and a durable checkpoint to Postgres
-- [view_tasks.sh](/srv/AgentTaskManager/agent-task-manager/scripts/view_tasks.sh)
+- [view_tasks.sh](/srv/AgentTaskManager/tavall-ai/scripts/view_tasks.sh)
   - reads the current durable task overview from Postgres
-- [agent-task-manager-mcp-stdio.sh](/srv/AgentTaskManager/scripts/agent-task-manager-mcp-stdio.sh)
+- [tavall-ai-mcp-stdio.sh](/srv/AgentTaskManager/scripts/tavall-ai-mcp-stdio.sh)
   - starts the central MCP server over stdio on Unix-like hosts
-- [agent-task-manager-mcp-stdio.cmd](/srv/AgentTaskManager/scripts/agent-task-manager-mcp-stdio.cmd)
+- [tavall-ai-mcp-stdio.cmd](/srv/AgentTaskManager/scripts/tavall-ai-mcp-stdio.cmd)
   - starts the central MCP server over stdio on Windows
 
 Plugin-owned runtime helpers:
 
-- [start_agent_task_manager_mcp.py](/srv/AgentTaskManager/plugins/agent-task-manager/scripts/start_agent_task_manager_mcp.py)
+- [start_agent_task_manager_mcp.py](/srv/AgentTaskManager/plugins/tavall-ai/scripts/start_agent_task_manager_mcp.py)
   - resolves the repo root, ensures the app jar exists, and starts the stdio MCP runtime
-- [ensure_operator_surface.py](/srv/AgentTaskManager/plugins/agent-task-manager/scripts/ensure_operator_surface.py)
+- [ensure_operator_surface.py](/srv/AgentTaskManager/plugins/tavall-ai/scripts/ensure_operator_surface.py)
   - optionally starts the local HTTP operator surface when a browser-facing runtime is actually needed
 
 ## Recommended Flow
@@ -101,15 +101,15 @@ Plugin-owned runtime helpers:
 
 The preferred runtime is MCP-first:
 
-- preferred plugin entrypoint: [start_agent_task_manager_mcp.py](/srv/AgentTaskManager/plugins/agent-task-manager/scripts/start_agent_task_manager_mcp.py)
+- preferred plugin entrypoint: [start_agent_task_manager_mcp.py](/srv/AgentTaskManager/plugins/tavall-ai/scripts/start_agent_task_manager_mcp.py)
 - repo-local launchers:
-  - [agent-task-manager-mcp-stdio.sh](/srv/AgentTaskManager/scripts/agent-task-manager-mcp-stdio.sh)
-  - [agent-task-manager-mcp-stdio.cmd](/srv/AgentTaskManager/scripts/agent-task-manager-mcp-stdio.cmd)
+  - [tavall-ai-mcp-stdio.sh](/srv/AgentTaskManager/scripts/tavall-ai-mcp-stdio.sh)
+  - [tavall-ai-mcp-stdio.cmd](/srv/AgentTaskManager/scripts/tavall-ai-mcp-stdio.cmd)
 - Maven project: [/srv/AgentTaskManager/pom.xml](/srv/AgentTaskManager/pom.xml)
 
 When HTTP transport is needed:
 
-- optional operator-surface helper: [ensure_operator_surface.py](/srv/AgentTaskManager/plugins/agent-task-manager/scripts/ensure_operator_surface.py)
+- optional operator-surface helper: [ensure_operator_surface.py](/srv/AgentTaskManager/plugins/tavall-ai/scripts/ensure_operator_surface.py)
 - default bind:
   - host: `0.0.0.0`
   - port: `9000`
@@ -164,3 +164,5 @@ Web panel startup overrides:
 - `postgres` becomes the viewer and history surface.
 - agents can coordinate without dragging large chat transcripts into context.
 - the mobile web app becomes the operator surface while agent bridges consume the same durable queue later.
+
+

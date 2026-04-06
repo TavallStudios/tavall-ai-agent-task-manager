@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "agent-task-manager": {
+    "tavall-ai": {
       "command": "python",
       "args": [
         "./scripts/start_agent_task_manager_mcp.py"
@@ -8,9 +8,10 @@
       "env": {
         "AGENT_TASK_MANAGER_CODEX_DOWNSTREAM_CENTRAL_SERVER": "",
         "AGENT_TASK_MANAGER_CODEX_REMOTE_TOOL_EXECUTION_ENABLED": "true",
-        "AGENT_TASK_MANAGER_MCP_BASE_URL": "https://docs.tavall.org/agent-task-manager",
+        "AGENT_TASK_MANAGER_MCP_BASE_URL": "https://docs.tavall.org/tavall-ai",
         "AGENT_TASK_MANAGER_MCP_ENDPOINT": "/mcp"
       }
     }
   }
 }
+

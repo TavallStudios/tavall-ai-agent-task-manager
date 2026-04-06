@@ -69,7 +69,7 @@ def build_start_command(
       "--app.security.proxy-auth-enabled=false",
       "--app.orchestration.autonomy-enabled=false",
       f"--logging.level.org.springframework={spring_log_level}",
-      f"--logging.level.com.agenttaskmanager={app_log_level}",
+      f"--logging.level.org.tavall.ai={app_log_level}",
   ]
 
 
@@ -156,3 +156,4 @@ def main() -> int:
 
 if __name__ == "__main__":
   raise SystemExit(main())
+

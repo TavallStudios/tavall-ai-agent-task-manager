@@ -1,5 +1,5 @@
 ---
-name: agent-task-manager
+name: tavall-ai
 description: Manage the AgentTaskManager cross-project harness and task runtime. Use when Codex needs to work through AgentTaskManager for repository inspection or editing across repos, worker or task coordination, repo-context or worker-context MCP usage, Java validation and approval flow, deterministic git workflow through `planGitCommit` / `prepareGitBranch` / `createGitCommit`, or when maintaining the shared Redis/Postgres task runtime and checkpoints.
 ---
 
@@ -65,7 +65,7 @@ Recommended memory stages:
 
 ## Fallback Policy
 
-- Prefer the downstream central MCP server (`agent-task-manager`) instead of direct per-tool MCP process injection.
+- Prefer the downstream central MCP server (`tavall-ai`) instead of direct per-tool MCP process injection.
 - Let repo-context inspection prefer remote brokering first, then local downstream MCP, and only then controlled local fallback.
 - Treat direct shell or ripgrep or file probing as fallback-only when harness tools are unavailable or failing.
 - Do not use raw shell git mutation as the primary path.
@@ -98,20 +98,20 @@ Recommended memory stages:
   Write a Redis checkpoint and append a durable Postgres checkpoint.
 - `scripts/view_tasks.sh`
   Query the durable task overview.
-- `scripts/agent-task-manager-mcp-stdio.sh`
+- `scripts/tavall-ai-mcp-stdio.sh`
   Starts the central MCP server over stdio on Unix-like hosts.
-- `scripts/agent-task-manager-mcp-stdio.cmd`
+- `scripts/tavall-ai-mcp-stdio.cmd`
   Starts the central MCP server over stdio on Windows.
 - `scripts/test_remote_mcp.sh`
   Performs the streamable HTTP smoke test against the configured `/mcp` endpoint.
 
 Repo-local plugin surface:
 
-- `plugins/agent-task-manager/.mcp.json`
-  Registers the local `agent-task-manager` MCP through the plugin-managed Python launcher.
-- `plugins/agent-task-manager/scripts/start_agent_task_manager_mcp.py`
+- `plugins/tavall-ai/.mcp.json`
+  Registers the local `tavall-ai` MCP through the plugin-managed Python launcher.
+- `plugins/tavall-ai/scripts/start_agent_task_manager_mcp.py`
   Resolves the repo root, ensures the app jar exists, and starts the stdio MCP server.
-- `plugins/agent-task-manager/scripts/ensure_operator_surface.py`
+- `plugins/tavall-ai/scripts/ensure_operator_surface.py`
   Optionally starts the local HTTP operator surface when a browser-facing runtime is actually needed.
 
 ## Environment
@@ -140,7 +140,7 @@ The scripts are shell-based and can be used from any repo. They support override
 
 Recommended defaults for this skill:
 
-- `AGENT_TASK_MANAGER_CODEX_DOWNSTREAM_CENTRAL_SERVER=agent-task-manager`
+- `AGENT_TASK_MANAGER_CODEX_DOWNSTREAM_CENTRAL_SERVER=tavall-ai`
 - `AGENT_TASK_MANAGER_CODEX_REMOTE_TOOL_EXECUTION_ENABLED=true`
 - `AGENT_TASK_MANAGER_CODEX_REQUIRED_MCP_SERVERS=`
 
@@ -156,3 +156,5 @@ If `AGENT_TASK_MANAGER_DB_URL` is not set, the helper script will try the local 
 - The clean split is: plugin owns runtime registration and startup helpers; skill owns workflow, tool ordering, and policy.
 - The stdio launcher scripts need either `mvn` on `PATH` or an executable `mvnw` in the resolved AgentTaskManager checkout when the jar is not already built.
 - The runtime is MCP-first. Do not assume a local dashboard, a browser workflow, or queued prompt-request execution.
+
+

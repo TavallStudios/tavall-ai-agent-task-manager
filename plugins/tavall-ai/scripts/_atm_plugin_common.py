@@ -16,8 +16,8 @@ def plugin_root() -> Path:
 def has_repo_layout(candidate: Path) -> bool:
   return (
       (candidate / "pom.xml").is_file()
-      and (candidate / "agent-task-manager-app").is_dir()
-      and (candidate / "agent-task-manager").is_dir()
+      and (candidate / "tavall-ai-app").is_dir()
+      and (candidate / "tavall-ai").is_dir()
   )
 
 
@@ -77,7 +77,7 @@ def resolve_maven_command() -> str | None:
 
 
 def app_jar_path(repo_root: Path) -> Path:
-  return repo_root / "agent-task-manager-app" / "target" / "agent-task-manager-app-0.1.0-SNAPSHOT.jar"
+  return repo_root / "tavall-ai-app" / "target" / "tavall-ai-app-0.1.0-SNAPSHOT.jar"
 
 
 def ensure_app_jar(repo_root: Path) -> Path:
@@ -92,7 +92,7 @@ def ensure_app_jar(repo_root: Path) -> Path:
     )
 
   subprocess.run(
-      [maven_command, "-q", "-pl", "agent-task-manager-app", "-am", "package"],
+      [maven_command, "-q", "-pl", "tavall-ai-app", "-am", "package"],
       cwd=repo_root,
       check=True,
   )
@@ -119,3 +119,5 @@ def quoted_command(arguments: list[str]) -> str:
 def fail(message: str) -> int:
   print(message, file=sys.stderr)
   return 1
+
+

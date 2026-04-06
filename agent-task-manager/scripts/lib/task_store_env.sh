@@ -78,7 +78,7 @@ atm_redis_cli() {
 }
 
 atm_task_namespace() {
-  printf '%s' "${AGENT_TASK_MANAGER_REDIS_NAMESPACE:-agent-task-manager:tasks}"
+  printf '%s' "${AGENT_TASK_MANAGER_REDIS_NAMESPACE:-tavall-ai:tasks}"
 }
 
 atm_now_utc() {
@@ -92,3 +92,4 @@ atm_multi_agent_enabled() {
   normalized="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
   [[ "$normalized" == "1" || "$normalized" == "true" || "$normalized" == "on" || "$normalized" == "enabled" ]]
 }
+
