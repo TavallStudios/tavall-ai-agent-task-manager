@@ -10,11 +10,11 @@ import (
 func TestAgentTaskManagerPluginAppliesDefaultsAndBlocksRequiredInjection(t *testing.T) {
 	registry := NewRegistry()
 	applied := registry.Apply(model.ManagedServer{
-		Name: "agent-task-manager",
+		Name: "tavall-ai",
 		Env:  map[string]string{},
 	})
 
-	if applied.PluginID != "agent-task-manager" {
+	if applied.PluginID != "tavall-ai" {
 		t.Fatalf("expected ATM plugin id, got %s", applied.PluginID)
 	}
 	if applied.Settings["connectionMode"] != "local" {
@@ -34,7 +34,7 @@ func TestAgentTaskManagerPluginAppliesDefaultsAndBlocksRequiredInjection(t *test
 	}
 
 	findings := registry.Validate(model.ManagedServer{
-		Name: "agent-task-manager",
+		Name: "tavall-ai",
 		Env: map[string]string{
 			"AGENT_TASK_MANAGER_CODEX_REQUIRED_MCP_SERVERS": "filesystem,ripgrep",
 		},
@@ -96,3 +96,4 @@ func TestChromeDevToolsPluginExtractsAndRewritesLaunchArgs(t *testing.T) {
 		t.Fatalf("expected updated executable path, got %s", joined)
 	}
 }
+

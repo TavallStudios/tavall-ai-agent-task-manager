@@ -71,7 +71,7 @@ public sealed class RepoNextActionServiceIntegrationTests
         => new(
             SessionId: "session_1",
             Title: "Session 1",
-            ProjectKey: "agent-task-manager",
+            ProjectKey: "tavall-ai",
             RepoPath: @"F:\workspace\AgentTaskManager",
             WorkspaceRoot: @"F:\workspace\AgentTaskManager",
             ClientSurface: "DESKTOP",
@@ -84,3 +84,4 @@ public sealed class RepoNextActionServiceIntegrationTests
             ActiveTurnId: activeTurnId,
             RuntimeId: "runtime_1");
 }
+

@@ -12,13 +12,13 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$jarPath = Join-Path $repoRoot 'agent-task-manager-app\target\agent-task-manager-app-0.1.0-SNAPSHOT.jar'
+$jarPath = Join-Path $repoRoot 'tavall-ai-app\target\tavall-ai-app-0.1.0-SNAPSHOT.jar'
 $logDir = Join-Path $repoRoot ".tmp\local-backend\$Port"
 $stdoutPath = Join-Path $logDir 'stdout.log'
 $stderrPath = Join-Path $logDir 'stderr.log'
 
 if (-not (Test-Path $jarPath)) {
-    throw "Jar not found at '$jarPath'. Build it first with: mvn -pl agent-task-manager-app -am -DskipTests package"
+    throw "Jar not found at '$jarPath'. Build it first with: mvn -pl tavall-ai-app -am -DskipTests package"
 }
 
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -34,7 +34,7 @@ $arguments = @(
     "--app.security.proxy-auth-enabled=$($ProxyAuthEnabled.ToString().ToLowerInvariant())",
     "--app.orchestration.autonomy-enabled=$($AutonomyEnabled.ToString().ToLowerInvariant())",
     "--logging.level.org.springframework=$SpringLogLevel",
-    "--logging.level.com.agenttaskmanager=$AppLogLevel"
+    "--logging.level.org.tavall.ai=$AppLogLevel"
 )
 
 $process = Start-Process `
@@ -52,3 +52,5 @@ $process = Start-Process `
     StdoutLog = $stdoutPath
     StderrLog = $stderrPath
 }
+
+

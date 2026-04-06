@@ -146,13 +146,13 @@ args = ["-y", "filesystem-mcp"]
 	if len(overview.Servers) != 1 {
 		t.Fatalf("expected 1 external server in overview, got %d", len(overview.Servers))
 	}
-	if overview.Servers[0].ServerName != "agent-task-manager" {
-		t.Fatalf("expected agent-task-manager server, got %s", overview.Servers[0].ServerName)
+	if overview.Servers[0].ServerName != "tavall-ai" {
+		t.Fatalf("expected tavall-ai server, got %s", overview.Servers[0].ServerName)
 	}
 	if len(overview.Backends) != 1 {
 		t.Fatalf("expected 1 backend registry in overview, got %d", len(overview.Backends))
 	}
-	if overview.Backends[0].CentralServer != "agent-task-manager" {
+	if overview.Backends[0].CentralServer != "tavall-ai" {
 		t.Fatalf("expected ATM backend central server, got %s", overview.Backends[0].CentralServer)
 	}
 	if len(overview.Backends[0].Connectors) != 2 {
@@ -215,3 +215,4 @@ func useTestHome(t *testing.T, root string) {
 	}
 	t.Setenv("HOMEPATH", homePath)
 }
+

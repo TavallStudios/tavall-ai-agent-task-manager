@@ -11,7 +11,7 @@ Request:
 ```json
 {
   "title": "Fix verifier regression",
-  "projectKey": "agent-task-manager",
+  "projectKey": "tavall-ai",
   "repoPath": "F:\\workspace\\AgentTaskManager",
   "workspaceRoot": "F:\\workspace\\AgentTaskManager",
   "profileKey": "workspace-default",
@@ -238,3 +238,4 @@ The backend should:
 2. Treat runtime ownership as a lease, not an implied side effect of streaming.
 3. Reject final output release when required receipts or verifier approval are missing.
 4. Accept runtime reconnect streams starting from `afterEventId` so the desktop client can resume without assuming in-memory continuity.
+

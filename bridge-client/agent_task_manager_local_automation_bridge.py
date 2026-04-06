@@ -11,7 +11,7 @@ import uuid
 
 
 DEFAULT_HEADERS = {
-    "User-Agent": "agent-task-manager-automation-bridge/1.0",
+    "User-Agent": "tavall-ai-automation-bridge/1.0",
     "Accept": "*/*",
 }
 
@@ -189,7 +189,7 @@ def main() -> int:
     parser.add_argument("--command", dest="commands", action="append", default=[])
     parser.add_argument(
         "--session-file",
-        default=str(pathlib.Path.home() / ".agent-task-manager" / "local-automation-session.json"),
+        default=str(pathlib.Path.home() / ".tavall-ai" / "local-automation-session.json"),
     )
     args = parser.parse_args()
 
@@ -217,3 +217,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+

@@ -143,7 +143,7 @@ func (server *Server) handleDocumentForm(writer http.ResponseWriter, request *ht
 		server.renderWithError(writer, request, documentID, selectedServerName, selectedToolName, err.Error(), baseProfile, "")
 		return
 	}
-	if strings.EqualFold(selectedServerName, "agent-task-manager") {
+	if strings.EqualFold(selectedServerName, "tavall-ai") {
 		backendRegistry, err = buildBackendRegistryFromForm(backendRegistry, request)
 		if err != nil {
 			server.renderWithError(writer, request, documentID, selectedServerName, selectedToolName, err.Error(), baseProfile, "")
@@ -170,7 +170,7 @@ func (server *Server) handleDocumentForm(writer http.ResponseWriter, request *ht
 			server.renderWithError(writer, request, documentID, selectedServerName, selectedToolName, err.Error(), profile, "")
 			return
 		}
-		if strings.EqualFold(selectedServerName, "agent-task-manager") {
+		if strings.EqualFold(selectedServerName, "tavall-ai") {
 			if _, _, err := server.service.SaveBackendRegistry(documentID, backendRegistry); err != nil {
 				server.renderWithError(writer, request, documentID, selectedServerName, selectedToolName, err.Error(), normalized, preview)
 				return
@@ -224,7 +224,7 @@ func (server *Server) selectedServerPage(ctx context.Context, documentID string,
 		SelectedName: selectedServerName,
 		Tools:        tools,
 	}
-	if strings.EqualFold(serverItem.PluginID, "agent-task-manager") || strings.EqualFold(serverItem.Name, "agent-task-manager") {
+	if strings.EqualFold(serverItem.PluginID, "tavall-ai") || strings.EqualFold(serverItem.Name, "tavall-ai") {
 		backendRegistry, registryErr := server.service.BackendRegistry(documentID)
 		if registryErr == nil {
 			selected.Backends = backendRegistry
@@ -375,3 +375,4 @@ func actionError(err error) string {
 }
 
 func urlQueryEscape(value string) string { return url.QueryEscape(value) }
+

@@ -1,5 +1,5 @@
 param(
-    [string]$ConfigPath = "$PSScriptRoot\agent-task-manager-automation-bridge.config.json"
+    [string]$ConfigPath = "$PSScriptRoot\tavall-ai-automation-bridge.config.json"
 )
 
 $ErrorActionPreference = "Stop"
@@ -63,3 +63,4 @@ Write-Host "Base URL: $($config.baseUrl)"
 Write-Host "Provider URL: $($config.providerUrl)"
 
 & $pythonExe @arguments
+

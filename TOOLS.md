@@ -11,7 +11,7 @@ Scope:
 
 ## CLI Commands
 
-Source: [CliCommandService.java](/F:/workspace/AgentTaskManager/agent-task-manager-core/src/main/java/com/agenttaskmanager/app/cli/CliCommandService.java), [AgentTaskManagerLauncher.java](/F:/workspace/AgentTaskManager/agent-task-manager-app/src/main/java/com/agenttaskmanager/app/AgentTaskManagerLauncher.java)
+Source: [CliCommandService.java](/F:/workspace/AgentTaskManager/tavall-ai-core/src/main/java/com/agenttaskmanager/app/cli/CliCommandService.java), [AgentTaskManagerLauncher.java](/F:/workspace/AgentTaskManager/tavall-ai-app/src/main/java/com/agenttaskmanager/app/AgentTaskManagerLauncher.java)
 
 | Command | What it does |
 | --- | --- |
@@ -36,11 +36,11 @@ Notes:
 
 ## Central MCP Tools
 
-These are the first-party tools registered into the main `agent-task-manager` MCP catalog.
+These are the first-party tools registered into the main `tavall-ai` MCP catalog.
 
 ### Artifact Tools
 
-Source: [ArtifactToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-artifact-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/artifact/ArtifactToolHandler.java)
+Source: [ArtifactToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-artifact-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/artifact/ArtifactToolHandler.java)
 
 | Tool | What it does |
 | --- | --- |
@@ -53,7 +53,7 @@ Source: [ArtifactToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-man
 
 ### Cache Tools
 
-Source: [CacheToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-cache-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/cache/CacheToolHandler.java)
+Source: [CacheToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-cache-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/cache/CacheToolHandler.java)
 
 | Tool | What it does |
 | --- | --- |
@@ -66,7 +66,7 @@ Source: [CacheToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manage
 
 ### Context Tools
 
-Source: [ContextToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-context-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/context/ContextToolHandler.java)
+Source: [ContextToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-context-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/context/ContextToolHandler.java)
 
 | Tool | What it does |
 | --- | --- |
@@ -84,7 +84,7 @@ Source: [ContextToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-mana
 
 ### Orchestration Tools
 
-Source: [DecisionToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-orchestration-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/orchestration/DecisionToolHandler.java), [TaskPoolToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-orchestration-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/orchestration/TaskPoolToolHandler.java), [WorkerAgentToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-orchestration-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/orchestration/WorkerAgentToolHandler.java)
+Source: [DecisionToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-orchestration-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/orchestration/DecisionToolHandler.java), [TaskPoolToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-orchestration-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/orchestration/TaskPoolToolHandler.java), [WorkerAgentToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-orchestration-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/orchestration/WorkerAgentToolHandler.java)
 
 | Tool | What it does |
 | --- | --- |
@@ -121,7 +121,7 @@ Source: [DecisionToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-man
 
 ### Repo Workflow Tools
 
-Source: [GitWorkflowToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-repo-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/repo/GitWorkflowToolHandler.java), [SharedRepoSnapshotToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-repo-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/repo/SharedRepoSnapshotToolHandler.java)
+Source: [GitWorkflowToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-repo-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/repo/GitWorkflowToolHandler.java), [SharedRepoSnapshotToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-repo-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/repo/SharedRepoSnapshotToolHandler.java)
 
 | Tool | What it does |
 | --- | --- |
@@ -132,7 +132,7 @@ Source: [GitWorkflowToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-
 
 ### Validation Tools
 
-Source: [ValidationToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-validation-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/validation/ValidationToolHandler.java)
+Source: [ValidationToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-validation-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/validation/ValidationToolHandler.java)
 
 | Tool | What it does |
 | --- | --- |
@@ -146,7 +146,7 @@ Source: [ValidationToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-m
 
 ### Vector Memory Tools
 
-Source: [VectorMemoryToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-vector-memory-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/vectormemory/VectorMemoryToolHandler.java), [VectorMemoryCanonicalToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-vector-memory-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/vectormemory/VectorMemoryCanonicalToolHandler.java)
+Source: [VectorMemoryToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-vector-memory-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/vectormemory/VectorMemoryToolHandler.java), [VectorMemoryCanonicalToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-vector-memory-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/vectormemory/VectorMemoryCanonicalToolHandler.java)
 
 | Tool | What it does |
 | --- | --- |
@@ -164,9 +164,9 @@ Source: [VectorMemoryToolHandler.java](/F:/workspace/AgentTaskManager/agent-task
 | `searchPriorFixes` | Searches semantic task history for prior fixes and reviews. |
 | `attachSemanticContextToTask` | Stores shared task context and indexes the same body through the semantic pipeline. |
 
-### Harness Validator Tools (`tjai-harness`)
+### Harness Validator Tools (`tavall-ai-clean-java-harness`)
 
-Source: [CleanJavaHarnessToolHandler.java](/F:/workspace/AgentTaskManager/agent-task-manager-clean-java-harness/src/main/java/com/agenttaskmanager/app/mcp/CleanJavaHarnessToolHandler.java), [CleanJavaHarnessTools.java](/F:/workspace/AgentTaskManager/agent-task-manager-clean-java-harness/src/main/java/com/agenttaskmanager/app/mcp/cleanjava/CleanJavaHarnessTools.java)
+Source: [CleanJavaHarnessToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-clean-java-harness/src/main/java/com/agenttaskmanager/app/mcp/CleanJavaHarnessToolHandler.java), [CleanJavaHarnessTools.java](/F:/workspace/AgentTaskManager/tavall-ai-clean-java-harness/src/main/java/com/agenttaskmanager/app/mcp/cleanjava/CleanJavaHarnessTools.java)
 
 These tools are exposed by the central MCP, but the implementation is backed by bundled local harness and validator code rather than a separate harness server process.
 
@@ -183,11 +183,11 @@ These tools are exposed by the central MCP, but the implementation is backed by 
 
 ## Dedicated Clean Java MCP Tools
 
-These tools are custom, but only `clean-java-mcp` remains a dedicated stdio server. The `tjai-harness` module (module path `agent-task-manager-clean-java-harness`) is now bundled as a local validator/runtime dependency instead of a standalone MCP server.
+These tools are custom, but only `clean-java-mcp` remains a dedicated stdio server. The `tavall-ai-clean-java-harness` module (module path `tavall-ai-clean-java-harness`) is now bundled as a local validator/runtime dependency instead of a standalone MCP server.
 
 ### Clean Java MCP Server
 
-Source: [CleanJavaMcpTools.java](/F:/workspace/AgentTaskManager/agent-task-manager-clean-java-mcp/src/main/java/com/agenttaskmanager/app/mcp/cleanjava/CleanJavaMcpTools.java)
+Source: [CleanJavaMcpTools.java](/F:/workspace/AgentTaskManager/tavall-ai-clean-java-mcp/src/main/java/com/agenttaskmanager/app/mcp/cleanjava/CleanJavaMcpTools.java)
 
 | Tool | What it does |
 | --- | --- |
@@ -196,3 +196,6 @@ Source: [CleanJavaMcpTools.java](/F:/workspace/AgentTaskManager/agent-task-manag
 | `runCleanJavaArchUnit` | Runs clean Java ArchUnit rules against a repo. |
 | `runCleanJavaSpoon` | Runs clean Java Spoon source-shape rules. |
 | `validateCleanJavaPatchScope` | Validates clean Java patch scope. |
+
+
+

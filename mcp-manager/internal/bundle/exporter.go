@@ -48,7 +48,7 @@ func Export(outputRoot string) error {
 	}
 
 	atmServer := buildAgentTaskManagerServer(documents, registry, launcherPath)
-	atmDocumentPath := filepath.Join(bundleServers, "01-agent-task-manager.json")
+	atmDocumentPath := filepath.Join(bundleServers, "01-tavall-ai.json")
 	if err := writeAgentTaskManagerDocument(atmDocumentPath, atmServer); err != nil {
 		return err
 	}
@@ -132,11 +132,11 @@ func writeAgentTaskManagerLauncher(outputRoot string) (string, error) {
 		return "", err
 	}
 	backendRegistryPath := filepath.Join(outputRoot, "mcp-servers", backends.FileName)
-	launcherName := "agent-task-manager-mcp-stdio.sh"
-	content := fmt.Sprintf("#!/usr/bin/env bash\nset -euo pipefail\nREPO_ROOT=%q\nBACKEND_REGISTRY=%q\nJAR_PATH=\"$REPO_ROOT/agent-task-manager-app/target/agent-task-manager-app-0.1.0-SNAPSHOT.jar\"\nif [ ! -f \"$JAR_PATH\" ]; then\n  mvn -q -f \"$REPO_ROOT/pom.xml\" -pl agent-task-manager-app -am package\nfi\njava -jar \"$JAR_PATH\" serve-mcp-stdio \"--app.mcp.backend-registry-path=$BACKEND_REGISTRY\" \"$@\"\n", filepath.ToSlash(repoRoot), filepath.ToSlash(backendRegistryPath))
+	launcherName := "tavall-ai-mcp-stdio.sh"
+	content := fmt.Sprintf("#!/usr/bin/env bash\nset -euo pipefail\nREPO_ROOT=%q\nBACKEND_REGISTRY=%q\nJAR_PATH=\"$REPO_ROOT/tavall-ai-app/target/tavall-ai-app-0.1.0-SNAPSHOT.jar\"\nif [ ! -f \"$JAR_PATH\" ]; then\n  mvn -q -f \"$REPO_ROOT/pom.xml\" -pl tavall-ai-app -am package\nfi\njava -jar \"$JAR_PATH\" serve-mcp-stdio \"--app.mcp.backend-registry-path=$BACKEND_REGISTRY\" \"$@\"\n", filepath.ToSlash(repoRoot), filepath.ToSlash(backendRegistryPath))
 	if runtime.GOOS == "windows" {
-		launcherName = "agent-task-manager-mcp-stdio.cmd"
-		content = fmt.Sprintf("@echo off\r\nsetlocal EnableExtensions\r\nset \"REPO_ROOT=%s\"\r\nset \"BACKEND_REGISTRY=%s\"\r\nset \"JAR_PATH=%%REPO_ROOT%%\\agent-task-manager-app\\target\\agent-task-manager-app-0.1.0-SNAPSHOT.jar\"\r\nif not exist \"%%JAR_PATH%%\" (\r\n  call mvn -q -f \"%%REPO_ROOT%%\\pom.xml\" -pl agent-task-manager-app -am package\r\n  if errorlevel 1 exit /b %%errorlevel%%\r\n)\r\njava -jar \"%%JAR_PATH%%\" serve-mcp-stdio --app.mcp.backend-registry-path=\"%%BACKEND_REGISTRY%%\" %%*\r\n", repoRoot, backendRegistryPath)
+		launcherName = "tavall-ai-mcp-stdio.cmd"
+		content = fmt.Sprintf("@echo off\r\nsetlocal EnableExtensions\r\nset \"REPO_ROOT=%s\"\r\nset \"BACKEND_REGISTRY=%s\"\r\nset \"JAR_PATH=%%REPO_ROOT%%\\tavall-ai-app\\target\\tavall-ai-app-0.1.0-SNAPSHOT.jar\"\r\nif not exist \"%%JAR_PATH%%\" (\r\n  call mvn -q -f \"%%REPO_ROOT%%\\pom.xml\" -pl tavall-ai-app -am package\r\n  if errorlevel 1 exit /b %%errorlevel%%\r\n)\r\njava -jar \"%%JAR_PATH%%\" serve-mcp-stdio --app.mcp.backend-registry-path=\"%%BACKEND_REGISTRY%%\" %%*\r\n", repoRoot, backendRegistryPath)
 	}
 	launcherPath := filepath.Join(outputRoot, launcherName)
 	if err := os.WriteFile(launcherPath, []byte(content), 0o755); err != nil {
@@ -147,8 +147,8 @@ func writeAgentTaskManagerLauncher(outputRoot string) (string, error) {
 
 func buildAgentTaskManagerServer(documents []model.SourceDocument, registry *plugins.Registry, launcherPath string) model.ManagedServer {
 	server := model.ManagedServer{
-		Name:         "agent-task-manager",
-		PluginID:     "agent-task-manager",
+		Name:         "tavall-ai",
+		PluginID:     "tavall-ai",
 		Enabled:      true,
 		Settings:     map[string]any{},
 		Scope:        "workspace",
@@ -158,7 +158,7 @@ func buildAgentTaskManagerServer(documents []model.SourceDocument, registry *plu
 	for _, document := range documents {
 		for _, candidate := range document.Servers {
 			applied := registry.Apply(candidate)
-			if strings.EqualFold(applied.PluginID, "agent-task-manager") || strings.EqualFold(applied.Name, "agent-task-manager") {
+			if strings.EqualFold(applied.PluginID, "tavall-ai") || strings.EqualFold(applied.Name, "tavall-ai") {
 				server = applied
 				server.Scope = "workspace"
 				server.Source = "bundle-export"
@@ -214,7 +214,7 @@ func buildBackendRegistry(
 	for _, document := range documents {
 		for _, candidate := range document.Servers {
 			applied := registry.Apply(candidate)
-			if strings.EqualFold(applied.PluginID, "agent-task-manager") || strings.EqualFold(applied.Name, "agent-task-manager") {
+			if strings.EqualFold(applied.PluginID, "tavall-ai") || strings.EqualFold(applied.Name, "tavall-ai") {
 				continue
 			}
 			key := strings.ToLower(applied.Name)
@@ -249,7 +249,7 @@ func buildBackendRegistry(
 	}
 	return model.BackendRegistry{
 		Path:          targetPath,
-		CentralServer: "agent-task-manager",
+		CentralServer: "tavall-ai",
 		Connectors:    connectors,
 	}
 }
@@ -299,8 +299,8 @@ func repoRoot() (string, error) {
 func isRepoRoot(path string) bool {
 	return fileExists(filepath.Join(path, "AGENTS.md")) &&
 		fileExists(filepath.Join(path, "pom.xml")) &&
-		dirExists(filepath.Join(path, "agent-task-manager-app")) &&
-		dirExists(filepath.Join(path, "agent-task-manager-core"))
+		dirExists(filepath.Join(path, "tavall-ai-app")) &&
+		dirExists(filepath.Join(path, "tavall-ai-core"))
 }
 
 func fileExists(path string) bool {
@@ -332,3 +332,5 @@ func displayName(value string) string {
 	}
 	return strings.Join(parts, " ")
 }
+
+

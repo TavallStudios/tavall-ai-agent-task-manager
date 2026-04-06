@@ -57,8 +57,8 @@ func NewRegistry() *Registry {
 				DisplayName: "Generic MCP Server",
 				Description: "Use the existing command, URL, and env values without plugin-specific augmentation.",
 			},
-			"agent-task-manager": {
-				ID:          "agent-task-manager",
+			"tavall-ai": {
+				ID:          "tavall-ai",
 				DisplayName: "AgentTaskManager",
 				Description: "Manages the AgentTaskManager launcher, remote MCP bridge settings, auth toggles, clean-code mode, and tool-bundle presets without replacing runtime-injected required MCP wiring.",
 				Fields: []FieldSchema{
@@ -98,7 +98,7 @@ func NewRegistry() *Registry {
 
 func (registry *Registry) Catalog() []Definition {
 	return []Definition{
-		registry.definitions["agent-task-manager"],
+		registry.definitions["tavall-ai"],
 		registry.definitions["chrome-devtools"],
 		registry.definitions["generic"],
 	}
@@ -116,15 +116,15 @@ func (registry *Registry) Resolve(server model.ManagedServer) Definition {
 	if server.PluginID != "" {
 		return registry.Get(server.PluginID)
 	}
-	if strings.EqualFold(server.Name, "agent-task-manager") || strings.Contains(strings.ToLower(server.Command), "agent-task-manager") {
-		return registry.Get("agent-task-manager")
+	if strings.EqualFold(server.Name, "tavall-ai") || strings.Contains(strings.ToLower(server.Command), "tavall-ai") {
+		return registry.Get("tavall-ai")
 	}
 	if strings.Contains(strings.ToLower(server.Name), "chrome-devtools") || strings.Contains(strings.ToLower(strings.Join(server.Args, " ")), "chrome-devtools-mcp") {
 		return registry.Get("chrome-devtools")
 	}
 	for key := range server.Env {
 		if strings.HasPrefix(strings.ToUpper(key), "AGENT_TASK_MANAGER_") {
-			return registry.Get("agent-task-manager")
+			return registry.Get("tavall-ai")
 		}
 	}
 	return registry.Get("generic")
@@ -134,7 +134,7 @@ func (registry *Registry) Apply(server model.ManagedServer) model.ManagedServer 
 	definition := registry.Resolve(server)
 	server.PluginID = definition.ID
 	switch definition.ID {
-	case "agent-task-manager":
+	case "tavall-ai":
 		server = hydrateAgentTaskManagerSettings(server)
 	case "chrome-devtools":
 		server = hydrateChromeDevToolsSettings(server)
@@ -147,7 +147,7 @@ func (registry *Registry) Apply(server model.ManagedServer) model.ManagedServer 
 			server.Settings[field.Name] = field.Default
 		}
 	}
-	if definition.ID == "agent-task-manager" {
+	if definition.ID == "tavall-ai" {
 		server = applyAgentTaskManagerSettings(server)
 	}
 	if definition.ID == "chrome-devtools" {
@@ -165,7 +165,7 @@ func (registry *Registry) Validate(server model.ManagedServer) []model.Validatio
 	if server.Command == "" && server.URL == "" {
 		messages = append(messages, model.ValidationMessage{Severity: model.ValidationSeverityError, Path: "server.transport", Message: "Each server needs either a command or a URL."})
 	}
-	if definition.ID == "agent-task-manager" {
+	if definition.ID == "tavall-ai" {
 		if _, exists := server.Env["AGENT_TASK_MANAGER_CODEX_REQUIRED_MCP_SERVERS"]; exists {
 			messages = append(messages, model.ValidationMessage{
 				Severity: model.ValidationSeverityError,
@@ -216,18 +216,20 @@ func boolString(value any) (string, bool) {
 func defaultAgentTaskManagerLauncher() string {
 	workingDirectory, err := os.Getwd()
 	if err != nil {
-		return "scripts/agent-task-manager-mcp-stdio.cmd"
+		return "scripts/tavall-ai-mcp-stdio.cmd"
 	}
 	candidates := []string{
-		filepath.Join(workingDirectory, "scripts", "agent-task-manager-mcp-stdio.cmd"),
-		filepath.Join(filepath.Dir(workingDirectory), "scripts", "agent-task-manager-mcp-stdio.cmd"),
-		filepath.Join(workingDirectory, "scripts", "agent-task-manager-mcp-stdio.sh"),
-		filepath.Join(filepath.Dir(workingDirectory), "scripts", "agent-task-manager-mcp-stdio.sh"),
+		filepath.Join(workingDirectory, "scripts", "tavall-ai-mcp-stdio.cmd"),
+		filepath.Join(filepath.Dir(workingDirectory), "scripts", "tavall-ai-mcp-stdio.cmd"),
+		filepath.Join(workingDirectory, "scripts", "tavall-ai-mcp-stdio.sh"),
+		filepath.Join(filepath.Dir(workingDirectory), "scripts", "tavall-ai-mcp-stdio.sh"),
 	}
 	for _, candidate := range candidates {
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
 	}
-	return "scripts/agent-task-manager-mcp-stdio.cmd"
+	return "scripts/tavall-ai-mcp-stdio.cmd"
 }
+
+

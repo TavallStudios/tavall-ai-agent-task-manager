@@ -1,0 +1,12 @@
+package org.tavall.ai.app.memory;
+
+public enum MemoryAction {
+  NOOP,
+  CREATE_EPISODIC_MEMORY,
+  UPSERT_SEMANTIC_MEMORY,
+  UPDATE_EXISTING_MEMORY,
+  CLOSE_TASK,
+  SUPERSEDE_MEMORY,
+  DELETE_TOMBSTONE_MEMORY
+}
+

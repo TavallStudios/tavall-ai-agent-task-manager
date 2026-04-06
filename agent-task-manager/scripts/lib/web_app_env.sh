@@ -5,8 +5,8 @@ atm_has_agent_task_manager_repo_layout() {
   local candidate="${1:-}"
   [[ -n "$candidate" ]] \
     && [[ -f "$candidate/pom.xml" ]] \
-    && [[ -d "$candidate/agent-task-manager-app" ]] \
-    && [[ -d "$candidate/agent-task-manager" ]]
+    && [[ -d "$candidate/tavall-ai-app" ]] \
+    && [[ -d "$candidate/tavall-ai" ]]
 }
 
 atm_normalize_path() {
@@ -84,7 +84,7 @@ atm_resolve_repo_root() {
   done
 
   printf '%s\n' \
-    "Could not resolve AgentTaskManager repo root. Set AGENT_TASK_MANAGER_REPO_ROOT to the checkout that contains pom.xml and agent-task-manager-app." >&2
+    "Could not resolve AgentTaskManager repo root. Set AGENT_TASK_MANAGER_REPO_ROOT to the checkout that contains pom.xml and tavall-ai-app." >&2
   return 1
 }
 
@@ -104,7 +104,7 @@ atm_web_app_log_file() {
   local temp_root="${TMPDIR:-${TEMP:-${TMP:-/tmp}}}"
   local log_file
   temp_root="$(atm_normalize_path "$temp_root")"
-  log_file="${AGENT_TASK_MANAGER_WEB_APP_LOG_FILE:-$temp_root/agent-task-manager-web-app.log}"
+  log_file="${AGENT_TASK_MANAGER_WEB_APP_LOG_FILE:-$temp_root/tavall-ai-web-app.log}"
   printf '%s\n' "$(atm_normalize_path "$log_file")"
 }
 
@@ -188,3 +188,5 @@ atm_web_app_is_running() {
   status="$(atm_http_status "$(atm_web_app_probe_url)" 2>/dev/null || true)"
   [[ "$status" == "200" || "$status" == "302" || "$status" == "401" || "$status" == "403" ]]
 }
+
+

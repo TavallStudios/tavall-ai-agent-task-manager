@@ -17,17 +17,17 @@ AgentTaskManager is a multi-module MCP-first control plane for local and remote 
 
 Clone the repo, then point your MCP client at one of the repo-local stdio launchers:
 
-- Unix: `scripts/agent-task-manager-mcp-stdio.sh`
-- Windows: `scripts/agent-task-manager-mcp-stdio.cmd`
+- Unix: `scripts/tavall-ai-mcp-stdio.sh`
+- Windows: `scripts/tavall-ai-mcp-stdio.cmd`
 
 These scripts resolve the repo root automatically and build the app jar on first run if it is missing. The only setup you need in your MCP client is the launcher path plus any optional remote repo-broker environment variables.
 
-If you want Codex to own that registration through a local plugin instead of a raw MCP config file, install the repo-local plugin at `plugins/agent-task-manager/`. The plugin wraps the same runtime through `.mcp.json`, keeps the ATM skill bundled with it, and provides `scripts/ensure_operator_surface.py` when an HTTP operator surface is needed.
+If you want Codex to own that registration through a local plugin instead of a raw MCP config file, install the repo-local plugin at `plugins/tavall-ai/`. The plugin wraps the same runtime through `.mcp.json`, keeps the ATM skill bundled with it, and provides `scripts/ensure_operator_surface.py` when an HTTP operator surface is needed.
 
 Example MCP config files are included in:
 
-- `mcp-config/agent-task-manager.stdio.unix.example.json`
-- `mcp-config/agent-task-manager.stdio.windows.example.json`
+- `mcp-config/tavall-ai.stdio.unix.example.json`
+- `mcp-config/tavall-ai.stdio.windows.example.json`
 
 ## Desktop Operator Surface
 
@@ -42,55 +42,55 @@ VS Code and IntelliJ companion modules are removed from first-party builds. Use 
 
 ## Modules
 
-- `agent-task-manager-core`
+- `tavall-ai-core`
   Headless runtime services, MCP catalog wiring, validation, persistence, orchestration, and shared configuration.
-- `spring-webview`
-  The compatibility MCP HTTP adapter artifact `agent-task-manager-mcp-http`. It retains the Spring-hosted `/mcp` transport for tests and phased migration without the old dashboard, pages, or REST APIs.
-- `agent-task-manager-clean-java-mcp`
+- `tavall-ai-spring-webview`
+  The compatibility MCP HTTP adapter artifact `tavall-ai-mcp-http`. It retains the Spring-hosted `/mcp` transport for tests and phased migration without the old dashboard, pages, or REST APIs.
+- `tavall-ai-clean-java-mcp`
   Dedicated stdio MCP executable for clean Java rules and validation tools.
-- `tjai-harness` (module path: `agent-task-manager-clean-java-harness`)
+- `tavall-ai-clean-java-harness` (module path: `tavall-ai-clean-java-harness`)
   Bundled local validator/runtime facade for harness approval, bundled repo context, and deterministic clean-code validation with language-context support. It is not a standalone MCP server.
-- `agent-task-manager-artifact-tools`
+- `tavall-ai-artifact-tools`
   Domain module for artifact read/write MCP tools that the central MCP imports.
-- `agent-task-manager-cache-tools`
+- `tavall-ai-cache-tools`
   Domain module for cache warming and cache-read MCP tools that the central MCP imports.
-- `agent-task-manager-context-tools`
+- `tavall-ai-context-tools`
   Domain module for task context, docs, runtime state, chat state, and shared-context MCP tools.
-- `agent-task-manager-computer-use-tools`
+- `tavall-ai-computer-use-tools`
   Domain module for external runner registration, session orchestration, capture, vision, and input MCP tools.
-- `agent-task-manager-orchestration-tools`
+- `tavall-ai-orchestration-tools`
   Domain module for task-pool, worker-lifecycle, cleanup, overseer decision, and autonomous-cycle MCP tools.
-- `agent-task-manager-repo-tools`
+- `tavall-ai-repo-tools`
   Domain module for repository transfer, branch, and verbose commit MCP tools.
-- `agent-task-manager-validation-tools`
+- `tavall-ai-validation-tools`
   Domain module for validation, patch-scope, integration-test, and cleanup-review MCP tools.
-- `agent-task-manager-vector-memory-tools`
+- `tavall-ai-vector-memory-tools`
   Domain module for vector-memory and Qdrant-backed MCP tools that the central MCP imports.
-- `agent-task-manager-app`
+- `tavall-ai-app`
   Final executable assembly for the shared runtime, standalone embedded MCP HTTP server, clean Java MCP executable, and bundled harness validator.
 
 ## Package Areas
 
-- `com.agenttaskmanager.app.cli`
+- `org.tavall.ai.app.cli`
   CLI entrypoint and command routing.
-- `com.agenttaskmanager.app.dashboard`
+- `org.tavall.ai.app.dashboard`
   Dashboard summary service and DTOs.
-- `com.agenttaskmanager.app.loader`
+- `org.tavall.ai.app.loader`
   Service-loader bootstrap and static access surface.
-- `com.agenttaskmanager.app.model`
+- `org.tavall.ai.app.model`
   Shared bridge, orchestration, validation, and API DTOs that are safe to reuse across layers.
-- `com.agenttaskmanager.app.mcp`
+- `org.tavall.ai.app.mcp`
   MCP server bootstrap, resources, prompts, and shared tool wiring.
   The dedicated `mcp.cleanjava` subpackage isolates the Clean Java MCP and harness tool implementations behind the existing handler surface.
-- `com.agenttaskmanager.app.mcp.tools.*`
+- `org.tavall.ai.app.mcp.tools.*`
   Domain-scoped MCP tool modules that plug into the central catalog.
-- `com.agenttaskmanager.app.orchestration`
+- `org.tavall.ai.app.orchestration`
   Codex delegation runs, compatibility task-pool adapters, artifacts, cleanup review, and Codex worker transport.
-- `com.agenttaskmanager.app.harness`
+- `org.tavall.ai.app.harness`
   Parent-task intake, typed worker routing, shared task and agent schemas, shared persistence and dashboard models, and approval gating.
-- `com.agenttaskmanager.app.persistence`
+- `org.tavall.ai.app.persistence`
   Postgres, Redis, MongoDB, and Qdrant adapters.
-- `com.agenttaskmanager.app.validation`
+- `org.tavall.ai.app.validation`
   ArchUnit and Spoon validation plus patch-gate scoring.
 - `cache`
   Typed caches for task context, validation summaries, runtime state, semantic context, and worker sessions.
@@ -166,8 +166,8 @@ mvn -q package
 Run the main app jar with no command to start the standalone embedded MCP HTTP runtime, or pass a CLI command to reuse the same executable:
 
 ```bash
-java -jar agent-task-manager-app/target/agent-task-manager-app-0.1.0-SNAPSHOT.jar
-java -jar agent-task-manager-app/target/agent-task-manager-app-0.1.0-SNAPSHOT.jar <command>
+java -jar tavall-ai-app/target/tavall-ai-app-0.1.0-SNAPSHOT.jar
+java -jar tavall-ai-app/target/tavall-ai-app-0.1.0-SNAPSHOT.jar <command>
 ```
 
 Commands:
@@ -222,9 +222,9 @@ Semantic retrieval flow:
 - resources: `README.md`, `AGENTS.md`, `RULES.md`, `UNIVERSAL.md`, `ARCHITECTURE.md`, `EXAMPLES.md`
 - tools: delegation-run orchestration, legacy compatibility task-pool adapters, worker lifecycle, context, validation, artifact, retrieval, cache, computer-use, and decision tools
 
-The default no-args app path now starts [StandaloneAgentTaskManagerServer.java](/F:/workspace/AgentTaskManager/agent-task-manager-app/src/main/java/com/agenttaskmanager/app/StandaloneAgentTaskManagerServer.java), which hosts the official MCP Java SDK servlet directly on embedded Tomcat instead of relying on Spring MVC for `/mcp`. The Spring-hosted adapter remains in the repo as a compatibility module for the phase transition and existing web-based integration tests.
+The default no-args app path now starts [StandaloneAgentTaskManagerServer.java](/F:/workspace/AgentTaskManager/tavall-ai-app/src/main/java/com/agenttaskmanager/app/StandaloneAgentTaskManagerServer.java), which hosts the official MCP Java SDK servlet directly on embedded Tomcat instead of relying on Spring MVC for `/mcp`. The Spring-hosted adapter remains in the repo as a compatibility module for the phase transition and existing web-based integration tests.
 
-The central `agent-task-manager` MCP currently also exposes the curated harness tool surface:
+The central `tavall-ai` MCP currently also exposes the curated harness tool surface:
 
 - `intakeHarnessTask`
 - `routeHarnessTask`
@@ -259,9 +259,9 @@ The central MCP also exposes the external runner orchestration surface for Hytal
 - `waitForComputerUseVisionMatch`
 - `stopComputerUseSession`
 
-The `tjai-harness` module (module path `agent-task-manager-clean-java-harness`) is now a bundled local validator/runtime dependency for future Codex wrapping and local validation flows. It is no longer launched as a separate MCP server process.
+The `tavall-ai-clean-java-harness` module (module path `tavall-ai-clean-java-harness`) is now a bundled local validator/runtime dependency for future Codex wrapping and local validation flows. It is no longer launched as a separate MCP server process.
 
-Codex worker runs now inject `agent-task-manager` as the default downstream central MCP server. Repository inspection and retrieval should flow through `runHarnessToolBundle`, which fans out to filesystem, ripgrep, and git on the harness host in parallel and returns one merged payload.
+Codex worker runs now inject `tavall-ai` as the default downstream central MCP server. Repository inspection and retrieval should flow through `runHarnessToolBundle`, which fans out to filesystem, ripgrep, and git on the harness host in parallel and returns one merged payload.
 Repository mutation should then use `planGitCommit`, `prepareGitBranch`, and `createGitCommit` so branch naming and verbose commit structure stay auditable inside the first-party MCP workflow.
 If you need direct per-tool injection instead, clear `AGENT_TASK_MANAGER_CODEX_DOWNSTREAM_CENTRAL_SERVER` and set `AGENT_TASK_MANAGER_CODEX_REQUIRED_MCP_SERVERS=<comma-separated-server-list>`.
 For plug-and-play stdio usage, point your client at the repo-local launcher scripts under `scripts/`. They locate the jar relative to the cloned repo and build it when needed.
@@ -283,10 +283,10 @@ Remote MCP smoke test:
 ```bash
 ./scripts/test_remote_mcp.sh
 java -jar \
-  agent-task-manager-app/target/agent-task-manager-app-0.1.0-SNAPSHOT.jar remote-mcp-smoke
+  tavall-ai-app/target/tavall-ai-app-0.1.0-SNAPSHOT.jar remote-mcp-smoke
 ```
 
-Add `AGENT_TASK_MANAGER_PASSWORD=...` when the remote endpoint still requires HTTP Basic auth. The shell script and the CLI smoke command both perform the official streamable HTTP flow against the configured endpoint. The CLI path uses the official Java MCP client and normalizes path-based deployments such as `https://docs.tavall.org/agent-task-manager` plus `/mcp` into `https://docs.tavall.org` plus `/agent-task-manager/mcp`.
+Add `AGENT_TASK_MANAGER_PASSWORD=...` when the remote endpoint still requires HTTP Basic auth. The shell script and the CLI smoke command both perform the official streamable HTTP flow against the configured endpoint. The CLI path uses the official Java MCP client and normalizes path-based deployments such as `https://docs.tavall.org/tavall-ai` plus `/mcp` into `https://docs.tavall.org` plus `/tavall-ai/mcp`.
 
 The smoke flow covers:
 
@@ -334,4 +334,9 @@ The MCP surface now also exposes canonical semantic/context tool names that matc
 
 For AgentTaskManager itself, custom memory no longer depends on the legacy file-backed `memory` MCP server. Prompt and task memory flow through the harness semantic pipeline, which chunks payloads, embeds them, stores them in Qdrant with metadata, and retrieves the original chunk text/code back into worker context.
 
-Tool modules are now split by domain/concern instead of keeping every handler inside `agent-task-manager-core`. The central MCP imports dedicated artifact, cache, context, orchestration, repo-workflow, validation, and vector-memory tool modules, leaving `agent-task-manager-core` focused on shared runtime services and MCP infrastructure.
+Tool modules are now split by domain/concern instead of keeping every handler inside `tavall-ai-core`. The central MCP imports dedicated artifact, cache, context, orchestration, repo-workflow, validation, and vector-memory tool modules, leaving `tavall-ai-core` focused on shared runtime services and MCP infrastructure.
+
+
+
+
+

@@ -17,7 +17,7 @@ internal sealed class TemplateMatchService
             throw new InvalidOperationException("The match threshold must be between 0 and 1.");
         }
 
-        string sourcePath = Path.Combine(Path.GetTempPath(), "agent-task-manager-automation", $"template-source-{Guid.NewGuid():N}.png");
+        string sourcePath = Path.Combine(Path.GetTempPath(), "tavall-ai-automation", $"template-source-{Guid.NewGuid():N}.png");
         WindowSummary? resolvedWindow = request.Window is null
             ? null
             : _windowQueryService.ResolveWindow(request.Window, includeInvisible: true);
@@ -172,3 +172,4 @@ internal sealed class TemplateMatchService
 
     private sealed record MatchResult(WindowRect Bounds, double Score);
 }
+

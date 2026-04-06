@@ -10,7 +10,7 @@ import (
 	"github.com/agenttaskmanager/mcp-manager/internal/model"
 )
 
-const FileName = "agent-task-manager-backends.json"
+const FileName = "tavall-ai-backends.json"
 
 type fileModel struct {
 	Version       int                    `json:"version"`
@@ -30,7 +30,7 @@ func Load(path string) (model.BackendRegistry, error) {
 	content, err := os.ReadFile(absolutePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return model.BackendRegistry{Path: absolutePath, CentralServer: "agent-task-manager", Connectors: []model.ManagedBackend{}}, nil
+			return model.BackendRegistry{Path: absolutePath, CentralServer: "tavall-ai", Connectors: []model.ManagedBackend{}}, nil
 		}
 		return model.BackendRegistry{}, fmt.Errorf("read backend registry: %w", err)
 	}
@@ -40,7 +40,7 @@ func Load(path string) (model.BackendRegistry, error) {
 	}
 	registry := model.BackendRegistry{
 		Path:          absolutePath,
-		CentralServer: fallbackString(payload.CentralServer, "agent-task-manager"),
+		CentralServer: fallbackString(payload.CentralServer, "tavall-ai"),
 		Connectors:    normalizeConnectors(payload.Connectors),
 	}
 	return registry, nil
@@ -49,7 +49,7 @@ func Load(path string) (model.BackendRegistry, error) {
 func Render(registry model.BackendRegistry) ([]byte, error) {
 	payload := fileModel{
 		Version:       1,
-		CentralServer: fallbackString(registry.CentralServer, "agent-task-manager"),
+		CentralServer: fallbackString(registry.CentralServer, "tavall-ai"),
 		Connectors:    normalizeConnectors(registry.Connectors),
 	}
 	content, err := json.MarshalIndent(payload, "", "  ")
@@ -65,7 +65,7 @@ func ParseContent(content []byte) (model.BackendRegistry, error) {
 		return model.BackendRegistry{}, fmt.Errorf("parse backend registry: %w", err)
 	}
 	return model.BackendRegistry{
-		CentralServer: fallbackString(payload.CentralServer, "agent-task-manager"),
+		CentralServer: fallbackString(payload.CentralServer, "tavall-ai"),
 		Connectors:    normalizeConnectors(payload.Connectors),
 	}, nil
 }
@@ -94,3 +94,5 @@ func fallbackString(value string, fallback string) string {
 	}
 	return value
 }
+
+

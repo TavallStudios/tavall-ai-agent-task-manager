@@ -5,7 +5,7 @@ This file describes the current harness model in AgentTaskManager.
 The short version:
 
 - the harness is not a separate MCP server
-- it attaches to Codex by injecting the central `agent-task-manager` MCP server into the Codex command at startup
+- it attaches to Codex by injecting the central `tavall-ai` MCP server into the Codex command at startup
 - it also attaches by wrapping the Codex prompt with policy, memory, and tool-usage guidance
 - once Codex is running, the harness brokers repository and task context through the central MCP
 - after Codex exits, the harness runs bundled local validation and approval gates against the produced diff
@@ -16,7 +16,7 @@ Today the harness is a runtime behavior composed of:
 
 - deterministic Codex process configuration
 - prompt and tool-policy shaping
-- central MCP tool access through `agent-task-manager`
+- central MCP tool access through `tavall-ai`
 - bundled local validation and approval logic
 - optional remote repo-context brokering when remote MCP is enabled
 
@@ -24,11 +24,11 @@ It is not a second MCP process that Codex connects to separately.
 
 The main local validator facade is:
 
-- `com.agenttaskmanager.app.cleanjava.CleanJavaHarnessValidator`
+- `org.tavall.ai.app.cleanjava.CleanJavaHarnessValidator`
 
 The main worker runtime entrypoint that drives Codex and then runs the validator is:
 
-- `com.agenttaskmanager.app.orchestration.LocalCodexWorkerTransport`
+- `org.tavall.ai.app.orchestration.LocalCodexWorkerTransport`
 
 ## How The Harness Attaches To A Codex Instance
 
@@ -40,19 +40,19 @@ AgentTaskManager does not rely on a user-global Codex config.
 
 Instead, it builds the Codex command itself and injects deterministic `-c` settings before `codex exec` starts. That happens in:
 
-- `com.agenttaskmanager.app.bridge.CodexDeterministicConfigService`
-- `com.agenttaskmanager.app.bridge.CodexExecCommandFactory`
-- `com.agenttaskmanager.app.orchestration.LocalCodexWorkerTransport`
+- `org.tavall.ai.app.bridge.CodexDeterministicConfigService`
+- `org.tavall.ai.app.bridge.CodexExecCommandFactory`
+- `org.tavall.ai.app.orchestration.LocalCodexWorkerTransport`
 
 The injected config includes:
 
 - `model_reasoning_effort`
-- `mcp_servers.agent-task-manager.command`
-- optional `mcp_servers.agent-task-manager.args`
-- optional `mcp_servers.agent-task-manager.env.*`
+- `mcp_servers.tavall-ai.command`
+- optional `mcp_servers.tavall-ai.args`
+- optional `mcp_servers.tavall-ai.env.*`
 - optional `--add-dir` paths
 
-That is the primary attach point. When Codex starts, it already has a configured MCP server named `agent-task-manager`.
+That is the primary attach point. When Codex starts, it already has a configured MCP server named `tavall-ai`.
 
 If local central stdio is enabled, that server resolves to the local app jar with `serve-mcp-stdio`.
 
@@ -64,9 +64,9 @@ AgentTaskManager also attaches itself by shaping the prompt Codex receives.
 
 That prompt envelope is built by:
 
-- `com.agenttaskmanager.app.bridge.CodexExecCommandFactory`
-- `com.agenttaskmanager.app.orchestration.WorkerPromptFactory`
-- `com.agenttaskmanager.app.bridge.BridgePromptMemoryService`
+- `org.tavall.ai.app.bridge.CodexExecCommandFactory`
+- `org.tavall.ai.app.orchestration.WorkerPromptFactory`
+- `org.tavall.ai.app.bridge.BridgePromptMemoryService`
 
 The prompt currently injects:
 
@@ -90,7 +90,7 @@ So the harness attaches to Codex in two concrete ways:
 
 Codex talks to one first-party MCP server:
 
-- `agent-task-manager`
+- `tavall-ai`
 
 That central MCP exposes the first-party tool catalog for:
 
@@ -102,7 +102,7 @@ That central MCP exposes the first-party tool catalog for:
 - repo snapshot staging
 - harness bundle and approval operations
 
-The harness does not spin up a standalone `tjai-harness` (`clean-java-harness` compatibility alias) MCP server anymore.
+The harness does not spin up a standalone `tavall-ai-clean-java-harness` (`clean-java-harness` compatibility alias) MCP server anymore.
 
 ### Brokers Repo And Task Context
 
@@ -110,7 +110,7 @@ The main harness broker call is:
 
 - `runHarnessToolBundle`
 
-That tool is backed by `com.agenttaskmanager.app.harness.tools.HarnessToolBundleService`.
+That tool is backed by `org.tavall.ai.app.harness.tools.HarnessToolBundleService`.
 
 Depending on the requested bundle, it can assemble:
 
@@ -270,7 +270,7 @@ The current harness flow around a Codex worker run is:
 
 1. AgentTaskManager prepares a workspace for the worker.
 2. AgentTaskManager builds a Codex command with deterministic MCP injection.
-3. Codex starts with the central `agent-task-manager` MCP already attached.
+3. Codex starts with the central `tavall-ai` MCP already attached.
 4. Codex receives a prompt envelope with memory, policy, and tool guidance.
 5. Codex calls central MCP tools, usually starting with repo and task context retrieval.
 6. `runHarnessToolBundle` brokers repository inspection locally or through the remote MCP snapshot path.
@@ -283,7 +283,7 @@ The current harness flow around a Codex worker run is:
 
 The current harness does not:
 
-- run as a separate `tjai-harness` or `clean-java-harness` MCP server
+- run as a separate `tavall-ai-clean-java-harness` or `clean-java-harness` MCP server
 - depend on SSH mounts or live cross-host filesystem access
 - attach itself to a pre-existing Codex process after the fact
 
@@ -293,3 +293,6 @@ Its current model is:
 - inject the central MCP up front
 - broker repo context during the run
 - validate and gate the patch locally after the run
+
+
+

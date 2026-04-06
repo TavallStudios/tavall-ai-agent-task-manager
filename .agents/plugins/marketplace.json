@@ -1,14 +1,14 @@
 {
-  "name": "agent-task-manager-local",
+  "name": "tavall-ai-local",
   "interface": {
     "displayName": "AgentTaskManager Local"
   },
   "plugins": [
     {
-      "name": "agent-task-manager",
+      "name": "tavall-ai",
       "source": {
         "source": "local",
-        "path": "./plugins/agent-task-manager"
+        "path": "./plugins/tavall-ai"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -18,3 +18,5 @@
     }
   ]
 }
+
+

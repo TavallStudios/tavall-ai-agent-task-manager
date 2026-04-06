@@ -40,7 +40,7 @@ func TestServiceSaveBackupRestoreAndATMCompatibility(t *testing.T) {
 		t.Fatalf("expected 1 server, got %d", len(profile.Servers))
 	}
 	server := profile.Servers[0]
-	if server.PluginID != "agent-task-manager" {
+	if server.PluginID != "tavall-ai" {
 		t.Fatalf("expected ATM plugin, got %s", server.PluginID)
 	}
 	if _, exists := server.Env["AGENT_TASK_MANAGER_CODEX_REQUIRED_MCP_SERVERS"]; exists {
@@ -108,7 +108,7 @@ func TestRepoExampleProfilesRemainOptional(t *testing.T) {
 
 	var exampleID string
 	for _, document := range documents {
-		if strings.Contains(document.Path, "agent-task-manager.stdio.windows.example.json") {
+		if strings.Contains(document.Path, "tavall-ai.stdio.windows.example.json") {
 			exampleID = document.ID
 			break
 		}
@@ -258,3 +258,4 @@ func useTestHome(t *testing.T, root string) {
 	}
 	t.Setenv("HOMEPATH", homePath)
 }
+

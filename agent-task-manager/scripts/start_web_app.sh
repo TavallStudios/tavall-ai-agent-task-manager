@@ -28,7 +28,7 @@ if [[ "$detach" == "true" ]]; then
   mkdir -p "$(dirname -- "$LOG_FILE")"
   (
     cd "$REPO_ROOT"
-    exec "$MAVEN_COMMAND" -pl agent-task-manager-app -am spring-boot:run "${mvn_args[@]}"
+    exec "$MAVEN_COMMAND" -pl tavall-ai-app -am spring-boot:run "${mvn_args[@]}"
   ) >>"$LOG_FILE" 2>&1 &
   disown || true
   printf '%s\n' "Starting AgentTaskManager web panel from $REPO_ROOT. Log: $LOG_FILE"
@@ -36,4 +36,5 @@ if [[ "$detach" == "true" ]]; then
 fi
 
 cd "$REPO_ROOT"
-exec "$MAVEN_COMMAND" -pl agent-task-manager-app -am spring-boot:run "${mvn_args[@]}"
+exec "$MAVEN_COMMAND" -pl tavall-ai-app -am spring-boot:run "${mvn_args[@]}"
+

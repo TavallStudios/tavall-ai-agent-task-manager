@@ -11,12 +11,12 @@ The repository now includes a new top-level Go project at `mcp-manager/` for sta
 ## Current boundaries
 
 - `mcp-manager/` discovers and edits optional/shared MCP config documents
-- `agent-task-manager-*` runtime modules continue to own required MCP transport and fail-closed orchestration behavior
+- `tavall-ai-*` runtime modules continue to own required MCP transport and fail-closed orchestration behavior
 - ATM-specific presets and clean-code settings live in typed manager metadata and optional env overlays
 
 ## First shipped plugin
 
-`agent-task-manager`
+`tavall-ai`
 
 Typed settings:
 
@@ -53,3 +53,5 @@ These settings are extracted from and rendered back into the actual launcher arg
 - the sidebar now has separate sections for MCP servers and mapped tools
 - clicking an MCP shows its mapped tool surface
 - clicking a tool opens a delegated tool page while keeping the parent MCP settings live underneath
+
+

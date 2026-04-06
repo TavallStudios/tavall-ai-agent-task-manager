@@ -115,7 +115,7 @@ public partial class ConnectionSettingsViewModel : ObservableObject
         RuntimeMode = DesktopRuntimeModes.RemoteManaged;
         if (string.IsNullOrWhiteSpace(ExtractBasePathSuffix(DirectBackendBaseUrl)))
         {
-            DirectBackendBaseUrl = "http://127.0.0.1:9000/agent-task-manager";
+            DirectBackendBaseUrl = "http://127.0.0.1:9000/tavall-ai";
         }
 
         AutoStartTunnel = true;
@@ -258,3 +258,4 @@ public partial class ConnectionSettingsViewModel : ObservableObject
         return string.Equals(path, "/", StringComparison.Ordinal) ? string.Empty : path;
     }
 }
+

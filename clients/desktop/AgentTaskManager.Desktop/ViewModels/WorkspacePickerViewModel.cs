@@ -9,7 +9,7 @@ public sealed class WorkspacePickerViewModel : ObservableObject
 {
     private WorkspaceDescriptorDto? _selectedWorkspace;
     private string _sessionTitle = "Desktop Session";
-    private string _projectKey = "agent-task-manager";
+    private string _projectKey = "tavall-ai";
     private string _workspaceRoot = Environment.CurrentDirectory;
     private string _repoPath = Environment.CurrentDirectory;
     private string _profileKey = "workspace-default";
@@ -143,3 +143,4 @@ public sealed class WorkspacePickerViewModel : ObservableObject
             CreateRuntime,
             InitialPrompt);
 }
+

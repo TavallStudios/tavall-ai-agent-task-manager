@@ -4,15 +4,15 @@
 
 Build modules:
 
-- `agent-task-manager-core`
+- `tavall-ai-core`
   Shared headless runtime components, MCP catalog infrastructure, validation, persistence, runtime summaries, and orchestration code.
-- `spring-webview`
+- `tavall-ai-spring-webview`
   The compatibility MCP HTTP adapter module. It retains Spring-hosted `/mcp` transport for tests and phased migration but no longer ships dashboard pages, login views, or non-MCP REST APIs.
-- `agent-task-manager-clean-java-mcp`
+- `tavall-ai-clean-java-mcp`
   The dedicated stdio MCP module for clean Java rule loading and source-shape validation tools.
-- `tjai-harness` (module path: `agent-task-manager-clean-java-harness`)
+- `tavall-ai-clean-java-harness` (module path: `tavall-ai-clean-java-harness`)
   The bundled harness module for intake, routing, state, approval, bundled tool brokering, and clean-code harness tools without the servlet web surface on its classpath.
-- `agent-task-manager-app`
+- `tavall-ai-app`
   The final app module that assembles the shared runtime, the standalone embedded MCP HTTP runtime, and both clean Java modules into one executable.
 
 - `mcp`
@@ -94,7 +94,7 @@ Build modules:
 - resources for docs
 - prompts for overseer, worker, and cleanup roles
 - tool groups for canonical delegation-run orchestration, compatibility task pooling, worker state, shared context, validation, artifacts, retrieval, cache, and decisions
-- the dedicated `tjai-harness` group (with `clean-java-harness` compatibility alias) now exposes a single harness surface for intake, routing, state, brokered tool bundles, approval, and deterministic clean-code validation
+- the dedicated `tavall-ai-clean-java-harness` group (with `clean-java-harness` compatibility alias) now exposes a single harness surface for intake, routing, state, brokered tool bundles, approval, and deterministic clean-code validation
 - deterministic Java work now follows one staged loop: build clean-Java task context, draft the patch, run Spoon source-shape checks, run ArchUnit architecture and cycle checks, then pass cleanup review and approval gates
 
 The default runtime path starts embedded Tomcat directly from the app module and registers the official MCP Java SDK servlet without Spring MVC in the request path. A Spring-hosted MCP adapter remains in the repo as a compatibility layer for existing integration tests and migration safety.
@@ -102,3 +102,6 @@ The default runtime path starts embedded Tomcat directly from the app module and
 ## Remote Path
 
 The standalone app runtime exposes the MCP servlet endpoint remotely by default. Local stdio and remote HTTP modes share the same tool catalog and internal service boundaries, while the compatibility Spring adapter remains available for phased migration and test coverage.
+
+
+

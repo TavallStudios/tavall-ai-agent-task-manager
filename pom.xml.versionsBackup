@@ -11,27 +11,27 @@
     <relativePath/>
   </parent>
 
-  <groupId>io.agenttaskmanager</groupId>
-  <artifactId>agent-task-manager-parent</artifactId>
+  <groupId>org.tavall.ai</groupId>
+  <artifactId>tavall-ai-parent</artifactId>
   <version>0.1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>AgentTaskManager</name>
   <description>MCP-first control plane for cross-project agent tasks and prompt memory.</description>
 
   <modules>
-    <module>agent-task-manager-core</module>
-    <module>spring-webview</module>
-    <module>agent-task-manager-clean-java-mcp</module>
-    <module>agent-task-manager-clean-java-harness</module>
-    <module>agent-task-manager-artifact-tools</module>
-    <module>agent-task-manager-cache-tools</module>
-    <module>agent-task-manager-context-tools</module>
-    <module>agent-task-manager-computer-use-tools</module>
-    <module>agent-task-manager-orchestration-tools</module>
-    <module>agent-task-manager-repo-tools</module>
-    <module>agent-task-manager-validation-tools</module>
-    <module>agent-task-manager-vector-memory-tools</module>
-    <module>agent-task-manager-app</module>
+    <module>tavall-ai-core</module>
+    <module>tavall-ai-spring-webview</module>
+    <module>tavall-ai-clean-java-mcp</module>
+    <module>tavall-ai-clean-java-harness</module>
+    <module>tavall-ai-artifact-tools</module>
+    <module>tavall-ai-cache-tools</module>
+    <module>tavall-ai-context-tools</module>
+    <module>tavall-ai-computer-use-tools</module>
+    <module>tavall-ai-orchestration-tools</module>
+    <module>tavall-ai-repo-tools</module>
+    <module>tavall-ai-validation-tools</module>
+    <module>tavall-ai-vector-memory-tools</module>
+    <module>tavall-ai-app</module>
   </modules>
 
   <properties>
@@ -132,3 +132,6 @@
     </profile>
   </profiles>
 </project>
+
+
+

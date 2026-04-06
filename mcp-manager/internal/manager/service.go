@@ -192,7 +192,7 @@ func (service *Service) ToolsForProfile(documentID string, profile model.Managed
 
 func (service *Service) ServerTools(documentID string, server model.ManagedServer) []model.ManagedTool {
 	tools := service.tools.ForServer(documentID, server)
-	if strings.EqualFold(server.PluginID, "agent-task-manager") || strings.EqualFold(server.Name, "agent-task-manager") {
+	if strings.EqualFold(server.PluginID, "tavall-ai") || strings.EqualFold(server.Name, "tavall-ai") {
 		registry, err := service.BackendRegistry(documentID)
 		if err == nil {
 			for _, connector := range registry.Connectors {
@@ -488,3 +488,4 @@ func looksLikeManagedRoot(path string) bool {
 	}
 	return strings.HasSuffix(name, "-mcp") || strings.HasSuffix(name, "_mcp")
 }
+
