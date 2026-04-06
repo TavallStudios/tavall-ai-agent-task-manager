@@ -34,7 +34,7 @@ import org.springframework.test.context.TestPropertySource;
     "app.embedding.dimensions=32",
     "app.knowledge-index.enabled=false"
 })
-class CleanJavaMcpCatalogIntegrationTest {
+class CleanJavaMcpCatalogTest {
 
   @Autowired
   private McpCatalog mcpCatalog;

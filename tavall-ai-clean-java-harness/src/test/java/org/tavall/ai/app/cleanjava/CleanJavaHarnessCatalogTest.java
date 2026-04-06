@@ -30,7 +30,7 @@ import org.springframework.test.context.TestPropertySource;
     "app.embedding.dimensions=32",
     "app.knowledge-index.enabled=false"
 })
-class CleanJavaHarnessCatalogIntegrationTest {
+class CleanJavaHarnessCatalogTest {
 
   @Autowired
   private McpCatalog mcpCatalog;
