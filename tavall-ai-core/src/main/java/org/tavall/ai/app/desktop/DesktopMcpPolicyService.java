@@ -260,7 +260,8 @@ public class DesktopMcpPolicyService {
         "lintStrictness", DesktopHarnessPreferencePolicy.DEFAULT_LINT_STRICTNESS,
         "lintUnsupportedRepoPolicy", DesktopHarnessPreferencePolicy.DEFAULT_LINT_UNSUPPORTED_REPO_POLICY,
         "internalConcurrencyCap", DesktopHarnessPreferencePolicy.DEFAULT_INTERNAL_CONCURRENCY_CAP,
-        "downstreamConcurrencyCap", DesktopHarnessPreferencePolicy.DEFAULT_DOWNSTREAM_CONCURRENCY_CAP
+        "downstreamConcurrencyCap", DesktopHarnessPreferencePolicy.DEFAULT_DOWNSTREAM_CONCURRENCY_CAP,
+        "downstreamMcpMode", DesktopHarnessPreferencePolicy.DEFAULT_DOWNSTREAM_MCP_MODE
     ));
     defaultPolicy.put("updatedAt", OffsetDateTime.now().toString());
     return defaultPolicy;
@@ -279,7 +280,8 @@ public class DesktopMcpPolicyService {
         "customDiDescriptor", "",
         "lintEngines", List.of(),
         "lintStrictness", "",
-        "lintUnsupportedRepoPolicy", ""
+        "lintUnsupportedRepoPolicy", "",
+        "downstreamMcpMode", ""
     ));
     defaultPolicy.put("updatedAt", OffsetDateTime.now().toString());
     return defaultPolicy;

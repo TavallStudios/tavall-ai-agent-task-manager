@@ -19,6 +19,7 @@ final class DesktopHarnessPreferencePolicy {
   static final String DEFAULT_LINT_UNSUPPORTED_REPO_POLICY = "fail";
   static final int DEFAULT_INTERNAL_CONCURRENCY_CAP = 0;
   static final int DEFAULT_DOWNSTREAM_CONCURRENCY_CAP = 0;
+  static final String DEFAULT_DOWNSTREAM_MCP_MODE = "local-only";
 
   private DesktopHarnessPreferencePolicy() {
   }
@@ -55,6 +56,10 @@ final class DesktopHarnessPreferencePolicy {
     } else {
       normalized.put("downstreamConcurrencyCap", useDefaults ? DEFAULT_DOWNSTREAM_CONCURRENCY_CAP : null);
     }
+    normalized.put(
+        "downstreamMcpMode",
+        normalizeDownstreamMode(readString(source.get("downstreamMcpMode"), useDefaults ? DEFAULT_DOWNSTREAM_MCP_MODE : ""))
+    );
     return normalized;
   }
 
@@ -98,6 +103,10 @@ final class DesktopHarnessPreferencePolicy {
       downstreamCap = normalizeCap(readInt(globalNormalized.get("downstreamConcurrencyCap"), DEFAULT_DOWNSTREAM_CONCURRENCY_CAP));
     }
     merged.put("downstreamConcurrencyCap", downstreamCap);
+    String downstreamMode = normalizeDownstreamMode(
+        readString(repoNormalized.get("downstreamMcpMode"), readString(globalNormalized.get("downstreamMcpMode"), DEFAULT_DOWNSTREAM_MCP_MODE))
+    );
+    merged.put("downstreamMcpMode", downstreamMode);
     return merged;
   }
 
@@ -116,9 +125,11 @@ final class DesktopHarnessPreferencePolicy {
   static DesktopHarnessPreferenceCaps toCaps(Map<String, Object> preferences) {
     Integer internalCap = normalizeCap(readInt(preferences.get("internalConcurrencyCap"), DEFAULT_INTERNAL_CONCURRENCY_CAP));
     Integer downstreamCap = normalizeCap(readInt(preferences.get("downstreamConcurrencyCap"), DEFAULT_DOWNSTREAM_CONCURRENCY_CAP));
+    DownstreamMcpMode mode = DownstreamMcpMode.from(readString(preferences.get("downstreamMcpMode"), DEFAULT_DOWNSTREAM_MCP_MODE));
     return new DesktopHarnessPreferenceCaps(
         internalCap == null ? DEFAULT_INTERNAL_CONCURRENCY_CAP : internalCap,
-        downstreamCap == null ? DEFAULT_DOWNSTREAM_CONCURRENCY_CAP : downstreamCap
+        downstreamCap == null ? DEFAULT_DOWNSTREAM_CONCURRENCY_CAP : downstreamCap,
+        mode
     );
   }
 
@@ -127,6 +138,10 @@ final class DesktopHarnessPreferencePolicy {
       return null;
     }
     return Math.max(0, value);
+  }
+
+  static String normalizeDownstreamMode(String value) {
+    return DownstreamMcpMode.from(value).id();
   }
 
 }
