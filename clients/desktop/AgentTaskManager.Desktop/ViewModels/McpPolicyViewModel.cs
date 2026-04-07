@@ -1,6 +1,7 @@
 using AgentTaskManager.Desktop.Contracts;
 using AgentTaskManager.Desktop.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json;
 
@@ -18,16 +19,25 @@ public sealed class McpPolicyViewModel : ObservableObject
     private string _globalCustomDiDescriptor = string.Empty;
     private string _globalInternalConcurrencyCap = "0";
     private string _globalDownstreamConcurrencyCap = "0";
+    private string _globalDownstreamMcpMode = "local-only";
     private string _repoDiPreset = string.Empty;
     private string _repoLanguagePreset = string.Empty;
     private string _repoCustomDiDescriptor = string.Empty;
     private string _repoInternalConcurrencyCap = string.Empty;
     private string _repoDownstreamConcurrencyCap = string.Empty;
+    private string _repoDownstreamMcpMode = string.Empty;
     private string _effectiveDiPreset = "service-loader";
     private string _effectiveLanguagePreset = "java";
     private string _effectiveCustomDiDescriptor = string.Empty;
     private string _effectiveInternalConcurrencyCap = "0";
     private string _effectiveDownstreamConcurrencyCap = "0";
+    private string _effectiveDownstreamMcpMode = "local-only";
+    private readonly ObservableCollection<McpServerPolicyEditor> _globalServerPolicies = new();
+    private readonly ObservableCollection<McpServerPolicyEditor> _repoServerPolicies = new();
+    private McpServerPolicyEditor? _selectedGlobalServerPolicy;
+    private McpServerPolicyEditor? _selectedRepoServerPolicy;
+    private string _newGlobalServerName = string.Empty;
+    private string _newRepoServerName = string.Empty;
     private string _statusMessage = "MCP policy settings idle.";
     private bool _isBusy;
 
@@ -54,6 +64,16 @@ public sealed class McpPolicyViewModel : ObservableObject
         "python",
         "go"
     ];
+
+    public IReadOnlyList<string> DownstreamMcpModeOptions { get; } =
+    [
+        "local-only",
+        "local-then-remote",
+        "remote-only",
+        "remote-then-local"
+    ];
+
+    public IReadOnlyList<string> ServerModeOptions => DownstreamMcpModeOptions;
 
     public string RepoScopeKey
     {
@@ -109,6 +129,12 @@ public sealed class McpPolicyViewModel : ObservableObject
         set => SetProperty(ref _globalDownstreamConcurrencyCap, value);
     }
 
+    public string GlobalDownstreamMcpMode
+    {
+        get => _globalDownstreamMcpMode;
+        set => SetProperty(ref _globalDownstreamMcpMode, value);
+    }
+
     public string RepoDiPreset
     {
         get => _repoDiPreset;
@@ -139,6 +165,12 @@ public sealed class McpPolicyViewModel : ObservableObject
         set => SetProperty(ref _repoDownstreamConcurrencyCap, value);
     }
 
+    public string RepoDownstreamMcpMode
+    {
+        get => _repoDownstreamMcpMode;
+        set => SetProperty(ref _repoDownstreamMcpMode, value);
+    }
+
     public string EffectiveDiPreset
     {
         get => _effectiveDiPreset;
@@ -167,6 +199,40 @@ public sealed class McpPolicyViewModel : ObservableObject
     {
         get => _effectiveDownstreamConcurrencyCap;
         set => SetProperty(ref _effectiveDownstreamConcurrencyCap, value);
+    }
+
+    public string EffectiveDownstreamMcpMode
+    {
+        get => _effectiveDownstreamMcpMode;
+        set => SetProperty(ref _effectiveDownstreamMcpMode, value);
+    }
+
+    public ObservableCollection<McpServerPolicyEditor> GlobalServerPolicies => _globalServerPolicies;
+
+    public ObservableCollection<McpServerPolicyEditor> RepoServerPolicies => _repoServerPolicies;
+
+    public McpServerPolicyEditor? SelectedGlobalServerPolicy
+    {
+        get => _selectedGlobalServerPolicy;
+        set => SetProperty(ref _selectedGlobalServerPolicy, value);
+    }
+
+    public McpServerPolicyEditor? SelectedRepoServerPolicy
+    {
+        get => _selectedRepoServerPolicy;
+        set => SetProperty(ref _selectedRepoServerPolicy, value);
+    }
+
+    public string NewGlobalServerName
+    {
+        get => _newGlobalServerName;
+        set => SetProperty(ref _newGlobalServerName, value);
+    }
+
+    public string NewRepoServerName
+    {
+        get => _newRepoServerName;
+        set => SetProperty(ref _newRepoServerName, value);
     }
 
     public string StatusMessage
@@ -205,16 +271,26 @@ public sealed class McpPolicyViewModel : ObservableObject
             GlobalCustomDiDescriptor = globalPreferences.CustomDiDescriptor;
             GlobalInternalConcurrencyCap = FormatCap(globalPreferences.InternalConcurrencyCap, useDefaults: true);
             GlobalDownstreamConcurrencyCap = FormatCap(globalPreferences.DownstreamConcurrencyCap, useDefaults: true);
+            GlobalDownstreamMcpMode = NormalizeText(globalPreferences.DownstreamMcpMode, "local-only");
             RepoDiPreset = repoPreferences.DiPreset;
             RepoLanguagePreset = repoPreferences.LanguagePreset;
             RepoCustomDiDescriptor = repoPreferences.CustomDiDescriptor;
             RepoInternalConcurrencyCap = FormatCap(repoPreferences.InternalConcurrencyCap, useDefaults: false);
             RepoDownstreamConcurrencyCap = FormatCap(repoPreferences.DownstreamConcurrencyCap, useDefaults: false);
+            RepoDownstreamMcpMode = NormalizeText(repoPreferences.DownstreamMcpMode, string.Empty);
             EffectiveDiPreset = effectivePreferences.DiPreset;
             EffectiveLanguagePreset = effectivePreferences.LanguagePreset;
             EffectiveCustomDiDescriptor = effectivePreferences.CustomDiDescriptor;
             EffectiveInternalConcurrencyCap = FormatCap(effectivePreferences.InternalConcurrencyCap, useDefaults: true);
             EffectiveDownstreamConcurrencyCap = FormatCap(effectivePreferences.DownstreamConcurrencyCap, useDefaults: true);
+            EffectiveDownstreamMcpMode = NormalizeText(effectivePreferences.DownstreamMcpMode, "local-only");
+
+            string? selectedGlobalName = SelectedGlobalServerPolicy?.ServerName;
+            string? selectedRepoName = SelectedRepoServerPolicy?.ServerName;
+            SyncServerPolicies(_globalServerPolicies, global.Servers);
+            SyncServerPolicies(_repoServerPolicies, repo.Servers);
+            SelectedGlobalServerPolicy = ResolveSelection(_globalServerPolicies, selectedGlobalName);
+            SelectedRepoServerPolicy = ResolveSelection(_repoServerPolicies, selectedRepoName);
 
             GlobalPolicyJson = JsonSerializer.Serialize(global, DesktopJson.Default);
             RepoPolicyJson = JsonSerializer.Serialize(repo, DesktopJson.Default);
@@ -231,6 +307,66 @@ public sealed class McpPolicyViewModel : ObservableObject
         }
     }
 
+    public void AddGlobalServerPolicy()
+    {
+        string name = NormalizeText(NewGlobalServerName, string.Empty);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            StatusMessage = "Provide a server name before adding a global policy.";
+            return;
+        }
+        if (_globalServerPolicies.Any(policy => policy.ServerName.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            StatusMessage = $"Global policy already contains '{name}'.";
+            return;
+        }
+        var editor = new McpServerPolicyEditor(name, true, DefaultServerMode(name), string.Empty);
+        _globalServerPolicies.Add(editor);
+        SelectedGlobalServerPolicy = editor;
+        NewGlobalServerName = string.Empty;
+    }
+
+    public void RemoveSelectedGlobalServerPolicy()
+    {
+        if (SelectedGlobalServerPolicy == null)
+        {
+            StatusMessage = "Select a global server policy to remove.";
+            return;
+        }
+        _globalServerPolicies.Remove(SelectedGlobalServerPolicy);
+        SelectedGlobalServerPolicy = _globalServerPolicies.FirstOrDefault();
+    }
+
+    public void AddRepoServerPolicy()
+    {
+        string name = NormalizeText(NewRepoServerName, string.Empty);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            StatusMessage = "Provide a server name before adding a repo override.";
+            return;
+        }
+        if (_repoServerPolicies.Any(policy => policy.ServerName.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            StatusMessage = $"Repo overrides already contain '{name}'.";
+            return;
+        }
+        var editor = new McpServerPolicyEditor(name, true, DefaultServerMode(name), string.Empty);
+        _repoServerPolicies.Add(editor);
+        SelectedRepoServerPolicy = editor;
+        NewRepoServerName = string.Empty;
+    }
+
+    public void RemoveSelectedRepoServerPolicy()
+    {
+        if (SelectedRepoServerPolicy == null)
+        {
+            StatusMessage = "Select a repo server override to remove.";
+            return;
+        }
+        _repoServerPolicies.Remove(SelectedRepoServerPolicy);
+        SelectedRepoServerPolicy = _repoServerPolicies.FirstOrDefault();
+    }
+
     public async Task SaveGlobalAsync(CancellationToken cancellationToken)
     {
         IsBusy = true;
@@ -243,11 +379,13 @@ public sealed class McpPolicyViewModel : ObservableObject
                 GlobalCustomDiDescriptor,
                 GlobalInternalConcurrencyCap,
                 GlobalDownstreamConcurrencyCap,
+                GlobalDownstreamMcpMode,
                 useDefaultsForCaps: true) with
             {
                 ScopeKey = "global",
                 UpdatedAt = DateTimeOffset.UtcNow
             };
+            policy = ApplyServerPolicies(policy, _globalServerPolicies);
             await _policyService.SaveGlobalPolicyAsync(policy, cancellationToken);
             await RefreshAsync(cancellationToken);
             StatusMessage = "Saved global MCP policy scope.";
@@ -275,11 +413,13 @@ public sealed class McpPolicyViewModel : ObservableObject
                 RepoCustomDiDescriptor,
                 RepoInternalConcurrencyCap,
                 RepoDownstreamConcurrencyCap,
+                RepoDownstreamMcpMode,
                 useDefaultsForCaps: false) with
             {
                 ScopeKey = scopeKey,
                 UpdatedAt = DateTimeOffset.UtcNow
             };
+            policy = ApplyServerPolicies(policy, _repoServerPolicies);
             await _policyService.SaveRepoPolicyAsync(policy, cancellationToken);
             await RefreshAsync(cancellationToken);
             StatusMessage = $"Saved repo MCP policy scope '{scopeKey}'.";
@@ -307,6 +447,7 @@ public sealed class McpPolicyViewModel : ObservableObject
         string customDiDescriptor,
         string internalConcurrencyCap,
         string downstreamConcurrencyCap,
+        string downstreamMcpMode,
         bool useDefaultsForCaps)
         => scope with
         {
@@ -319,7 +460,8 @@ public sealed class McpPolicyViewModel : ObservableObject
                 NormalizeText(scope.HarnessPreferences?.LintStrictness, string.Empty),
                 NormalizeText(scope.HarnessPreferences?.LintUnsupportedRepoPolicy, string.Empty),
                 ParseCap(internalConcurrencyCap, useDefaultsForCaps),
-                ParseCap(downstreamConcurrencyCap, useDefaultsForCaps))
+                ParseCap(downstreamConcurrencyCap, useDefaultsForCaps),
+                NormalizeText(downstreamMcpMode, string.Empty))
         };
 
     private static HarnessPreferencesDto NormalizePreferences(HarnessPreferencesDto? preferences, bool useDefaults)
@@ -332,7 +474,8 @@ public sealed class McpPolicyViewModel : ObservableObject
             NormalizeText(preferences?.LintStrictness, useDefaults ? "error" : string.Empty),
             NormalizeText(preferences?.LintUnsupportedRepoPolicy, useDefaults ? "fail" : string.Empty),
             NormalizeCap(preferences?.InternalConcurrencyCap, useDefaults),
-            NormalizeCap(preferences?.DownstreamConcurrencyCap, useDefaults));
+            NormalizeCap(preferences?.DownstreamConcurrencyCap, useDefaults),
+            NormalizeText(preferences?.DownstreamMcpMode, useDefaults ? "local-only" : string.Empty));
 
     private static IReadOnlyList<string> NormalizeLintEngines(IReadOnlyList<string>? lintEngines, bool useDefaults)
     {
@@ -376,9 +519,172 @@ public sealed class McpPolicyViewModel : ObservableObject
         return Math.Max(0, parsed);
     }
 
+    private static void SyncServerPolicies(
+        ObservableCollection<McpServerPolicyEditor> target,
+        IReadOnlyList<McpServerPolicyDto>? source)
+    {
+        target.Clear();
+        if (source == null)
+        {
+            return;
+        }
+        foreach (McpServerPolicyDto policy in source)
+        {
+            string envJson = policy.Env == null || policy.Env.Count == 0
+                ? string.Empty
+                : JsonSerializer.Serialize(policy.Env, DesktopJson.Default);
+            target.Add(new McpServerPolicyEditor(
+                policy.ServerName,
+                policy.Enabled,
+                NormalizeText(policy.Mode, DefaultServerMode(policy.ServerName)),
+                envJson));
+        }
+    }
+
+    private static McpServerPolicyEditor? ResolveSelection(
+        ObservableCollection<McpServerPolicyEditor> target,
+        string? previousName)
+    {
+        if (!string.IsNullOrWhiteSpace(previousName))
+        {
+            McpServerPolicyEditor? match = target.FirstOrDefault(item =>
+                item.ServerName.Equals(previousName, StringComparison.OrdinalIgnoreCase));
+            if (match != null)
+            {
+                return match;
+            }
+        }
+        return target.FirstOrDefault();
+    }
+
+    private static McpPolicyScopeDto ApplyServerPolicies(
+        McpPolicyScopeDto scope,
+        IEnumerable<McpServerPolicyEditor> policies)
+    {
+        List<McpServerPolicyDto> servers = new();
+        foreach (McpServerPolicyEditor policy in policies)
+        {
+            if (string.IsNullOrWhiteSpace(policy.ServerName))
+            {
+                continue;
+            }
+            IReadOnlyDictionary<string, string>? envOverrides = ParseEnvOverrides(policy.EnvJson);
+            servers.Add(new McpServerPolicyDto(
+                policy.ServerName.Trim(),
+                policy.Enabled,
+                NormalizeText(policy.Mode, DefaultServerMode(policy.ServerName)),
+                envOverrides));
+        }
+        return scope with { Servers = servers };
+    }
+
+    private static IReadOnlyDictionary<string, string>? ParseEnvOverrides(string envJson)
+    {
+        if (string.IsNullOrWhiteSpace(envJson))
+        {
+            return null;
+        }
+        try
+        {
+            Dictionary<string, string>? parsed =
+                JsonSerializer.Deserialize<Dictionary<string, string>>(envJson, DesktopJson.Default);
+            if (parsed == null || parsed.Count == 0)
+            {
+                return null;
+            }
+            return parsed;
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidOperationException("Server env overrides must be valid JSON.", exception);
+        }
+    }
+
+    private static string DefaultServerMode(string serverName)
+    {
+        if (string.IsNullOrWhiteSpace(serverName))
+        {
+            return "local-only";
+        }
+        string normalized = serverName.Trim().ToLowerInvariant();
+        if (normalized.StartsWith("qdrant")
+            || normalized.StartsWith("postgres")
+            || normalized.StartsWith("mongodb")
+            || normalized.StartsWith("redis")
+            || normalized.StartsWith("elasticsearch")
+            || normalized.StartsWith("prometheus")
+            || normalized.StartsWith("loki"))
+        {
+            return "remote-only";
+        }
+        return "local-only";
+    }
+
     private static string NormalizeText(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 
     private static string NormalizeScope(string scopeKey)
         => string.IsNullOrWhiteSpace(scopeKey) ? "workspace-default" : scopeKey.Trim();
+}
+
+public sealed class McpServerPolicyEditor : ObservableObject
+{
+    private string _serverName;
+    private bool _enabled;
+    private string _mode;
+    private string _envJson;
+
+    public McpServerPolicyEditor(string serverName, bool enabled, string mode, string envJson)
+    {
+        _serverName = serverName;
+        _enabled = enabled;
+        _mode = mode;
+        _envJson = envJson;
+    }
+
+    public string ServerName
+    {
+        get => _serverName;
+        set
+        {
+            if (SetProperty(ref _serverName, value))
+            {
+                OnPropertyChanged(nameof(DisplaySummary));
+            }
+        }
+    }
+
+    public bool Enabled
+    {
+        get => _enabled;
+        set
+        {
+            if (SetProperty(ref _enabled, value))
+            {
+                OnPropertyChanged(nameof(DisplaySummary));
+            }
+        }
+    }
+
+    public string Mode
+    {
+        get => _mode;
+        set
+        {
+            if (SetProperty(ref _mode, value))
+            {
+                OnPropertyChanged(nameof(DisplaySummary));
+            }
+        }
+    }
+
+    public string EnvJson
+    {
+        get => _envJson;
+        set => SetProperty(ref _envJson, value);
+    }
+
+    public string DisplaySummary => string.IsNullOrWhiteSpace(ServerName)
+        ? "(unnamed server)"
+        : $"{ServerName} [{Mode}]";
 }

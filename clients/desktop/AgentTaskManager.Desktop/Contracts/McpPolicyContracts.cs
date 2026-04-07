@@ -2,7 +2,9 @@ namespace AgentTaskManager.Desktop.Contracts;
 
 public sealed record McpServerPolicyDto(
     string ServerName,
-    bool Enabled);
+    bool Enabled,
+    string Mode,
+    IReadOnlyDictionary<string, string>? Env);
 
 public sealed record McpToolPolicyDto(
     string ServerName,
@@ -23,7 +25,8 @@ public sealed record HarnessPreferencesDto(
     string LintStrictness,
     string LintUnsupportedRepoPolicy,
     int? InternalConcurrencyCap,
-    int? DownstreamConcurrencyCap);
+    int? DownstreamConcurrencyCap,
+    string DownstreamMcpMode);
 
 public sealed record McpPolicyScopeDto(
     string ScopeKey,
@@ -37,6 +40,7 @@ public sealed record McpPolicyScopeDto(
 public sealed record McpPolicyPreviewDto(
     string ScopeKey,
     IReadOnlyList<string> EnabledServers,
+    IReadOnlyList<McpServerPolicyDto> ServerPolicies,
     IReadOnlyList<string> EnabledTools,
     HarnessPreferencesDto HarnessPreferences,
     string Summary);

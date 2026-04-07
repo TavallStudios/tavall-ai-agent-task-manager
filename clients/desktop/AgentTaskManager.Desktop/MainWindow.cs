@@ -54,6 +54,10 @@ public sealed class MainWindow : Window
         controls.RefreshMcpPolicyButton.Click += OnRefreshMcpPolicy;
         controls.SaveGlobalMcpPolicyButton.Click += OnSaveGlobalMcpPolicy;
         controls.SaveRepoMcpPolicyButton.Click += OnSaveRepoMcpPolicy;
+        controls.AddGlobalServerPolicyButton.Click += OnAddGlobalServerPolicy;
+        controls.RemoveGlobalServerPolicyButton.Click += OnRemoveGlobalServerPolicy;
+        controls.AddRepoServerPolicyButton.Click += OnAddRepoServerPolicy;
+        controls.RemoveRepoServerPolicyButton.Click += OnRemoveRepoServerPolicy;
         controls.RepoTabView.SelectionChanged += OnRepoTabSelectionChanged;
         controls.SessionListView.SelectionChanged += OnSessionSelectionChanged;
         ViewModel.Repos.Tabs.CollectionChanged += OnRepoTabsCollectionChanged;
@@ -270,6 +274,26 @@ public sealed class MainWindow : Window
     private async void OnSaveRepoMcpPolicy(object sender, RoutedEventArgs e)
     {
         await RunUiActionAsync(() => ViewModel.McpPolicy.SaveRepoAsync(CancellationToken.None));
+    }
+
+    private void OnAddGlobalServerPolicy(object sender, RoutedEventArgs e)
+    {
+        ViewModel.McpPolicy.AddGlobalServerPolicy();
+    }
+
+    private void OnRemoveGlobalServerPolicy(object sender, RoutedEventArgs e)
+    {
+        ViewModel.McpPolicy.RemoveSelectedGlobalServerPolicy();
+    }
+
+    private void OnAddRepoServerPolicy(object sender, RoutedEventArgs e)
+    {
+        ViewModel.McpPolicy.AddRepoServerPolicy();
+    }
+
+    private void OnRemoveRepoServerPolicy(object sender, RoutedEventArgs e)
+    {
+        ViewModel.McpPolicy.RemoveSelectedRepoServerPolicy();
     }
 
     private void OnRepoTabsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

@@ -217,7 +217,11 @@ internal static class MainWindowSectionFactory
         Button startChatGptCodexLoginButton,
         Button refreshMcpPolicyButton,
         Button saveGlobalMcpPolicyButton,
-        Button saveRepoMcpPolicyButton)
+        Button saveRepoMcpPolicyButton,
+        Button addGlobalServerPolicyButton,
+        Button removeGlobalServerPolicyButton,
+        Button addRepoServerPolicyButton,
+        Button removeRepoServerPolicyButton)
     {
         var grid = MainWindowElementFactory.CreateTwoColumnGrid();
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -245,6 +249,9 @@ internal static class MainWindowSectionFactory
             MainWindowElementFactory.BoundTextBox("Global custom DI descriptor", "McpPolicy.GlobalCustomDiDescriptor"),
             MainWindowElementFactory.BoundTextBox("Global internal concurrency cap (0 = unlimited)", "McpPolicy.GlobalInternalConcurrencyCap"),
             MainWindowElementFactory.BoundTextBox("Global downstream concurrency cap (0 = unlimited)", "McpPolicy.GlobalDownstreamConcurrencyCap"),
+            MainWindowElementFactory.LabeledField(
+                "Global downstream MCP mode",
+                MainWindowElementFactory.BoundComboBox("McpPolicy.DownstreamMcpModeOptions", "McpPolicy.GlobalDownstreamMcpMode")),
             MainWindowElementFactory.Label("Repo Harness Overrides", MainWindowElementFactory.SemiBoldWeight, 15),
             MainWindowElementFactory.LabeledField(
                 "Repo DI preset",
@@ -255,12 +262,44 @@ internal static class MainWindowSectionFactory
             MainWindowElementFactory.BoundTextBox("Repo custom DI descriptor", "McpPolicy.RepoCustomDiDescriptor"),
             MainWindowElementFactory.BoundTextBox("Repo internal concurrency cap (blank = inherit)", "McpPolicy.RepoInternalConcurrencyCap"),
             MainWindowElementFactory.BoundTextBox("Repo downstream concurrency cap (blank = inherit)", "McpPolicy.RepoDownstreamConcurrencyCap"),
+            MainWindowElementFactory.LabeledField(
+                "Repo downstream MCP mode (blank = inherit)",
+                MainWindowElementFactory.BoundComboBox("McpPolicy.DownstreamMcpModeOptions", "McpPolicy.RepoDownstreamMcpMode")),
             MainWindowElementFactory.Label("Effective Harness Preferences", MainWindowElementFactory.SemiBoldWeight, 15),
             MainWindowElementFactory.ReadOnlyBoundValue("Effective DI preset", "McpPolicy.EffectiveDiPreset"),
             MainWindowElementFactory.ReadOnlyBoundValue("Effective language preset", "McpPolicy.EffectiveLanguagePreset"),
             MainWindowElementFactory.ReadOnlyBoundValue("Effective custom DI descriptor", "McpPolicy.EffectiveCustomDiDescriptor"),
             MainWindowElementFactory.ReadOnlyBoundValue("Effective internal concurrency cap", "McpPolicy.EffectiveInternalConcurrencyCap"),
             MainWindowElementFactory.ReadOnlyBoundValue("Effective downstream concurrency cap", "McpPolicy.EffectiveDownstreamConcurrencyCap"),
+            MainWindowElementFactory.ReadOnlyBoundValue("Effective downstream MCP mode", "McpPolicy.EffectiveDownstreamMcpMode"),
+            MainWindowElementFactory.Label("Global MCP Servers", MainWindowElementFactory.SemiBoldWeight, 15),
+            MainWindowElementFactory.BoundTextBox("Add global server", "McpPolicy.NewGlobalServerName"),
+            MainWindowElementFactory.HorizontalButtons(addGlobalServerPolicyButton, removeGlobalServerPolicyButton),
+            MainWindowElementFactory.BoundSelectableListView(
+                "McpPolicy.GlobalServerPolicies",
+                "McpPolicy.SelectedGlobalServerPolicy",
+                160,
+                displayMemberPath: "DisplaySummary"),
+            MainWindowElementFactory.BoundTextBox("Server name", "McpPolicy.SelectedGlobalServerPolicy.ServerName"),
+            MainWindowElementFactory.BoundCheckBox("Enabled", "McpPolicy.SelectedGlobalServerPolicy.Enabled"),
+            MainWindowElementFactory.LabeledField(
+                "Mode",
+                MainWindowElementFactory.BoundComboBox("McpPolicy.ServerModeOptions", "McpPolicy.SelectedGlobalServerPolicy.Mode")),
+            MainWindowElementFactory.BoundMultilineTextBox("Env overrides (JSON)", "McpPolicy.SelectedGlobalServerPolicy.EnvJson", 90),
+            MainWindowElementFactory.Label("Repo MCP Overrides", MainWindowElementFactory.SemiBoldWeight, 15),
+            MainWindowElementFactory.BoundTextBox("Add repo server", "McpPolicy.NewRepoServerName"),
+            MainWindowElementFactory.HorizontalButtons(addRepoServerPolicyButton, removeRepoServerPolicyButton),
+            MainWindowElementFactory.BoundSelectableListView(
+                "McpPolicy.RepoServerPolicies",
+                "McpPolicy.SelectedRepoServerPolicy",
+                160,
+                displayMemberPath: "DisplaySummary"),
+            MainWindowElementFactory.BoundTextBox("Server name", "McpPolicy.SelectedRepoServerPolicy.ServerName"),
+            MainWindowElementFactory.BoundCheckBox("Enabled", "McpPolicy.SelectedRepoServerPolicy.Enabled"),
+            MainWindowElementFactory.LabeledField(
+                "Mode",
+                MainWindowElementFactory.BoundComboBox("McpPolicy.ServerModeOptions", "McpPolicy.SelectedRepoServerPolicy.Mode")),
+            MainWindowElementFactory.BoundMultilineTextBox("Env overrides (JSON)", "McpPolicy.SelectedRepoServerPolicy.EnvJson", 90),
             MainWindowElementFactory.BoundMultilineTextBox("Global policy JSON", "McpPolicy.GlobalPolicyJson", 170),
             MainWindowElementFactory.BoundMultilineTextBox("Repo policy JSON", "McpPolicy.RepoPolicyJson", 170),
             MainWindowElementFactory.BoundMultilineTextBox("Merged preview", "McpPolicy.MergedPreviewJson", 170)), 0, 1);

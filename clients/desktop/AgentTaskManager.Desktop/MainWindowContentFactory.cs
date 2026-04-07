@@ -39,6 +39,10 @@ internal sealed class MainWindowControls
     public required Button RefreshMcpPolicyButton { get; init; }
     public required Button SaveGlobalMcpPolicyButton { get; init; }
     public required Button SaveRepoMcpPolicyButton { get; init; }
+    public required Button AddGlobalServerPolicyButton { get; init; }
+    public required Button RemoveGlobalServerPolicyButton { get; init; }
+    public required Button AddRepoServerPolicyButton { get; init; }
+    public required Button RemoveRepoServerPolicyButton { get; init; }
 }
 
 internal static class MainWindowContentFactory
@@ -105,6 +109,10 @@ internal static class MainWindowContentFactory
         var refreshMcpPolicyButton = DesktopAutomationMetadata.WithAutomationId(MainWindowElementFactory.CreateSecondaryButton("Refresh Policy"), "Button_RefreshMcpPolicy");
         var saveGlobalMcpPolicyButton = DesktopAutomationMetadata.WithAutomationId(MainWindowElementFactory.CreatePrimaryButton("Save Global Policy"), "Button_SaveGlobalMcpPolicy");
         var saveRepoMcpPolicyButton = DesktopAutomationMetadata.WithAutomationId(MainWindowElementFactory.CreatePrimaryButton("Save Repo Policy"), "Button_SaveRepoMcpPolicy");
+        var addGlobalServerPolicyButton = DesktopAutomationMetadata.WithAutomationId(MainWindowElementFactory.CreateSecondaryButton("Add Global Server"), "Button_AddGlobalMcpServer");
+        var removeGlobalServerPolicyButton = DesktopAutomationMetadata.WithAutomationId(MainWindowElementFactory.CreateSecondaryButton("Remove Global Server"), "Button_RemoveGlobalMcpServer");
+        var addRepoServerPolicyButton = DesktopAutomationMetadata.WithAutomationId(MainWindowElementFactory.CreateSecondaryButton("Add Repo Server"), "Button_AddRepoMcpServer");
+        var removeRepoServerPolicyButton = DesktopAutomationMetadata.WithAutomationId(MainWindowElementFactory.CreateSecondaryButton("Remove Repo Server"), "Button_RemoveRepoMcpServer");
         repoNextActionButton.SetBinding(Button.ContentProperty, Binding("Repos.SelectedNextActionLabel", BindingMode.OneWay));
 
         BindItems(sessionListView, "SessionList.Sessions");
@@ -143,7 +151,11 @@ internal static class MainWindowContentFactory
             startChatGptCodexLoginButton,
             refreshMcpPolicyButton,
             saveGlobalMcpPolicyButton,
-            saveRepoMcpPolicyButton);
+            saveRepoMcpPolicyButton,
+            addGlobalServerPolicyButton,
+            removeGlobalServerPolicyButton,
+            addRepoServerPolicyButton,
+            removeRepoServerPolicyButton);
 
         var root = DesktopAutomationMetadata.WithAutomationId(new Grid
         {
@@ -222,7 +234,11 @@ internal static class MainWindowContentFactory
             TestRemoteRunnerProfileButton = testRemoteRunnerProfileButton,
             RefreshMcpPolicyButton = refreshMcpPolicyButton,
             SaveGlobalMcpPolicyButton = saveGlobalMcpPolicyButton,
-            SaveRepoMcpPolicyButton = saveRepoMcpPolicyButton
+            SaveRepoMcpPolicyButton = saveRepoMcpPolicyButton,
+            AddGlobalServerPolicyButton = addGlobalServerPolicyButton,
+            RemoveGlobalServerPolicyButton = removeGlobalServerPolicyButton,
+            AddRepoServerPolicyButton = addRepoServerPolicyButton,
+            RemoveRepoServerPolicyButton = removeRepoServerPolicyButton
         };
     }
 
