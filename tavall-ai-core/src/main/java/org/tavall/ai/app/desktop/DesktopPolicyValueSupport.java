@@ -98,5 +98,23 @@ final class DesktopPolicyValueSupport {
     }
     return result;
   }
+
+  static Map<String, String> castStringMap(Object value) {
+    if (!(value instanceof Map<?, ?> map)) {
+      return Map.of();
+    }
+    Map<String, String> result = new LinkedHashMap<>();
+    map.forEach((key, mapValue) -> {
+      if (key == null || mapValue == null) {
+        return;
+      }
+      String normalizedKey = String.valueOf(key).strip();
+      String normalizedValue = String.valueOf(mapValue).strip();
+      if (!normalizedKey.isBlank() && !normalizedValue.isBlank()) {
+        result.put(normalizedKey, normalizedValue);
+      }
+    });
+    return result;
+  }
 }
 

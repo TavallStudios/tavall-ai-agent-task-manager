@@ -2,6 +2,7 @@ package org.tavall.ai.app.mcp;
 
 import org.tavall.ai.app.concurrent.AsyncTask;
 import org.tavall.ai.app.desktop.DesktopMcpPolicyService;
+import org.tavall.ai.app.desktop.DesktopMcpServerPreferenceCaps;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.ServerParameters;
@@ -108,43 +109,65 @@ public class DownstreamMcpToolClientService {
     long startedAt = System.nanoTime();
     StringBuilder stderr = new StringBuilder();
     try {
-      McpServerProcessConfiguration configuration = processConfigurationService.resolve(
-          call.serverName(),
-          projectKey
-      );
-      if (shouldUseDirectFallback(call, configuration)) {
+      DesktopMcpServerPreferenceCaps preference = desktopMcpPolicyService
+          .resolveServerPreferenceCaps(projectKey, call.serverName());
+      if (!preference.enabled()) {
+        return disabledResult(call, startedAt);
+      }
+      List<McpServerProcessConfiguration> candidates = processConfigurationService
+          .resolveCandidates(call.serverName(), projectKey, preference);
+      if (candidates.isEmpty()) {
         return directRepoToolExecutionService.executeFallback(
             call,
             stderr.toString(),
-            new IllegalStateException("Direct fallback selected for local repo tool execution."),
+            new IllegalStateException("No MCP server configuration available for " + call.serverName() + "."),
             startedAt
         );
       }
-      StdioClientTransport transport = new StdioClientTransport(
-          serverParameters(configuration, List.of(new IndexedCall(0, call))),
-          mcpJsonMapper
-      );
-      transport.setStdErrorHandler(line -> appendLine(stderr, line));
+      Exception lastFailure = null;
+      for (McpServerProcessConfiguration configuration : candidates) {
+        if (shouldUseDirectFallback(call, configuration)) {
+          lastFailure = new IllegalStateException("Direct fallback selected for local repo tool execution.");
+          continue;
+        }
+        try {
+          StdioClientTransport transport = new StdioClientTransport(
+              serverParameters(configuration, List.of(new IndexedCall(0, call))),
+              mcpJsonMapper
+          );
+          transport.setStdErrorHandler(line -> appendLine(stderr, line));
 
-      try (McpSyncClient client = McpClient.sync(transport)
-          .requestTimeout(TIMEOUT)
-          .initializationTimeout(TIMEOUT)
-          .clientInfo(new Implementation("AgentTaskManager Harness", "0.1.0"))
-          .build()) {
-        client.initialize();
-        CallToolResult result = client.callTool(new CallToolRequest(call.toolName(), call.arguments()));
-        return new DownstreamMcpToolResult(
-            call.key(),
-            call.serverName(),
-            call.toolName(),
-            Boolean.TRUE.equals(result.isError()) ? "error" : "completed",
-            result.structuredContent(),
-            textContent(result),
-            stderr.toString(),
-            null,
-            durationMs(startedAt)
-        );
+          try (McpSyncClient client = McpClient.sync(transport)
+              .requestTimeout(TIMEOUT)
+              .initializationTimeout(TIMEOUT)
+              .clientInfo(new Implementation("AgentTaskManager Harness", "0.1.0"))
+              .build()) {
+            client.initialize();
+            CallToolResult result = client.callTool(new CallToolRequest(call.toolName(), call.arguments()));
+            return new DownstreamMcpToolResult(
+                call.key(),
+                call.serverName(),
+                call.toolName(),
+                Boolean.TRUE.equals(result.isError()) ? "error" : "completed",
+                result.structuredContent(),
+                textContent(result),
+                stderr.toString(),
+                null,
+                durationMs(startedAt)
+            );
+          }
+        } catch (Exception exception) {
+          lastFailure = exception;
+        }
       }
+      return directRepoToolExecutionService.executeFallback(
+          call,
+          stderr.toString(),
+          lastFailure == null
+              ? new IllegalStateException("No MCP server configuration available for " + call.serverName() + ".")
+              : lastFailure,
+          startedAt
+      );
     } catch (Exception exception) {
       return directRepoToolExecutionService.executeFallback(call, stderr.toString(), exception, startedAt);
     }
@@ -178,6 +201,20 @@ public class DownstreamMcpToolClientService {
         "",
         "No MCP result was produced.",
         0
+    );
+  }
+
+  private DownstreamMcpToolResult disabledResult(DownstreamMcpToolCall call, long startedAt) {
+    return new DownstreamMcpToolResult(
+        call.key(),
+        call.serverName(),
+        call.toolName(),
+        "error",
+        null,
+        null,
+        "",
+        "MCP server disabled by policy.",
+        durationMs(startedAt)
     );
   }
 

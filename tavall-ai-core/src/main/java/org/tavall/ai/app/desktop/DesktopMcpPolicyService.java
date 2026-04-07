@@ -3,6 +3,7 @@ package org.tavall.ai.app.desktop;
 import static org.tavall.ai.app.desktop.DesktopPolicyValueSupport.castObjectList;
 import static org.tavall.ai.app.desktop.DesktopPolicyValueSupport.castObjectMap;
 import static org.tavall.ai.app.desktop.DesktopPolicyValueSupport.castStringList;
+import static org.tavall.ai.app.desktop.DesktopPolicyValueSupport.castStringMap;
 import static org.tavall.ai.app.desktop.DesktopPolicyValueSupport.normalizeScope;
 import static org.tavall.ai.app.desktop.DesktopPolicyValueSupport.readBoolean;
 import static org.tavall.ai.app.desktop.DesktopPolicyValueSupport.readString;
@@ -61,9 +62,9 @@ public class DesktopMcpPolicyService {
     Map<String, Object> repo = loadRepoPolicy(scopeKey);
     boolean inheritGlobal = readBoolean(repo.get("inheritGlobal"), true);
 
-    Map<String, Boolean> servers = mergeServers(global, repo, inheritGlobal);
+    Map<String, ServerPreference> servers = mergeServers(global, repo, inheritGlobal);
     Map<String, Boolean> tools = mergeTools(global, repo, inheritGlobal);
-    List<String> enabledServers = enabledItems(servers);
+    List<String> enabledServers = enabledServers(servers);
     List<String> enabledTools = enabledItems(tools);
     Map<String, Object> mergedHarnessPreferences = mergeHarnessPreferences(
         castObjectMap(global.get("harnessPreferences")),
@@ -75,6 +76,7 @@ public class DesktopMcpPolicyService {
     preview.put("scopeKey", readString(repo.get("scopeKey"), normalizeScope(scopeKey)));
     preview.put("enabledServers", enabledServers);
     preview.put("enabledTools", enabledTools);
+    preview.put("serverPolicies", serverPolicySummaries(servers));
     preview.put("harnessPreferences", mergedHarnessPreferences);
     preview.put(
         "summary",
@@ -100,13 +102,44 @@ public class DesktopMcpPolicyService {
     return DesktopHarnessPreferencePolicy.toCaps(mergedHarnessPreferences);
   }
 
+  public Map<String, DesktopMcpServerPreferenceCaps> loadServerPreferenceCaps(String scopeKey) {
+    String normalizedScope = normalizeScope(scopeKey);
+    Map<String, Object> global = loadGlobalPolicy();
+    Map<String, Object> repo = loadRepoPolicy(normalizedScope);
+    boolean inheritGlobal = readBoolean(repo.get("inheritGlobal"), true);
+    Map<String, ServerPreference> mergedServers = mergeServers(global, repo, inheritGlobal);
+    Map<String, DesktopMcpServerPreferenceCaps> caps = new LinkedHashMap<>();
+    for (ServerPreference preference : mergedServers.values()) {
+      caps.put(
+          preference.serverName(),
+          new DesktopMcpServerPreferenceCaps(
+              preference.enabled(),
+              DesktopMcpServerMode.from(preference.mode()),
+              preference.envOverrides()
+          )
+      );
+    }
+    return caps;
+  }
+
+  public DesktopMcpServerPreferenceCaps resolveServerPreferenceCaps(String scopeKey, String serverName) {
+    if (serverName == null || serverName.isBlank()) {
+      return defaultServerPreference("");
+    }
+    DesktopMcpServerPreferenceCaps resolved = loadServerPreferenceCaps(scopeKey).get(serverName);
+    if (resolved != null) {
+      return resolved;
+    }
+    return defaultServerPreference(serverName);
+  }
+
   private Map<String, Object> normalizePolicy(Map<String, Object> policy, String scopeKey, boolean defaultInheritGlobal) {
     Map<String, Object> source = policy == null ? Map.of() : policy;
     boolean globalScope = "global".equalsIgnoreCase(normalizeScope(scopeKey));
     Map<String, Object> normalized = new LinkedHashMap<>();
     normalized.put("scopeKey", normalizeScope(readString(source.get("scopeKey"), scopeKey)));
     normalized.put("inheritGlobal", readBoolean(source.get("inheritGlobal"), defaultInheritGlobal));
-    normalized.put("servers", normalizeServers(source.get("servers")));
+    normalized.put("servers", normalizeServers(source.get("servers"), globalScope));
     normalized.put("tools", normalizeTools(source.get("tools")));
     normalized.put("presets", normalizePresets(source.get("presets")));
     normalized.put("harnessPreferences", normalizeHarnessPreferences(source.get("harnessPreferences"), globalScope));
@@ -114,15 +147,23 @@ public class DesktopMcpPolicyService {
     return normalized;
   }
 
-  private Map<String, Boolean> mergeServers(Map<String, Object> global, Map<String, Object> repo, boolean inheritGlobal) {
-    Map<String, Boolean> servers = new LinkedHashMap<>();
+  private Map<String, ServerPreference> mergeServers(Map<String, Object> global, Map<String, Object> repo, boolean inheritGlobal) {
+    Map<String, ServerPreference> servers = new LinkedHashMap<>();
     if (inheritGlobal) {
-      for (Map<String, Object> server : castObjectList(global.get("servers"))) {
-        servers.put(readString(server.get("serverName"), ""), readBoolean(server.get("enabled"), true));
+      for (ServerPreference server : normalizeServerPolicies(global.get("servers"), true)) {
+        servers.put(server.serverName(), server);
       }
     }
-    for (Map<String, Object> server : castObjectList(repo.get("servers"))) {
-      servers.put(readString(server.get("serverName"), ""), readBoolean(server.get("enabled"), true));
+    if (!inheritGlobal) {
+      servers.clear();
+    }
+    for (ServerPreference server : normalizeServerPolicies(repo.get("servers"), false)) {
+      ServerPreference existing = servers.get(server.serverName());
+      if (existing == null) {
+        servers.put(server.serverName(), server);
+      } else {
+        servers.put(server.serverName(), mergeServerPreference(existing, server));
+      }
     }
     return servers;
   }
@@ -156,16 +197,90 @@ public class DesktopMcpPolicyService {
         .toList();
   }
 
-  private List<Map<String, Object>> normalizeServers(Object value) {
-    List<Map<String, Object>> normalized = new ArrayList<>();
+  private List<String> enabledServers(Map<String, ServerPreference> servers) {
+    return servers.values().stream()
+        .filter(ServerPreference::enabled)
+        .map(ServerPreference::serverName)
+        .filter(value -> value != null && !value.isBlank())
+        .sorted()
+        .toList();
+  }
+
+  private List<Map<String, Object>> serverPolicySummaries(Map<String, ServerPreference> servers) {
+    List<Map<String, Object>> result = new ArrayList<>();
+    for (ServerPreference preference : servers.values()) {
+      Map<String, Object> item = new LinkedHashMap<>();
+      item.put("serverName", preference.serverName());
+      item.put("enabled", preference.enabled());
+      item.put("mode", preference.mode());
+      if (!preference.envOverrides().isEmpty()) {
+        item.put("env", preference.envOverrides());
+      }
+      result.add(item);
+    }
+    return result;
+  }
+
+  private List<ServerPreference> normalizeServerPolicies(Object value, boolean useDefaults) {
+    List<ServerPreference> policies = new ArrayList<>();
     for (Map<String, Object> server : castObjectList(value)) {
       String name = readString(server.get("serverName"), "");
       if (name.isBlank()) {
         continue;
       }
+      boolean enabled = readBoolean(server.get("enabled"), true);
+      String mode = normalizeServerMode(readString(server.get("mode"), ""), name, useDefaults);
+      Map<String, String> envOverrides = castStringMap(server.get("env"));
+      policies.add(new ServerPreference(name, enabled, mode, envOverrides));
+    }
+    return policies;
+  }
+
+  private ServerPreference mergeServerPreference(ServerPreference base, ServerPreference override) {
+    String resolvedMode = override.mode().isBlank() ? base.mode() : override.mode();
+    Map<String, String> resolvedEnv = override.envOverrides().isEmpty() ? base.envOverrides() : override.envOverrides();
+    return new ServerPreference(override.serverName(), override.enabled(), resolvedMode, resolvedEnv);
+  }
+
+  private String normalizeServerMode(String mode, String serverName, boolean useDefaults) {
+    if (mode == null || mode.isBlank()) {
+      return useDefaults ? defaultServerMode(serverName).id() : "";
+    }
+    return DesktopMcpServerMode.from(mode).id();
+  }
+
+  private DesktopMcpServerMode defaultServerMode(String serverName) {
+    if (serverName == null || serverName.isBlank()) {
+      return DesktopMcpServerMode.LOCAL_ONLY;
+    }
+    String normalized = serverName.strip().toLowerCase();
+    if (normalized.startsWith("qdrant")
+        || normalized.startsWith("postgres")
+        || normalized.startsWith("mongodb")
+        || normalized.startsWith("redis")
+        || normalized.startsWith("elasticsearch")
+        || normalized.startsWith("prometheus")
+        || normalized.startsWith("loki")) {
+      return DesktopMcpServerMode.REMOTE_ONLY;
+    }
+    return DesktopMcpServerMode.LOCAL_ONLY;
+  }
+
+  private DesktopMcpServerPreferenceCaps defaultServerPreference(String serverName) {
+    DesktopMcpServerMode mode = defaultServerMode(serverName);
+    return new DesktopMcpServerPreferenceCaps(true, mode, Map.of());
+  }
+
+  private List<Map<String, Object>> normalizeServers(Object value, boolean useDefaults) {
+    List<Map<String, Object>> normalized = new ArrayList<>();
+    for (ServerPreference preference : normalizeServerPolicies(value, useDefaults)) {
       Map<String, Object> item = new LinkedHashMap<>();
-      item.put("serverName", name);
-      item.put("enabled", readBoolean(server.get("enabled"), true));
+      item.put("serverName", preference.serverName());
+      item.put("enabled", preference.enabled());
+      item.put("mode", preference.mode());
+      if (!preference.envOverrides().isEmpty()) {
+        item.put("env", preference.envOverrides());
+      }
       normalized.add(item);
     }
     return normalized;
@@ -234,7 +349,11 @@ public class DesktopMcpPolicyService {
     Map<String, Object> defaultPolicy = new LinkedHashMap<>();
     defaultPolicy.put("scopeKey", "global");
     defaultPolicy.put("inheritGlobal", true);
-    defaultPolicy.put("servers", List.of(Map.of("serverName", "tavall-ai", "enabled", true)));
+    Map<String, Object> centralServer = new LinkedHashMap<>();
+    centralServer.put("serverName", "tavall-ai");
+    centralServer.put("enabled", true);
+    centralServer.put("mode", defaultServerMode("tavall-ai").id());
+    defaultPolicy.put("servers", List.of(centralServer));
     defaultPolicy.put("tools", List.of(Map.of(
         "serverName",
         "tavall-ai",
@@ -285,6 +404,14 @@ public class DesktopMcpPolicyService {
     ));
     defaultPolicy.put("updatedAt", OffsetDateTime.now().toString());
     return defaultPolicy;
+  }
+
+  private record ServerPreference(
+      String serverName,
+      boolean enabled,
+      String mode,
+      Map<String, String> envOverrides
+  ) {
   }
 }
 

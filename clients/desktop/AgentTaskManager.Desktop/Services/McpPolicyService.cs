@@ -76,7 +76,8 @@ public sealed class McpPolicyService : IMcpPolicyService
         {
             return backend with
             {
-                HarnessPreferences = NormalizeHarnessPreferences(backend.HarnessPreferences, useDefaults: true)
+                HarnessPreferences = NormalizeHarnessPreferences(backend.HarnessPreferences, useDefaults: true),
+                ServerPolicies = NormalizeServerPolicies(backend.ServerPolicies, useDefaults: true)
             };
         }
 
@@ -178,10 +179,10 @@ public sealed class McpPolicyService : IMcpPolicyService
 
     private static McpPolicyPreviewDto Merge(McpPolicyScopeDto global, McpPolicyScopeDto repo)
     {
-        var servers = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        var servers = new Dictionary<string, McpServerPolicyDto>(StringComparer.OrdinalIgnoreCase);
         foreach (McpServerPolicyDto server in global.Servers)
         {
-            servers[server.ServerName] = server.Enabled;
+            servers[server.ServerName] = NormalizeServerPolicy(server, useDefaults: true);
         }
 
         if (!repo.InheritGlobal)
@@ -191,7 +192,10 @@ public sealed class McpPolicyService : IMcpPolicyService
 
         foreach (McpServerPolicyDto server in repo.Servers)
         {
-            servers[server.ServerName] = server.Enabled;
+            McpServerPolicyDto normalized = NormalizeServerPolicy(server, useDefaults: false);
+            servers[server.ServerName] = servers.TryGetValue(server.ServerName, out McpServerPolicyDto? existing)
+                ? MergeServerPolicy(existing, normalized)
+                : normalized;
         }
 
         var tools = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
@@ -210,12 +214,14 @@ public sealed class McpPolicyService : IMcpPolicyService
             tools[$"{tool.ServerName}::{tool.ToolName}"] = tool.Enabled;
         }
 
-        List<string> enabledServers = servers.Where(item => item.Value).Select(item => item.Key).OrderBy(item => item).ToList();
+        List<McpServerPolicyDto> mergedServers = servers.Values.OrderBy(server => server.ServerName).ToList();
+        List<string> enabledServers = mergedServers.Where(item => item.Enabled).Select(item => item.ServerName).ToList();
         List<string> enabledTools = tools.Where(item => item.Value).Select(item => item.Key).OrderBy(item => item).ToList();
         HarnessPreferencesDto harnessPreferences = MergeHarnessPreferences(global.HarnessPreferences, repo.HarnessPreferences, repo.InheritGlobal);
         return new McpPolicyPreviewDto(
             repo.ScopeKey,
             enabledServers,
+            mergedServers,
             enabledTools,
             harnessPreferences,
             $"Enabled servers: {enabledServers.Count}. Enabled tools: {enabledTools.Count}. Harness: {harnessPreferences.DiPreset}/{harnessPreferences.LanguagePreset}.");
@@ -225,10 +231,10 @@ public sealed class McpPolicyService : IMcpPolicyService
         => Normalize(new McpPolicyScopeDto(
             "global",
             true,
-            [new McpServerPolicyDto("tavall-ai", true)],
+            [new McpServerPolicyDto("tavall-ai", true, "local-only", null)],
             [new McpToolPolicyDto("tavall-ai", "runHarnessToolBundle(repo-context)", true)],
             [new McpToolPresetDto("tjai-harness-clean-code", "tjAI Harness Clean Code", ["runHarnessToolBundle(language-context)", "runCleanJavaHarness"])],
-            new HarnessPreferencesDto("service-loader", "java", "", true, ["checkstyle", "pmd", "error-prone"], "error", "fail", 0, 0),
+            new HarnessPreferencesDto("service-loader", "java", "", true, ["checkstyle", "pmd", "error-prone"], "error", "fail", 0, 0, "local-only"),
             DateTimeOffset.UtcNow));
 
     private static McpPolicyScopeDto BuildDefaultRepoPolicy(string scopeKey)
@@ -238,14 +244,16 @@ public sealed class McpPolicyService : IMcpPolicyService
             [],
             [],
             [],
-            new HarnessPreferencesDto("", "", "", null, [], "", "", null, null),
+            new HarnessPreferencesDto("", "", "", null, [], "", "", null, null, ""),
             DateTimeOffset.UtcNow));
 
     private static McpPolicyScopeDto Normalize(McpPolicyScopeDto policy)
         => policy with
         {
             ScopeKey = NormalizeScope(policy.ScopeKey),
-            Servers = (policy.Servers ?? []).Where(server => !string.IsNullOrWhiteSpace(server.ServerName)).ToArray(),
+            Servers = NormalizeServerPolicies(
+                policy.Servers,
+                NormalizeScope(policy.ScopeKey).Equals("global", StringComparison.OrdinalIgnoreCase)),
             Tools = (policy.Tools ?? [])
                 .Where(tool => !string.IsNullOrWhiteSpace(tool.ServerName) && !string.IsNullOrWhiteSpace(tool.ToolName))
                 .ToArray(),
@@ -272,6 +280,7 @@ public sealed class McpPolicyService : IMcpPolicyService
         IReadOnlyList<string> defaultLintEngines = useDefaults ? ["checkstyle", "pmd", "error-prone"] : [];
         int? defaultInternalCap = useDefaults ? 0 : null;
         int? defaultDownstreamCap = useDefaults ? 0 : null;
+        string defaultDownstreamMode = useDefaults ? "local-only" : string.Empty;
         return new HarnessPreferencesDto(
             NormalizeText(preferences?.DiPreset, defaultDi),
             NormalizeText(preferences?.LanguagePreset, defaultLanguage),
@@ -281,7 +290,8 @@ public sealed class McpPolicyService : IMcpPolicyService
             NormalizeText(preferences?.LintStrictness, defaultLintStrictness),
             NormalizeText(preferences?.LintUnsupportedRepoPolicy, defaultLintUnsupportedPolicy),
             NormalizeCap(preferences?.InternalConcurrencyCap, defaultInternalCap),
-            NormalizeCap(preferences?.DownstreamConcurrencyCap, defaultDownstreamCap));
+            NormalizeCap(preferences?.DownstreamConcurrencyCap, defaultDownstreamCap),
+            NormalizeText(preferences?.DownstreamMcpMode, defaultDownstreamMode));
     }
 
     private static HarnessPreferencesDto MergeHarnessPreferences(
@@ -303,7 +313,8 @@ public sealed class McpPolicyService : IMcpPolicyService
             NormalizeText(repo.LintStrictness, NormalizeText(global.LintStrictness, "error")),
             NormalizeText(repo.LintUnsupportedRepoPolicy, NormalizeText(global.LintUnsupportedRepoPolicy, "fail")),
             NormalizeCap(repo.InternalConcurrencyCap, NormalizeCap(global.InternalConcurrencyCap, 0)),
-            NormalizeCap(repo.DownstreamConcurrencyCap, NormalizeCap(global.DownstreamConcurrencyCap, 0)));
+            NormalizeCap(repo.DownstreamConcurrencyCap, NormalizeCap(global.DownstreamConcurrencyCap, 0)),
+            NormalizeText(repo.DownstreamMcpMode, NormalizeText(global.DownstreamMcpMode, "local-only")));
     }
 
     private static IReadOnlyList<string> NormalizeLintEngines(IReadOnlyList<string>? values, IReadOnlyList<string> fallback)
@@ -331,5 +342,88 @@ public sealed class McpPolicyService : IMcpPolicyService
 
     private static string NormalizeScope(string? scopeKey)
         => string.IsNullOrWhiteSpace(scopeKey) ? "workspace-default" : scopeKey.Trim();
+
+    private static IReadOnlyList<McpServerPolicyDto> NormalizeServerPolicies(
+        IReadOnlyList<McpServerPolicyDto>? servers,
+        bool useDefaults)
+        => (servers ?? Array.Empty<McpServerPolicyDto>())
+            .Where(server => !string.IsNullOrWhiteSpace(server.ServerName))
+            .Select(server => NormalizeServerPolicy(server, useDefaults))
+            .ToArray();
+
+    private static McpServerPolicyDto NormalizeServerPolicy(McpServerPolicyDto server, bool useDefaults)
+    {
+        string normalizedMode = NormalizeServerMode(server.Mode, server.ServerName, useDefaults);
+        IReadOnlyDictionary<string, string>? normalizedEnv = NormalizeEnv(server.Env);
+        return server with
+        {
+            Mode = normalizedMode,
+            Env = normalizedEnv
+        };
+    }
+
+    private static McpServerPolicyDto MergeServerPolicy(McpServerPolicyDto global, McpServerPolicyDto repo)
+    {
+        string mode = string.IsNullOrWhiteSpace(repo.Mode) ? global.Mode : repo.Mode;
+        IReadOnlyDictionary<string, string>? env = repo.Env is { Count: > 0 } ? repo.Env : global.Env;
+        return repo with
+        {
+            Mode = mode,
+            Env = env
+        };
+    }
+
+    private static string NormalizeServerMode(string? mode, string serverName, bool useDefaults)
+    {
+        if (string.IsNullOrWhiteSpace(mode))
+        {
+            return useDefaults ? DefaultServerMode(serverName) : string.Empty;
+        }
+
+        string normalized = mode.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "local-only" or "local" or "local-first" => "local-only",
+            "remote-only" or "remote" or "remote-first" => "remote-only",
+            "local-then-remote" or "local-remote" or "try-local-remote" => "local-then-remote",
+            "remote-then-local" or "remote-local" or "try-remote-local" => "remote-then-local",
+            _ => useDefaults ? DefaultServerMode(serverName) : string.Empty
+        };
+    }
+
+    private static string DefaultServerMode(string serverName)
+    {
+        if (string.IsNullOrWhiteSpace(serverName))
+        {
+            return "local-only";
+        }
+
+        string normalized = serverName.Trim().ToLowerInvariant();
+        if (normalized.StartsWith("qdrant")
+            || normalized.StartsWith("postgres")
+            || normalized.StartsWith("mongodb")
+            || normalized.StartsWith("redis")
+            || normalized.StartsWith("elasticsearch")
+            || normalized.StartsWith("prometheus")
+            || normalized.StartsWith("loki"))
+        {
+            return "remote-only";
+        }
+
+        return "local-only";
+    }
+
+    private static IReadOnlyDictionary<string, string>? NormalizeEnv(IReadOnlyDictionary<string, string>? env)
+    {
+        if (env == null || env.Count == 0)
+        {
+            return null;
+        }
+
+        var normalized = env
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Key) && !string.IsNullOrWhiteSpace(entry.Value))
+            .ToDictionary(entry => entry.Key.Trim(), entry => entry.Value.Trim(), StringComparer.OrdinalIgnoreCase);
+        return normalized.Count == 0 ? null : normalized;
+    }
 }
 
