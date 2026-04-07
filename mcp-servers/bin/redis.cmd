@@ -12,15 +12,15 @@ if not defined REDIS_URL (
 
 where uvx >nul 2>&1
 if %errorlevel%==0 (
-  uvx redis-mcp-server --url "%REDIS_URL%"
+  uvx --from redis-mcp-server@latest redis-mcp-server --url "%REDIS_URL%"
   exit /b %errorlevel%
 )
 
-where redis-mcp-server >nul 2>&1
-if %errorlevel%==0 (
-  redis-mcp-server --url "%REDIS_URL%"
+set "UVX_FALLBACK=%USERPROFILE%\.local\bin\uvx.exe"
+if exist "%UVX_FALLBACK%" (
+  "%UVX_FALLBACK%" --from redis-mcp-server@latest redis-mcp-server --url "%REDIS_URL%"
   exit /b %errorlevel%
 )
 
-echo redis-mcp-server not found. Install via 'uvx redis-mcp-server' or ensure it is on PATH. >&2
+echo uvx not found on PATH. Install uv (or add %USERPROFILE%\.local\bin to PATH) and retry. >&2
 exit /b 1

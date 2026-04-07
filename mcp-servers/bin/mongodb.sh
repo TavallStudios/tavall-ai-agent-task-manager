@@ -9,4 +9,4 @@ if [[ -z "$MDB_MCP_CONNECTION_STRING" ]]; then
 fi
 
 export MDB_MCP_CONNECTION_STRING
-exec npx -y mongodb-mcp-server
+exec npx -y mongodb-mcp-server@latest --readOnly
