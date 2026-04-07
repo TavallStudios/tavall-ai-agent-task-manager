@@ -11,6 +11,4 @@ if not defined MDB_MCP_CONNECTION_STRING (
   exit /b 1
 )
 
-set "MDB_MCP_CONNECTION_STRING=%MDB_MCP_CONNECTION_STRING%"
-
-npx -y mongodb-mcp-server
+npx -y mongodb-mcp-server@latest --readOnly

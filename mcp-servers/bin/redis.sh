@@ -9,12 +9,8 @@ if [[ -z "$REDIS_URL" ]]; then
 fi
 
 if command -v uvx >/dev/null 2>&1; then
-  exec uvx redis-mcp-server --url "$REDIS_URL"
+  exec uvx --from redis-mcp-server@latest redis-mcp-server --url "$REDIS_URL"
 fi
 
-if command -v redis-mcp-server >/dev/null 2>&1; then
-  exec redis-mcp-server --url "$REDIS_URL"
-fi
-
-echo "redis-mcp-server not found. Install via 'uvx redis-mcp-server' or ensure it is on PATH." >&2
+echo "uvx not found. Install uv and retry (uvx provides redis-mcp-server)." >&2
 exit 1
