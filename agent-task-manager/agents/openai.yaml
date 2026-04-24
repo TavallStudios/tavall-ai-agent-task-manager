@@ -1,0 +1,5 @@
+interface:
+  display_name: "Agent Task Manager"
+  short_description: "Cross-repo harness and task runtime skill"
+  default_prompt: "Use $tavall-ai to work through the AgentTaskManager harness for repo context, task context, Java validation, deterministic git workflow, and prompt-thread memory across repos. Let the AgentTaskManager plugin own local runtime registration when installed, then fall back to the repo-local MCP launchers or remote /mcp."
+
