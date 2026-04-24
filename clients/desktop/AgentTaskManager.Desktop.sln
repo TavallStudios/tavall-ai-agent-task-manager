@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35506.116
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AgentTaskManager.Desktop", "AgentTaskManager.Desktop\\AgentTaskManager.Desktop.csproj", "{2EF9C909-FB22-4A45-B9A4-5EE5A50B9080}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AgentTaskManager.AutomationHost", "AgentTaskManager.AutomationHost\\AgentTaskManager.AutomationHost.csproj", "{949B02F6-125E-4E69-8A47-47D7D9B0FEA4}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AgentTaskManager.Desktop.IntegrationTests", "AgentTaskManager.Desktop.IntegrationTests\\AgentTaskManager.Desktop.IntegrationTests.csproj", "{A8E34963-7F57-4FD0-9EF5-8574E29D6E64}"
+EndProject
+Global
+  GlobalSection(SolutionConfigurationPlatforms) = preSolution
+    Debug|x64 = Debug|x64
+    Release|x64 = Release|x64
+  EndGlobalSection
+  GlobalSection(ProjectConfigurationPlatforms) = postSolution
+    {2EF9C909-FB22-4A45-B9A4-5EE5A50B9080}.Debug|x64.ActiveCfg = Debug|x64
+    {2EF9C909-FB22-4A45-B9A4-5EE5A50B9080}.Debug|x64.Build.0 = Debug|x64
+    {2EF9C909-FB22-4A45-B9A4-5EE5A50B9080}.Release|x64.ActiveCfg = Release|x64
+    {2EF9C909-FB22-4A45-B9A4-5EE5A50B9080}.Release|x64.Build.0 = Release|x64
+    {949B02F6-125E-4E69-8A47-47D7D9B0FEA4}.Debug|x64.ActiveCfg = Debug|x64
+    {949B02F6-125E-4E69-8A47-47D7D9B0FEA4}.Debug|x64.Build.0 = Debug|x64
+    {949B02F6-125E-4E69-8A47-47D7D9B0FEA4}.Release|x64.ActiveCfg = Release|x64
+    {949B02F6-125E-4E69-8A47-47D7D9B0FEA4}.Release|x64.Build.0 = Release|x64
+    {A8E34963-7F57-4FD0-9EF5-8574E29D6E64}.Debug|x64.ActiveCfg = Debug|x64
+    {A8E34963-7F57-4FD0-9EF5-8574E29D6E64}.Debug|x64.Build.0 = Debug|x64
+    {A8E34963-7F57-4FD0-9EF5-8574E29D6E64}.Release|x64.ActiveCfg = Release|x64
+    {A8E34963-7F57-4FD0-9EF5-8574E29D6E64}.Release|x64.Build.0 = Release|x64
+  EndGlobalSection
+EndGlobal
