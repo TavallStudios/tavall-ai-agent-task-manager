@@ -1,5 +1,9 @@
 # AgentTaskManager
 
+<!-- tavall:badges:start -->
+[![Org](https://img.shields.io/badge/org-TavallStudios-181717?logo=github)](https://github.com/TavallStudios) [![Stack](https://img.shields.io/badge/stack-Maven-0A7BBB)](https://api.github.com/repos/TavallStudios/tavall-ai-agent-task-manager) ![History](https://img.shields.io/badge/history-preserved-6f42c1)
+<!-- tavall:badges:end -->
+
 AgentTaskManager is a multi-module MCP-first control plane for local and remote Codex orchestration. It now includes:
 
 - a Java MCP server built with the official MCP Java SDK
