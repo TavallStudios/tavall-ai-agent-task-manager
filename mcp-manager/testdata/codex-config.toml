@@ -1,0 +1,9 @@
+[mcp_servers.chrome-devtools-local]
+command = "npx"
+args = ["-y", "chrome-devtools-mcp@latest"]
+
+[mcp_servers.chrome-devtools-local.env]
+BROWSER = "chrome"
+
+[x_mcp_manager.servers.chrome-devtools-local]
+pluginId = "generic"

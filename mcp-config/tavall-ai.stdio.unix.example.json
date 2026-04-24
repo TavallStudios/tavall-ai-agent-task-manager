@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "tavall-ai": {
+      "command": "bash",
+      "args": [
+        "/ABSOLUTE/PATH/TO/AgentTaskManager/scripts/tavall-ai-mcp-stdio.sh"
+      ],
+      "env": {
+        "AGENT_TASK_MANAGER_CODEX_DOWNSTREAM_CENTRAL_SERVER": "",
+        "AGENT_TASK_MANAGER_CODEX_REMOTE_TOOL_EXECUTION_ENABLED": "true",
+        "AGENT_TASK_MANAGER_CODEX_MCP_SERVER_BIN_DIR": "/ABSOLUTE/PATH/TO/AgentTaskManager/mcp-servers/bin",
+        "AGENT_TASK_MANAGER_MCP_BASE_URL": "https://docs.tavall.org/tavall-ai",
+        "AGENT_TASK_MANAGER_MCP_ENDPOINT": "/mcp",
+        "AGENT_TASK_MANAGER_USERNAME": "agent",
+        "AGENT_TASK_MANAGER_PASSWORD": "replace-me",
+        "TAVALL_AI_STDIO_PROTOCOL": "auto",
+        "TAVALL_AI_STDIO_DISABLE_DB": ""
+      }
+    }
+  }
+}
+
+

@@ -1,0 +1,40 @@
+{
+  "mcpServers": {
+    "tavall-ai": {
+      "disabled": true,
+      "env": {
+        "AGENT_TASK_MANAGER_CODEX_REMOTE_TOOL_EXECUTION_ENABLED": "true",
+        "AGENT_TASK_MANAGER_MCP_ENDPOINT": "/mcp"
+      },
+      "headers": {
+        "Authorization": "Basic YWdlbnQ6NVdneU42aHJsYS9OamJEVVUySnJKNzJQWG9mem5xSXk="
+      },
+      "transport": "http",
+      "url": "https://docs.tavall.org/tavall-ai/mcp"
+    }
+  },
+  "x-mcp-manager": {
+    "generatedAt": "2026-03-31T03:01:15Z",
+    "servers": {
+      "tavall-ai": {
+        "healthStatus": "unknown",
+        "pluginId": "tavall-ai",
+        "scope": "workspace",
+        "settings": {
+          "cleanCodeMode": "balanced",
+          "downstreamCentralServer": "",
+          "mcpEndpoint": "/mcp",
+          "noAuthEnabled": false,
+          "password": "",
+          "remoteBaseUrl": "",
+          "remoteExecutionEnabled": true,
+          "toolBundlePreset": "repo_context_only",
+          "username": ""
+        },
+        "source": "workspace-ai"
+      }
+    },
+    "version": 1
+  }
+}
+

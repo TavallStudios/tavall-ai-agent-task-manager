@@ -1,0 +1,60 @@
+windows_wsl_setup_acknowledged = true
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+personality = "pragmatic"
+
+[projects.'\\?\F:\workspace\MCRSpeedrun']
+trust_level = "trusted"
+
+[projects.'\\?\G:\workspace\MCR Speedrun']
+trust_level = "trusted"
+
+[mcp_servers.ripgrep]
+args = ["-i", "C:\\Users\\TJ\\Documents\\.ssh\\NovusKey.key", "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", "-o", "TCPKeepAlive=yes", "ubuntu@146.235.232.128", "/srv/mcp-servers/bin/ripgrep"]
+command = "ssh"
+enabled = true
+
+[mcp_servers.tree_sitter]
+args = ["-i", "C:\\Users\\TJ\\Documents\\.ssh\\NovusKey.key", "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", "-o", "TCPKeepAlive=yes", "ubuntu@146.235.232.128", "/srv/mcp-servers/bin/tree-sitter"]
+command = "ssh"
+enabled = true
+
+[mcp_servers.chrome-devtools]
+args = ["/c", "npx", "-y", "chrome-devtools-mcp@latest", "--browserUrl", "http://127.0.0.1:9222"]
+command = "cmd"
+enabled = true
+
+[mcp_servers.filesystem]
+args = ["-i", "C:\\Users\\TJ\\Documents\\.ssh\\NovusKey.key", "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", "-o", "TCPKeepAlive=yes", "ubuntu@146.235.232.128", "/srv/mcp-servers/bin/filesystem"]
+command = "ssh"
+enabled = true
+
+[mcp_servers.git]
+args = ["-i", "C:\\Users\\TJ\\Documents\\.ssh\\NovusKey.key", "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", "-o", "TCPKeepAlive=yes", "ubuntu@146.235.232.128", "/srv/mcp-servers/bin/git"]
+command = "ssh"
+enabled = true
+
+[mcp_servers.qdrant]
+args = ["-i", "C:\\Users\\TJ\\Documents\\.ssh\\NovusKey.key", "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", "-o", "TCPKeepAlive=yes", "ubuntu@146.235.232.128", "/srv/mcp-servers/bin/qdrant"]
+command = "ssh"
+enabled = true
+
+[mcp_servers.qdrant_minecraft]
+args = ["-i", "C:\\Users\\TJ\\Documents\\.ssh\\NovusKey.key", "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", "-o", "TCPKeepAlive=yes", "ubuntu@146.235.232.128", "/srv/mcp-servers/bin/qdrant-minecraft"]
+command = "ssh"
+enabled = true
+
+[mcp_servers.mcp_catalog]
+args = ["-i", "C:\\Users\\TJ\\Documents\\.ssh\\NovusKey.key", "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", "-o", "TCPKeepAlive=yes", "ubuntu@146.235.232.128", "/srv/mcp-servers/bin/mcp-catalog"]
+command = "ssh"
+enabled = true
+
+[windows]
+sandbox = "elevated"
+
+[features]
+multi_agent = true
+
+[[skills.config]]
+path = 'C:\Users\TJ\.codex\skills\codex-task-coordinator\SKILL.md'
+enabled = false

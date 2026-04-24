@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "tavall-ai": {
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "F:\\workspace\\AgentTaskManager\\scripts\\tavall-ai-mcp-stdio.cmd"
+      ],
+      "env": {
+        "AGENT_TASK_MANAGER_CODEX_DOWNSTREAM_CENTRAL_SERVER": "",
+        "AGENT_TASK_MANAGER_CODEX_REMOTE_TOOL_EXECUTION_ENABLED": "true",
+        "AGENT_TASK_MANAGER_MCP_BASE_URL": "https://docs.tavall.org/tavall-ai",
+        "AGENT_TASK_MANAGER_MCP_ENDPOINT": "/mcp"
+      }
+    }
+  }
+}
+
+

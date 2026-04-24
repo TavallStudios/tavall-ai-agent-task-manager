@@ -1,0 +1,14 @@
+@echo off
+setlocal EnableExtensions
+
+set "MDB_MCP_CONNECTION_STRING=%MDB_MCP_CONNECTION_STRING%"
+if not defined MDB_MCP_CONNECTION_STRING set "MDB_MCP_CONNECTION_STRING=%MONGODB_URI%"
+if not defined MDB_MCP_CONNECTION_STRING set "MDB_MCP_CONNECTION_STRING=%MONGO_URL%"
+if not defined MDB_MCP_CONNECTION_STRING set "MDB_MCP_CONNECTION_STRING=%1"
+
+if not defined MDB_MCP_CONNECTION_STRING (
+  echo Missing MDB_MCP_CONNECTION_STRING or MONGODB_URI. >&2
+  exit /b 1
+)
+
+npx -y mongodb-mcp-server@latest --readOnly

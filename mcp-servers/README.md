@@ -1,0 +1,19 @@
+Repo-local fallback MCP binaries live in `mcp-servers/bin`.
+
+Resolution order for local fallback servers is:
+
+1. `mcp-servers/bin` inside this cloned repo
+2. `AGENT_TASK_MANAGER_CODEX_MCP_SERVER_BIN_DIR`
+3. the system `PATH`
+
+The intended use is fallback-only. The default runtime path is the central `tavall-ai` MCP over local stdio, with repo-context tool execution brokered to the configured remote MCP endpoint.
+
+Default repo-local wrappers (`git`/`ripgrep`) invoke `npx` so they work without extra setup when Node is available. Override them with real binaries in the same folder when you want fully local installs.
+
+Database MCP wrappers (local server, remote DB):
+
+- `postgres`: set `POSTGRES_URL` (or `DATABASE_URL`) to the remote connection string.
+- `mongodb`: set `MDB_MCP_CONNECTION_STRING` (or `MONGODB_URI`) to the remote connection string.
+- `redis`: set `REDIS_URL` (or `REDIS_MCP_URL`) to the remote connection string.
+
+Use desktop MCP policy server env overrides to supply these values so local MCP servers connect to remote databases.
