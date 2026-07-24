@@ -187,7 +187,15 @@ public class DownstreamMcpToolClientService {
     if ("git".equals(call.serverName()) && isBareCommand(command)) {
       return true;
     }
+    if (isBundledCompatibilityWrapper(command)) {
+      return true;
+    }
     return isBareCommand(command) && !isCommandAvailable(command);
+  }
+
+  private boolean isBundledCompatibilityWrapper(String command) {
+    String normalized = command.replace('\\', '/');
+    return normalized.contains("/mcp-servers/bin/");
   }
 
   private DownstreamMcpToolResult missingResult(DownstreamMcpToolCall call) {
@@ -344,4 +352,3 @@ public class DownstreamMcpToolClientService {
   private record IndexedResult(int index, DownstreamMcpToolResult result) {
   }
 }
-

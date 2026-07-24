@@ -9,13 +9,17 @@ import org.tavall.ai.app.harness.intake.ParentTaskType;
 import org.tavall.ai.app.harness.state.HarnessStateSnapshot;
 import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.support.IntegrationTestSupport;
-import org.tavall.ai.app.support.TestWorkspacePaths;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
@@ -46,13 +50,14 @@ class HarnessTaskIntakeTest extends IntegrationTestSupport {
   }
 
   @Test
-  void shouldIntakeParentTaskIntoTypedHarnessWorkers() {
+  void shouldIntakeParentTaskIntoTypedHarnessWorkers(@TempDir Path tempDir) throws Exception {
+    Path repoPath = initializeFixtureRepo(tempDir.resolve("fixture-repo"));
     HarnessStateSnapshot snapshot = harnessTaskIntakeService.intakeTask(new ParentTaskRequest(
         "task-1042",
         ParentTaskType.DEBUG_ISSUE,
         "Fix broken output",
         "Debug the stale output and missing cleanup review state.",
-        TestWorkspacePaths.repoRoot().toString(),
+        repoPath.toString(),
         "HIGH",
         "TJ",
         true,
@@ -90,5 +95,41 @@ class HarnessTaskIntakeTest extends IntegrationTestSupport {
         "LocalCodexWorkerTransport",
         10
     ).stream().anyMatch(item -> "CODE_REPO".equals(item.payload().get("semanticDomain"))));
+  }
+
+  private Path initializeFixtureRepo(Path repoPath) throws Exception {
+    Path source = repoPath.resolve(
+        "src/main/java/com/agenttaskmanager/app/orchestration/LocalCodexWorkerTransport.java"
+    );
+    Files.createDirectories(source.getParent());
+    Files.writeString(source, "final class LocalCodexWorkerTransport {}\n", StandardCharsets.UTF_8);
+    Files.writeString(repoPath.resolve("AGENTS.md"), "# Fixture agents\n", StandardCharsets.UTF_8);
+    Files.writeString(repoPath.resolve("ARCHITECTURE.md"), "# Fixture architecture\n", StandardCharsets.UTF_8);
+    run(repoPath, "git", "init", "-b", "main");
+    run(repoPath, "git", "config", "user.email", "integration@example.com");
+    run(repoPath, "git", "config", "user.name", "Integration Test");
+    run(repoPath, "git", "add", ".");
+    run(repoPath, "git", "commit", "-m", "Initial fixture");
+    Files.writeString(
+        source,
+        "final class LocalCodexWorkerTransport { String status() { return \"active\"; } }\n",
+        StandardCharsets.UTF_8
+    );
+    run(repoPath, "git", "add", ".");
+    run(repoPath, "git", "commit", "-m", "Update fixture");
+    return repoPath;
+  }
+
+  private void run(Path repoPath, String... command) throws Exception {
+    Process process = new ProcessBuilder(command)
+        .directory(repoPath.toFile())
+        .redirectErrorStream(true)
+        .start();
+    String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+    int exitCode = process.waitFor();
+
+    if (exitCode != 0) {
+      throw new IOException(String.join(" ", command) + " failed: " + output);
+    }
   }
 }
