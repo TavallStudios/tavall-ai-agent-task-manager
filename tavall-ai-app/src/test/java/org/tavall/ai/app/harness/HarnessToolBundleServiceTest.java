@@ -39,7 +39,15 @@ class HarnessToolBundleServiceTest extends IntegrationTestSupport {
     );
 
     HarnessToolBundleResult result = harnessToolBundleService.executeBundle(
-        new HarnessToolBundleRequest("language-context", null, null, "fixture-repo", repoPath.toString(), "FixtureApp", 5)
+        new HarnessToolBundleRequest(
+            "language-context",
+            null,
+            null,
+            "harness-tool-bundle-fixture",
+            repoPath.toString(),
+            "FixtureApp",
+            5
+        )
     );
 
     assertEquals("language-context", result.bundleName());
@@ -65,6 +73,7 @@ class HarnessToolBundleServiceTest extends IntegrationTestSupport {
     assertEquals("retrieved", memory.get("status"));
     assertEquals("FixtureApp", memory.get("queryText"));
     assertTrue(memory.containsKey("qdrantHealth"));
+    assertTrue(result.downstreamCalls().stream().filter(call -> "completed".equals(call.status())).count() >= 4);
     assertTrue(((Number) result.summary().get("downstreamErrors")).longValue() <= 1);
     assertTrue(String.valueOf(downstream.get("search")).contains("FixtureApp"));
   }
