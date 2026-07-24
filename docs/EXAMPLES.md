@@ -70,8 +70,7 @@ loadCleanJavaTaskContext -> draft patch -> runCleanJavaHarness
 ## Good CLI Usage
 
 ```bash
-java -jar tavall-ai-app/target/tavall-ai-app-0.1.0-SNAPSHOT.jar validate /srv/AgentTaskManager
-java -jar tavall-ai-app/target/tavall-ai-app-0.1.0-SNAPSHOT.jar run-workers tb_example /srv/AgentTaskManager worker
-java -jar tavall-ai-app/target/tavall-ai-app-0.1.0-SNAPSHOT.jar serve-mcp-stdio
+java --enable-preview -cp 'distribution/agent-task-manager/application.jar:distribution/agent-task-manager/libs/*' org.tavall.ai.app.AgentTaskManagerLauncher validate /srv/AgentTaskManager
+java --enable-preview -cp 'distribution/agent-task-manager/application.jar:distribution/agent-task-manager/libs/*' org.tavall.ai.app.AgentTaskManagerLauncher run-workers tb_example /srv/AgentTaskManager worker
+java --enable-preview -cp 'distribution/agent-task-manager/application.jar:distribution/agent-task-manager/libs/*' org.tavall.ai.app.AgentTaskManagerLauncher serve-mcp-stdio
 ```
-

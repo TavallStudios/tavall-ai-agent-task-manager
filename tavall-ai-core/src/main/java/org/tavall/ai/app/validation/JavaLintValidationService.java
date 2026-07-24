@@ -16,12 +16,12 @@ public class JavaLintValidationService {
   private static final String CHECKSTYLE_REPORT_NAME = "checkstyle-result.xml";
   private static final String PMD_REPORT_NAME = "pmd.xml";
 
-  private final JavaLintMavenExecutor mavenExecutor = new JavaLintMavenExecutor();
+  private final JavaLintGradleExecutor gradleExecutor = new JavaLintGradleExecutor();
   private final JavaLintReportParser reportParser = new JavaLintReportParser();
 
   public List<ValidationViolation> runValidation(Path repoRoot) {
     Path normalizedRepoRoot = repoRoot.toAbsolutePath().normalize();
-    if (!AgentTaskManagerProjectLayout.isProjectRoot(normalizedRepoRoot)) {
+    if (!AgentTaskManagerProjectLayout.isGradleProjectRoot(normalizedRepoRoot)) {
       return unsupportedRepoViolations(normalizedRepoRoot);
     }
 
@@ -34,11 +34,9 @@ public class JavaLintValidationService {
 
   private List<ValidationViolation> runCheckstyle(Path repoRoot) {
     cleanupReports(repoRoot, CHECKSTYLE_REPORT_NAME);
-    JavaLintMavenExecutor.EngineRunResult run = mavenExecutor.runGoal(repoRoot, List.of(
-        "-q",
-        "-DskipTests=true",
-        "-DskipITs=true",
-        "checkstyle:checkstyle"
+    JavaLintGradleExecutor.EngineRunResult run = gradleExecutor.runTasks(repoRoot, List.of(
+        "checkstyleMain",
+        "checkstyleTest"
     ));
     List<ValidationViolation> violations = reportParser.parseCheckstyleReports(repoRoot, CHECKSTYLE_REPORT_NAME);
     if (run.exitCode() != 0 && violations.isEmpty()) {
@@ -54,11 +52,9 @@ public class JavaLintValidationService {
 
   private List<ValidationViolation> runPmd(Path repoRoot) {
     cleanupReports(repoRoot, PMD_REPORT_NAME);
-    JavaLintMavenExecutor.EngineRunResult run = mavenExecutor.runGoal(repoRoot, List.of(
-        "-q",
-        "-DskipTests=true",
-        "-DskipITs=true",
-        "pmd:pmd"
+    JavaLintGradleExecutor.EngineRunResult run = gradleExecutor.runTasks(repoRoot, List.of(
+        "pmdMain",
+        "pmdTest"
     ));
     List<ValidationViolation> violations = reportParser.parsePmdReports(repoRoot, PMD_REPORT_NAME);
     if (run.exitCode() != 0 && violations.isEmpty()) {
@@ -73,12 +69,10 @@ public class JavaLintValidationService {
   }
 
   private List<ValidationViolation> runErrorProne(Path repoRoot) {
-    JavaLintMavenExecutor.EngineRunResult run = mavenExecutor.runGoal(repoRoot, List.of(
-        "-q",
-        "-Perrorprone-lint",
-        "-DskipTests=true",
-        "-DskipITs=true",
-        "test-compile"
+    JavaLintGradleExecutor.EngineRunResult run = gradleExecutor.runTasks(repoRoot, List.of(
+        "compileJava",
+        "compileTestJava",
+        "--rerun-tasks"
     ));
     List<ValidationViolation> violations = reportParser.parseErrorProneDiagnostics(run.output());
     if (run.exitCode() != 0 && violations.isEmpty()) {
@@ -154,4 +148,3 @@ public class JavaLintValidationService {
     );
   }
 }
-

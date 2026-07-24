@@ -3,20 +3,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-TARGET_DIR="${REPO_ROOT}/tavall-ai-app/target"
+DISTRIBUTION_PATH="${REPO_ROOT}/distribution/agent-task-manager"
 
-JAR_PATH=""
-if [[ -d "${TARGET_DIR}" ]]; then
-  JAR_PATH="$(ls -t "${TARGET_DIR}"/tavall-ai-app-*.jar 2>/dev/null | grep -Ev 'sources|javadoc|tests|plain|original' | head -n 1 || true)"
+if [[ ! -f "${DISTRIBUTION_PATH}/application.jar" || ! -d "${DISTRIBUTION_PATH}/libs" ]]; then
+  "${REPO_ROOT}/gradlew" --no-daemon --max-workers=1 stageDistribution
 fi
 
-if [[ -z "${JAR_PATH}" || ! -f "${JAR_PATH}" ]]; then
-  mvn -q -pl tavall-ai-app -am -Dmaven.test.skip=true package
-  JAR_PATH="$(ls -t "${TARGET_DIR}"/tavall-ai-app-*.jar 2>/dev/null | grep -Ev 'sources|javadoc|tests|plain|original' | head -n 1 || true)"
-fi
-
-if [[ -z "${JAR_PATH}" || ! -f "${JAR_PATH}" ]]; then
-  echo "Failed to locate tavall-ai-app jar in ${TARGET_DIR}." >&2
+if [[ ! -f "${DISTRIBUTION_PATH}/application.jar" || ! -d "${DISTRIBUTION_PATH}/libs" ]]; then
+  echo "Failed to prepare the AgentTaskManager distribution." >&2
   exit 1
 fi
 
@@ -30,7 +24,7 @@ if [[ -z "${PYTHON_BIN}" ]]; then
 fi
 
 BRIDGE_SCRIPT="${REPO_ROOT}/scripts/mcp_stdio_json_bridge.py"
-BRIDGE_ARGS=("--cwd" "${REPO_ROOT}" "--jar-path" "${JAR_PATH}")
+BRIDGE_ARGS=("--cwd" "${REPO_ROOT}" "--distribution-path" "${DISTRIBUTION_PATH}")
 
 if [[ -n "${TAVALL_AI_STDIO_PROTOCOL:-}" ]]; then
   BRIDGE_ARGS+=("--protocol" "${TAVALL_AI_STDIO_PROTOCOL}")

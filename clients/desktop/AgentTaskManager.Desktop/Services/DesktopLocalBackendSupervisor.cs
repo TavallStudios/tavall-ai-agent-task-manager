@@ -130,7 +130,7 @@ public sealed class DesktopLocalBackendSupervisor
         while (current != null)
         {
             bool hasLauncher = File.Exists(Path.Combine(current.FullName, "scripts", "start-local-backend.cmd"));
-            bool looksLikeRepoRoot = File.Exists(Path.Combine(current.FullName, "pom.xml"));
+            bool looksLikeRepoRoot = File.Exists(Path.Combine(current.FullName, "settings.gradle.kts"));
             if (hasLauncher && looksLikeRepoRoot)
             {
                 return current.FullName;

@@ -8,7 +8,8 @@ import time
 from pathlib import Path
 
 from _atm_plugin_common import (
-    ensure_app_jar,
+    app_classpath,
+    ensure_app_distribution,
     fail,
     http_reachable,
     quoted_command,
@@ -53,7 +54,7 @@ def log_paths(repo_root: Path, port: int) -> tuple[Path, Path]:
 
 def build_start_command(
     java_command: str,
-    jar_path: Path,
+    distribution_path: Path,
     port: int,
     password: str,
     spring_log_level: str,
@@ -62,8 +63,9 @@ def build_start_command(
   return [
       java_command,
       "--enable-preview",
-      "-jar",
-      str(jar_path),
+      "-cp",
+      app_classpath(distribution_path),
+      "org.tavall.ai.app.AgentTaskManagerLauncher",
       f"--server.port={port}",
       f"--app.security.password={password}",
       "--app.codex-client-platform.enabled=true",
@@ -95,7 +97,7 @@ def main() -> int:
     return fail(f"AgentTaskManager operator surface is not reachable at {target_url}.")
 
   try:
-    jar_path = ensure_app_jar(repo_root)
+    distribution_path = ensure_app_distribution(repo_root)
     java_command = resolve_java_command()
   except RuntimeError as error:
     return fail(str(error))
@@ -108,7 +110,7 @@ def main() -> int:
 
   command = build_start_command(
       java_command,
-      jar_path,
+      distribution_path,
       args.port,
       args.password,
       args.spring_log_level,
@@ -157,4 +159,3 @@ def main() -> int:
 
 if __name__ == "__main__":
   raise SystemExit(main())
-

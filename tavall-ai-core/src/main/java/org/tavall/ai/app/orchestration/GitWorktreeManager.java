@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 public class GitWorktreeManager {
 
   public Path prepareWorkspace(Path repoPath, String taskId, String workerTaskId) {
-    Path worktreePath = Path.of("target", "atm", "worktrees", taskId, workerTaskId).toAbsolutePath();
+    Path worktreePath = Path.of("build", "atm", "worktrees", taskId, workerTaskId).toAbsolutePath();
     try {
       Files.createDirectories(worktreePath.getParent());
       if (Files.exists(worktreePath.resolve(".git")) || Files.exists(worktreePath.resolve(".git").getParent())) {
@@ -199,4 +199,3 @@ public class GitWorktreeManager {
     DELETE
   }
 }
-

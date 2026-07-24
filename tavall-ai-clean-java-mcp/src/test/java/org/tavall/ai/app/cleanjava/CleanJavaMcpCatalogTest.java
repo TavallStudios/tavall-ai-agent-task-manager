@@ -58,14 +58,16 @@ class CleanJavaMcpCatalogTest {
   }
 
   @Test
-  void shouldResolveRulesWhenSearchStartsFromModuleTargetDirectory() throws Exception {
-    Path moduleTarget = Path.of("target").toAbsolutePath().normalize();
+  void shouldResolveRulesWhenSearchStartsFromModuleBuildDirectory() throws Exception {
+    Path moduleBuild = Path.of("build").toAbsolutePath().normalize();
     Path resolved = CleanJavaMcpTools.resolveDocPath(
-        java.util.List.of(Path.of("/tmp/not-the-repo"), moduleTarget),
+        java.util.List.of(Path.of("/tmp/not-the-repo"), moduleBuild),
         "RULES.md"
     );
 
-    assertTrue(Files.isSameFile(resolved, moduleTarget.getParent().getParent().resolve("RULES.md")));
+    assertTrue(Files.isSameFile(
+        resolved,
+        moduleBuild.getParent().getParent().resolve("docs").resolve("RULES.md")
+    ));
   }
 }
-

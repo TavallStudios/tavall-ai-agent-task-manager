@@ -174,6 +174,10 @@ public class CleanJavaMcpTools extends McpToolSupport implements McpToolProvider
       if (Files.isRegularFile(candidate)) {
         return candidate;
       }
+      Path documentedCandidate = current.resolve("docs").resolve(fileName);
+      if (Files.isRegularFile(documentedCandidate)) {
+        return documentedCandidate;
+      }
       current = current.getParent();
     }
     return null;
@@ -216,4 +220,3 @@ record CleanJavaMcpTaskContextResponse(CleanJavaTaskContext taskContext) {
 
 record CleanJavaPatchScopeResponse(boolean allowed) {
 }
-

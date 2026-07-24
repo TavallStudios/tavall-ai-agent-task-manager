@@ -74,7 +74,8 @@ public class ArchUnitValidationService {
         ValidationSeverity.WARNING,
         noClasses()
             .that().resideInAnyPackage("..web..")
-            .should().dependOnClassesThat().resideInAnyPackage("..persistence.qdrant..", "..persistence.mongo.."),
+            .should().dependOnClassesThat().resideInAnyPackage("..persistence.qdrant..", "..persistence.mongo..")
+            .allowEmptyShould(true),
         classes,
         violations
     );
@@ -110,4 +111,3 @@ public class ArchUnitValidationService {
     }
   }
 }
-

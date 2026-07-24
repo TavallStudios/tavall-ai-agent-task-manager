@@ -2,7 +2,6 @@ package org.tavall.ai.app.validation;
 
 import cache.CacheDomain;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -45,22 +44,32 @@ public final class AgentTaskManagerProjectLayout {
 
   public static boolean isProjectRoot(Path repoRoot) {
     Path normalized = repoRoot.toAbsolutePath().normalize();
-    if (!hasProjectMarkers(normalized) || !hasAgentTaskManagerPom(normalized)) {
+    if (!hasProjectMarkers(normalized) || !hasAgentTaskManagerBuild(normalized)) {
       return false;
     }
     return hasSingleModuleLayout(normalized) || hasMultiModuleLayout(normalized);
   }
 
-  private static boolean hasProjectMarkers(Path repoRoot) {
-    return Files.isRegularFile(repoRoot.resolve("AGENTS.md"))
-        && Files.isRegularFile(repoRoot.resolve("RULES.md"))
-        && Files.isRegularFile(repoRoot.resolve("pom.xml"));
+  public static boolean isGradleProjectRoot(Path repoRoot) {
+    Path normalized = repoRoot.toAbsolutePath().normalize();
+    boolean hasWrapper = Files.isRegularFile(normalized.resolve("gradlew"))
+        || Files.isRegularFile(normalized.resolve("gradlew.bat"));
+    return hasWrapper
+        && Files.isRegularFile(normalized.resolve("settings.gradle.kts"))
+        && Files.isRegularFile(normalized.resolve("build.gradle.kts"))
+        && (hasSingleModuleLayout(normalized) || hasMultiModuleLayout(normalized));
   }
 
-  private static boolean hasAgentTaskManagerPom(Path repoRoot) {
+  private static boolean hasProjectMarkers(Path repoRoot) {
+    return Files.isRegularFile(repoRoot.resolve("settings.gradle.kts"))
+        && Files.isRegularFile(repoRoot.resolve("build.gradle.kts"))
+        && Files.isRegularFile(repoRoot.resolve("docs/RULES.md"));
+  }
+
+  private static boolean hasAgentTaskManagerBuild(Path repoRoot) {
     try {
-      String pomBody = Files.readString(repoRoot.resolve("pom.xml"), StandardCharsets.UTF_8);
-      return pomBody.contains("tavall-ai");
+      String buildBody = Files.readString(repoRoot.resolve("settings.gradle.kts"));
+      return buildBody.contains("tavall-ai");
     } catch (IOException exception) {
       return false;
     }
@@ -77,5 +86,3 @@ public final class AgentTaskManagerProjectLayout {
         && Files.isDirectory(repoRoot.resolve("tavall-ai-spring-webview/src/main/java"));
   }
 }
-
-

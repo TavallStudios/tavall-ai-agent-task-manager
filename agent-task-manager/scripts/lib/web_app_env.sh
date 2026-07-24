@@ -4,7 +4,7 @@ set -euo pipefail
 atm_has_agent_task_manager_repo_layout() {
   local candidate="${1:-}"
   [[ -n "$candidate" ]] \
-    && [[ -f "$candidate/pom.xml" ]] \
+    && [[ -f "$candidate/settings.gradle.kts" ]] \
     && [[ -d "$candidate/tavall-ai-app" ]] \
     && [[ -d "$candidate/tavall-ai" ]]
 }
@@ -84,7 +84,7 @@ atm_resolve_repo_root() {
   done
 
   printf '%s\n' \
-    "Could not resolve AgentTaskManager repo root. Set AGENT_TASK_MANAGER_REPO_ROOT to the checkout that contains pom.xml and tavall-ai-app." >&2
+    "Could not resolve AgentTaskManager repo root. Set AGENT_TASK_MANAGER_REPO_ROOT to the Gradle checkout that contains tavall-ai-app." >&2
   return 1
 }
 
@@ -108,30 +108,20 @@ atm_web_app_log_file() {
   printf '%s\n' "$(atm_normalize_path "$log_file")"
 }
 
-atm_resolve_maven_command() {
+atm_resolve_gradle_command() {
   local repo_root="${1:-}"
-  if [[ -x "$repo_root/mvnw" ]]; then
-    printf '%s\n' "$repo_root/mvnw"
+  if [[ -x "$repo_root/gradlew" ]]; then
+    printf '%s\n' "$repo_root/gradlew"
     return 0
   fi
 
-  if command -v mvn >/dev/null 2>&1; then
-    command -v mvn
-    return 0
-  fi
-
-  if command -v mvn.cmd >/dev/null 2>&1; then
-    command -v mvn.cmd
-    return 0
-  fi
-
-  if command -v mvn.bat >/dev/null 2>&1; then
-    command -v mvn.bat
+  if command -v gradle >/dev/null 2>&1; then
+    command -v gradle
     return 0
   fi
 
   printf '%s\n' \
-    "Could not find mvn, mvn.cmd, mvn.bat, or an executable ./mvnw under $repo_root." >&2
+    "Could not find an executable Gradle wrapper under $repo_root or Gradle on PATH." >&2
   return 1
 }
 
@@ -188,5 +178,4 @@ atm_web_app_is_running() {
   status="$(atm_http_status "$(atm_web_app_probe_url)" 2>/dev/null || true)"
   [[ "$status" == "200" || "$status" == "302" || "$status" == "401" || "$status" == "403" ]]
 }
-
 

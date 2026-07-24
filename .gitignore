@@ -1,8 +1,10 @@
-target/
+.gradle/
+build/
+distribution/
 *.log
 .idea/
 *.iml
-tavall-ai/scripts/__pycache__/
+__pycache__/
 .tmp/
 .dotnet-home/
 .vscode/
@@ -11,4 +13,3 @@ bridge-client/__pycache__/
 # .NET build outputs
 clients/desktop/**/bin/
 clients/desktop/**/obj/
-

@@ -133,10 +133,10 @@ func writeAgentTaskManagerLauncher(outputRoot string) (string, error) {
 	}
 	backendRegistryPath := filepath.Join(outputRoot, "mcp-servers", backends.FileName)
 	launcherName := "tavall-ai-mcp-stdio.sh"
-	content := fmt.Sprintf("#!/usr/bin/env bash\nset -euo pipefail\nREPO_ROOT=%q\nBACKEND_REGISTRY=%q\nJAR_PATH=\"$REPO_ROOT/tavall-ai-app/target/tavall-ai-app-0.1.0-SNAPSHOT.jar\"\nif [ ! -f \"$JAR_PATH\" ]; then\n  mvn -q -f \"$REPO_ROOT/pom.xml\" -pl tavall-ai-app -am package\nfi\njava -jar \"$JAR_PATH\" serve-mcp-stdio \"--app.mcp.backend-registry-path=$BACKEND_REGISTRY\" \"$@\"\n", filepath.ToSlash(repoRoot), filepath.ToSlash(backendRegistryPath))
+	content := fmt.Sprintf("#!/usr/bin/env bash\nset -euo pipefail\nREPO_ROOT=%q\nBACKEND_REGISTRY=%q\nDISTRIBUTION_PATH=\"$REPO_ROOT/distribution/agent-task-manager\"\nif [ ! -f \"$DISTRIBUTION_PATH/application.jar\" ]; then\n  \"$REPO_ROOT/gradlew\" --no-daemon --max-workers=1 stageDistribution\nfi\njava --enable-preview -cp \"$DISTRIBUTION_PATH/application.jar:$DISTRIBUTION_PATH/libs/*\" org.tavall.ai.app.AgentTaskManagerLauncher serve-mcp-stdio \"--app.mcp.backend-registry-path=$BACKEND_REGISTRY\" \"$@\"\n", filepath.ToSlash(repoRoot), filepath.ToSlash(backendRegistryPath))
 	if runtime.GOOS == "windows" {
 		launcherName = "tavall-ai-mcp-stdio.cmd"
-		content = fmt.Sprintf("@echo off\r\nsetlocal EnableExtensions\r\nset \"REPO_ROOT=%s\"\r\nset \"BACKEND_REGISTRY=%s\"\r\nset \"JAR_PATH=%%REPO_ROOT%%\\tavall-ai-app\\target\\tavall-ai-app-0.1.0-SNAPSHOT.jar\"\r\nif not exist \"%%JAR_PATH%%\" (\r\n  call mvn -q -f \"%%REPO_ROOT%%\\pom.xml\" -pl tavall-ai-app -am package\r\n  if errorlevel 1 exit /b %%errorlevel%%\r\n)\r\njava -jar \"%%JAR_PATH%%\" serve-mcp-stdio --app.mcp.backend-registry-path=\"%%BACKEND_REGISTRY%%\" %%*\r\n", repoRoot, backendRegistryPath)
+		content = fmt.Sprintf("@echo off\r\nsetlocal EnableExtensions\r\nset \"REPO_ROOT=%s\"\r\nset \"BACKEND_REGISTRY=%s\"\r\nset \"DISTRIBUTION_PATH=%%REPO_ROOT%%\\distribution\\agent-task-manager\"\r\nif not exist \"%%DISTRIBUTION_PATH%%\\application.jar\" (\r\n  call \"%%REPO_ROOT%%\\gradlew.bat\" --no-daemon --max-workers=1 stageDistribution\r\n  if errorlevel 1 exit /b %%errorlevel%%\r\n)\r\njava --enable-preview -cp \"%%DISTRIBUTION_PATH%%\\application.jar;%%DISTRIBUTION_PATH%%\\libs\\*\" org.tavall.ai.app.AgentTaskManagerLauncher serve-mcp-stdio --app.mcp.backend-registry-path=\"%%BACKEND_REGISTRY%%\" %%*\r\n", repoRoot, backendRegistryPath)
 	}
 	launcherPath := filepath.Join(outputRoot, launcherName)
 	if err := os.WriteFile(launcherPath, []byte(content), 0o755); err != nil {
@@ -297,8 +297,8 @@ func repoRoot() (string, error) {
 }
 
 func isRepoRoot(path string) bool {
-	return fileExists(filepath.Join(path, "AGENTS.md")) &&
-		fileExists(filepath.Join(path, "pom.xml")) &&
+	return fileExists(filepath.Join(path, "settings.gradle.kts")) &&
+		fileExists(filepath.Join(path, "build.gradle.kts")) &&
 		dirExists(filepath.Join(path, "tavall-ai-app")) &&
 		dirExists(filepath.Join(path, "tavall-ai-core"))
 }
@@ -332,5 +332,4 @@ func displayName(value string) string {
 	}
 	return strings.Join(parts, " ")
 }
-
 

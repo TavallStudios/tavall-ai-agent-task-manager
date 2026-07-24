@@ -39,7 +39,15 @@ class HarnessToolBundleServiceTest extends IntegrationTestSupport {
     );
 
     HarnessToolBundleResult result = harnessToolBundleService.executeBundle(
-        new HarnessToolBundleRequest("language-context", null, null, "fixture-repo", repoPath.toString(), "FixtureApp", 5)
+        new HarnessToolBundleRequest(
+            "language-context",
+            null,
+            null,
+            "harness-tool-bundle-fixture",
+            repoPath.toString(),
+            "FixtureApp",
+            5
+        )
     );
 
     assertEquals("language-context", result.bundleName());
@@ -123,4 +131,3 @@ class HarnessToolBundleServiceTest extends IntegrationTestSupport {
     }
   }
 }
-

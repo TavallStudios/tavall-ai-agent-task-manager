@@ -316,7 +316,10 @@ public class HarnessToolBundleService {
 
   private String readDoc(String fileName) {
     try {
-      return Files.readString(repoRoot().resolve(fileName), StandardCharsets.UTF_8);
+      Path root = repoRoot();
+      Path direct = root.resolve(fileName);
+      Path resolved = Files.isRegularFile(direct) ? direct : root.resolve("docs").resolve(fileName);
+      return Files.readString(resolved, StandardCharsets.UTF_8);
     } catch (IOException exception) {
       return "Failed to read " + fileName + ": " + exception.getMessage();
     }
@@ -337,9 +340,8 @@ public class HarnessToolBundleService {
   private Path repoRoot() {
     Path current = Path.of(".").toAbsolutePath().normalize();
     while (current != null) {
-      if (Files.isRegularFile(current.resolve("AGENTS.md"))
-          && Files.isRegularFile(current.resolve("RULES.md"))
-          && Files.isRegularFile(current.resolve("pom.xml"))) {
+      if (Files.isRegularFile(current.resolve("settings.gradle.kts"))
+          && Files.isRegularFile(current.resolve("docs/RULES.md"))) {
         return current;
       }
       current = current.getParent();
@@ -357,4 +359,3 @@ public class HarnessToolBundleService {
   private record SectionResult(String key, Object value) {
   }
 }
-

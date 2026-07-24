@@ -1,0 +1,5 @@
+gradle.afterProject { project, state ->
+    if (!state.failure) {
+        project.version = "0.0.1-SNAPSHOT"
+    }
+}

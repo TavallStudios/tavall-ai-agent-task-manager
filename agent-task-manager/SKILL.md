@@ -152,9 +152,8 @@ If `AGENT_TASK_MANAGER_DB_URL` is not set, the helper script will try the local 
 - Keep `SKILL.md` as navigation and use the bundled references for harness, tool-surface, and git workflow detail.
 - Prefer shell or small deterministic scripts for task-runtime actions. For repository mutation through the harness, prefer the first-party MCP git workflow over local shell git commands.
 - Treat any user request that says "git commit tool" as a request for the first-party git workflow, not the downstream generic `git_commit` connector tool.
-- The installed skill copy does not contain the full Maven project. If the repo root cannot be inferred from the current checkout or common workspace paths, set `AGENT_TASK_MANAGER_REPO_ROOT`.
+- The installed skill copy does not contain the full Gradle project. If the repo root cannot be inferred from the current checkout or common workspace paths, set `AGENT_TASK_MANAGER_REPO_ROOT`.
 - The clean split is: plugin owns runtime registration and startup helpers; skill owns workflow, tool ordering, and policy.
-- The stdio launcher scripts need either `mvn` on `PATH` or an executable `mvnw` in the resolved AgentTaskManager checkout when the jar is not already built.
+- The stdio launcher scripts use the executable Gradle wrapper in the resolved AgentTaskManager checkout when the staged distribution is not already built.
 - The runtime is MCP-first. Do not assume a local dashboard, a browser workflow, or queued prompt-request execution.
-
 

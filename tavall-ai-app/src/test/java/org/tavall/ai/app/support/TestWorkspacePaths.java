@@ -11,8 +11,7 @@ public final class TestWorkspacePaths {
   public static Path repoRoot() {
     Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
     while (current != null) {
-      if (Files.isRegularFile(current.resolve("AGENTS.md"))
-          && Files.isRegularFile(current.resolve("pom.xml"))
+      if (Files.isRegularFile(current.resolve("settings.gradle.kts"))
           && Files.isDirectory(current.resolve("tavall-ai-app"))
           && Files.isDirectory(current.resolve("tavall-ai-core"))) {
         return current;
@@ -38,5 +37,4 @@ public final class TestWorkspacePaths {
     return System.getProperty("os.name", "").toLowerCase().contains("win");
   }
 }
-
 

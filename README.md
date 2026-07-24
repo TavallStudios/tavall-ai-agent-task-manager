@@ -169,14 +169,14 @@ MCP tools:
 Build everything with:
 
 ```bash
-mvn -q package
+./gradlew --no-daemon --max-workers=1 clean check stageDistribution
 ```
 
-Run the main app jar with no command to start the standalone embedded MCP HTTP runtime, or pass a CLI command to reuse the same executable:
+Run the staged thin application with no command to start the standalone embedded MCP HTTP runtime, or pass a CLI command to reuse the same distribution:
 
 ```bash
-java -jar tavall-ai-app/target/tavall-ai-app-0.1.0-SNAPSHOT.jar
-java -jar tavall-ai-app/target/tavall-ai-app-0.1.0-SNAPSHOT.jar <command>
+java --enable-preview -cp 'distribution/agent-task-manager/application.jar:distribution/agent-task-manager/libs/*' org.tavall.ai.app.AgentTaskManagerLauncher
+java --enable-preview -cp 'distribution/agent-task-manager/application.jar:distribution/agent-task-manager/libs/*' org.tavall.ai.app.AgentTaskManagerLauncher <command>
 ```
 
 Commands:
@@ -291,8 +291,9 @@ Remote MCP smoke test:
 
 ```bash
 ./scripts/test_remote_mcp.sh
-java -jar \
-  tavall-ai-app/target/tavall-ai-app-0.1.0-SNAPSHOT.jar remote-mcp-smoke
+java --enable-preview \
+  -cp 'distribution/agent-task-manager/application.jar:distribution/agent-task-manager/libs/*' \
+  org.tavall.ai.app.AgentTaskManagerLauncher remote-mcp-smoke
 ```
 
 Add `AGENT_TASK_MANAGER_PASSWORD=...` when the remote endpoint still requires HTTP Basic auth. The shell script and the CLI smoke command both perform the official streamable HTTP flow against the configured endpoint. The CLI path uses the official Java MCP client and normalizes path-based deployments such as `https://docs.tavall.org/tavall-ai` plus `/mcp` into `https://docs.tavall.org` plus `/tavall-ai/mcp`.
@@ -337,14 +338,13 @@ The Hytale learning and runner flows are now intended to be driven through MCP t
 
 ## Current Status
 
-The platform now builds as a multi-module Maven project with a shared runtime core, a standalone embedded MCP HTTP runtime in the main app, a compatibility MCP adapter module for migration and tests, a separate clean Java MCP executable, and a bundled clean Java harness validator module. Worker execution still runs through `codex exec` with model `gpt-5.3-codex` by default when available, and the harness logic remains available locally for approval, repo-context brokering, and deterministic Java validation without requiring a separate harness MCP process.
+The platform now builds as a multi-module Gradle project on Java 25 with a shared runtime core, a standalone embedded MCP HTTP runtime in the main app, a compatibility MCP adapter module for migration and tests, a separate clean Java MCP executable, and a bundled clean Java harness validator module. Worker execution still runs through `codex exec` with model `gpt-5.3-codex` by default when available, and the harness logic remains available locally for approval, repo-context brokering, and deterministic Java validation without requiring a separate harness MCP process.
 
 The MCP surface now also exposes canonical semantic/context tool names that match the orchestration contract directly: `storeTaskEmbedding`, `searchRelatedContexts`, `searchPriorFixes`, `loadRelatedSemanticContext`, and `attachSemanticContextToTask`. Runtime state is also available as MCP resources under `state://dashboard/summary`, `state://dashboard/workers`, `state://dashboard/chats`, and `state://dashboard/batches`.
 
 For AgentTaskManager itself, custom memory no longer depends on the legacy file-backed `memory` MCP server. Prompt and task memory flow through the harness semantic pipeline, which chunks payloads, embeds them, stores them in Qdrant with metadata, and retrieves the original chunk text/code back into worker context.
 
 Tool modules are now split by domain/concern instead of keeping every handler inside `tavall-ai-core`. The central MCP imports dedicated artifact, cache, context, orchestration, repo-workflow, validation, and vector-memory tool modules, leaving `tavall-ai-core` focused on shared runtime services and MCP infrastructure.
-
 
 
 

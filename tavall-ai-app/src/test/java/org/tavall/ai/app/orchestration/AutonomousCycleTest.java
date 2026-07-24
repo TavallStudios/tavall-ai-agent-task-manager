@@ -71,11 +71,35 @@ class AutonomousCycleTest extends IntegrationTestSupport {
 
   private Path initializeFixtureRepo(Path repoPath) throws Exception {
     Files.createDirectories(repoPath.resolve("src/main/java/example"));
+    Files.createDirectories(repoPath.resolve("src/test/java"));
+    Files.createDirectories(repoPath.resolve("docs"));
     Files.writeString(
         repoPath.resolve("README.md"),
         "# Autonomous Fixture\n",
         StandardCharsets.UTF_8
     );
+    Files.writeString(
+        repoPath.resolve("settings.gradle.kts"),
+        "rootProject.name = \"autonomous-fixture\"\n",
+        StandardCharsets.UTF_8
+    );
+    Files.writeString(
+        repoPath.resolve("build.gradle.kts"),
+        "plugins { java }\n",
+        StandardCharsets.UTF_8
+    );
+    Files.writeString(
+        repoPath.resolve("docs/RULES.md"),
+        "# Fixture rules\n",
+        StandardCharsets.UTF_8
+    );
+    Path gradleWrapper = repoPath.resolve("gradlew");
+    Files.writeString(
+        gradleWrapper,
+        "#!/usr/bin/env sh\nexit 0\n",
+        StandardCharsets.UTF_8
+    );
+    gradleWrapper.toFile().setExecutable(true);
     Files.writeString(
         repoPath.resolve("src/main/java/example/FixtureApp.java"),
         """
@@ -84,6 +108,11 @@ class AutonomousCycleTest extends IntegrationTestSupport {
         public class FixtureApp {
         }
         """,
+        StandardCharsets.UTF_8
+    );
+    Files.writeString(
+        repoPath.resolve("src/test/java/FixtureTest.java"),
+        "final class FixtureTest {}\n",
         StandardCharsets.UTF_8
     );
     run(repoPath, "git", "init", "-b", "main");
@@ -107,4 +136,3 @@ class AutonomousCycleTest extends IntegrationTestSupport {
     }
   }
 }
-

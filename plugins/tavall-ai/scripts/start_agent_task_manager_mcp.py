@@ -7,7 +7,7 @@ import sys
 
 from _atm_plugin_common import (
     acquire_mcp_stdio_lock,
-    ensure_app_jar,
+    ensure_app_distribution,
     fail,
     resolve_repo_root,
 )
@@ -38,8 +38,8 @@ def main() -> int:
     return 0
 
   try:
-    jar_path = ensure_app_jar(repo_root)
-    acquire_mcp_stdio_lock(repo_root, jar_path)
+    distribution_path = ensure_app_distribution(repo_root)
+    acquire_mcp_stdio_lock(repo_root, distribution_path)
   except RuntimeError as error:
     return fail(str(error))
   except Exception as error:
@@ -56,8 +56,8 @@ def main() -> int:
       str(bridge_path),
       "--cwd",
       str(repo_root),
-      "--jar-path",
-      str(jar_path),
+      "--distribution-path",
+      str(distribution_path),
       "--protocol",
       protocol,
   ]

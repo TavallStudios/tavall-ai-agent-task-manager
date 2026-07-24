@@ -12,18 +12,15 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$targetDir = Join-Path $repoRoot 'tavall-ai-app\target'
-$jarPath = Get-ChildItem -Path $targetDir -Filter 'tavall-ai-app-*.jar' |
-    Where-Object { $_.Name -notmatch 'sources|javadoc|tests|plain|original' } |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1
-$jarPath = if ($jarPath) { $jarPath.FullName } else { $null }
+$distributionPath = Join-Path $repoRoot 'distribution\agent-task-manager'
+$jarPath = Join-Path $distributionPath 'application.jar'
+$libsPath = Join-Path $distributionPath 'libs\*'
 $logDir = Join-Path $repoRoot ".tmp\local-backend\$Port"
 $stdoutPath = Join-Path $logDir 'stdout.log'
 $stderrPath = Join-Path $logDir 'stderr.log'
 
-if (-not $jarPath -or -not (Test-Path $jarPath)) {
-    throw "Jar not found in '$targetDir'. Build it first with: mvn -pl tavall-ai-app -am -Dmaven.test.skip=true package"
+if (-not (Test-Path $jarPath)) {
+    throw "Application distribution not found. Build it first with: .\gradlew.bat --no-daemon --max-workers=1 stageDistribution"
 }
 
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -32,8 +29,9 @@ if (Test-Path $stderrPath) { Remove-Item $stderrPath -Force }
 
 $arguments = @(
     '--enable-preview',
-    '-jar',
-    $jarPath,
+    '-cp',
+    "$jarPath;$libsPath",
+    'org.tavall.ai.app.AgentTaskManagerLauncher',
     "--server.port=$Port",
     "--app.security.password=$Password",
     "--app.codex-client-platform.enabled=$($EnableCodexClientPlatform.ToString().ToLowerInvariant())",
@@ -54,9 +52,8 @@ $process = Start-Process `
 [pscustomobject]@{
     ProcessId = $process.Id
     Port = $Port
-    JarPath = $jarPath
+    DistributionPath = $distributionPath
     StdoutLog = $stdoutPath
     StderrLog = $stderrPath
 }
-
 
