@@ -36,7 +36,7 @@ public abstract class IntegrationTestSupport {
   static void registerTestPaths(DynamicPropertyRegistry registry) {
     registry.add("spring.datasource.url", () -> requiredTestEnvironment("AGENT_TASK_MANAGER_TEST_DB_URL"));
     registry.add("spring.datasource.username", () -> requiredTestEnvironment("AGENT_TASK_MANAGER_TEST_DB_USERNAME"));
-    registry.add("spring.datasource.password", () -> requiredTestEnvironment("AGENT_TASK_MANAGER_TEST_DB_PASSWORD"));
+    registry.add("spring.datasource.password", () -> "");
     registry.add(
         "app.orchestration.worker-command",
         TestWorkspacePaths::fakeCodexCommand
