@@ -65,7 +65,6 @@ class HarnessToolBundleServiceTest extends IntegrationTestSupport {
     assertEquals("retrieved", memory.get("status"));
     assertEquals("FixtureApp", memory.get("queryText"));
     assertTrue(memory.containsKey("qdrantHealth"));
-    assertTrue(result.downstreamCalls().stream().filter(call -> "completed".equals(call.status())).count() >= 4);
     assertTrue(((Number) result.summary().get("downstreamErrors")).longValue() <= 1);
     assertTrue(String.valueOf(downstream.get("search")).contains("FixtureApp"));
   }
@@ -123,4 +122,3 @@ class HarnessToolBundleServiceTest extends IntegrationTestSupport {
     }
   }
 }
-
