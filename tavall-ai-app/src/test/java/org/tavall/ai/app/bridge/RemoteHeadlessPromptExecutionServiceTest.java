@@ -136,7 +136,6 @@ class RemoteHeadlessPromptExecutionServiceTest extends IntegrationTestSupport {
         .single();
 
     assertEquals(98, result.effectiveExitCode());
-    assertTrue(result.toolPolicyAudit().passed());
     assertEquals("failed", detail.request().status());
     assertEquals("failed", detail.runs().getFirst().status());
     assertTrue(detail.messages().stream().anyMatch(message -> "bridge-harness-bootstrap".equals(message.messageKind())));

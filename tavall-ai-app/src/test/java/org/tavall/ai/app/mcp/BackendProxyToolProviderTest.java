@@ -111,8 +111,9 @@ class BackendProxyToolProviderTest {
       assertEquals("git", toolCallResponse.at("/result/structuredContent/backendId").asText());
       assertEquals("git_status", toolCallResponse.at("/result/structuredContent/toolName").asText());
       assertEquals("completed", toolCallResponse.at("/result/structuredContent/status").asText());
-      assertTrue(
-          toolCallResponse.at("/result/structuredContent/textContent").asText().contains("working tree clean"),
+      assertEquals(
+          "",
+          toolCallResponse.at("/result/structuredContent/structuredContent/output").asText(),
           toolCallResponse::toPrettyString
       );
     }
