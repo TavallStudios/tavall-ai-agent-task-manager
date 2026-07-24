@@ -34,6 +34,9 @@ public abstract class IntegrationTestSupport {
 
   @DynamicPropertySource
   static void registerTestPaths(DynamicPropertyRegistry registry) {
+    registry.add("spring.datasource.url", () -> requiredTestEnvironment("AGENT_TASK_MANAGER_TEST_DB_URL"));
+    registry.add("spring.datasource.username", () -> requiredTestEnvironment("AGENT_TASK_MANAGER_TEST_DB_USERNAME"));
+    registry.add("spring.datasource.password", () -> requiredTestEnvironment("AGENT_TASK_MANAGER_TEST_DB_PASSWORD"));
     registry.add(
         "app.orchestration.worker-command",
         TestWorkspacePaths::fakeCodexCommand
@@ -47,5 +50,12 @@ public abstract class IntegrationTestSupport {
         () -> "test-bridge-agent"
     );
   }
-}
 
+  private static String requiredTestEnvironment(String name) {
+    String value = System.getenv(name);
+    if (value == null || value.isBlank()) {
+      throw new IllegalStateException(name + " must be set to an isolated test database.");
+    }
+    return value;
+  }
+}

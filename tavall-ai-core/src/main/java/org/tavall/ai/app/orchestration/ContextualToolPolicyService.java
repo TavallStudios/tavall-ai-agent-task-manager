@@ -54,7 +54,7 @@ public class ContextualToolPolicyService {
   ) {
     String normalizedPrompt = normalize(promptText);
     boolean readOnly = "read-only".equalsIgnoreCase(normalize(executionMode));
-    boolean javaIntent = hasAny(normalizedPrompt, "java", "spring", "maven", "gradle", "archunit", "spoon", "package", "class", "interface");
+    boolean javaIntent = hasAny(normalizedPrompt, "java", "spring", "gradle", "archunit", "spoon", "package", "class", "interface");
     boolean repoIntent = hasAny(
         normalizedPrompt,
         "file",
@@ -422,4 +422,3 @@ public class ContextualToolPolicyService {
   ) {
   }
 }
-

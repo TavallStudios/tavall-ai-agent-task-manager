@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,14 @@ class RemoteHeadlessPromptExecutionServiceTest extends IntegrationTestSupport {
 
   @Autowired
   private JdbcClient jdbcClient;
+
+  @BeforeEach
+  void cleanupPromptQueue() {
+    jdbcClient.sql("DELETE FROM agent_task_manager.prompt_messages").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.prompt_runs").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.prompt_requests").update();
+    jdbcClient.sql("DELETE FROM agent_task_manager.prompt_threads").update();
+  }
 
   @Test
   void shouldFailRemoteHeadlessPromptRunsThatSkipGitWorkflow(@TempDir Path tempDir) throws Exception {
@@ -178,4 +187,3 @@ class RemoteHeadlessPromptExecutionServiceTest extends IntegrationTestSupport {
     }
   }
 }
-

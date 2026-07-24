@@ -217,6 +217,24 @@ class LocalCodexWorkerTransportTest extends IntegrationTestSupport {
 
   private Path initializeFixtureRepo(Path repoPath) throws Exception {
     Files.createDirectories(repoPath.resolve("src/main/java/example"));
+    Files.createDirectories(repoPath.resolve("src/test/java"));
+    Files.writeString(
+        repoPath.resolve("settings.gradle.kts"),
+        "rootProject.name = \"worker-fixture\"\n",
+        StandardCharsets.UTF_8
+    );
+    Files.writeString(
+        repoPath.resolve("build.gradle.kts"),
+        "plugins { java }\n",
+        StandardCharsets.UTF_8
+    );
+    Path gradleWrapper = repoPath.resolve("gradlew");
+    Files.writeString(
+        gradleWrapper,
+        "#!/usr/bin/env sh\nexit 0\n",
+        StandardCharsets.UTF_8
+    );
+    gradleWrapper.toFile().setExecutable(true);
     Files.writeString(
         repoPath.resolve("README.md"),
         "# Worker Fixture\n",
@@ -235,6 +253,11 @@ class LocalCodexWorkerTransportTest extends IntegrationTestSupport {
           }
         }
         """,
+        StandardCharsets.UTF_8
+    );
+    Files.writeString(
+        repoPath.resolve("src/test/java/FixtureTest.java"),
+        "final class FixtureTest {}\n",
         StandardCharsets.UTF_8
     );
     run(repoPath, "git", "init", "-b", "main");
@@ -258,5 +281,4 @@ class LocalCodexWorkerTransportTest extends IntegrationTestSupport {
     }
   }
 }
-
 

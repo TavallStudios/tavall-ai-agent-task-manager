@@ -18,7 +18,7 @@ class ContextualToolPolicyServiceTest extends IntegrationTestSupport {
   void shouldRequireJavaContextCallsWhenPromptTargetsJavaChanges() {
     ContextualToolPolicyService.ToolPolicyDecision decision = service.decide(
         "edit",
-        "Fix Java service wiring and failing Maven tests",
+        "Fix Java service wiring and failing Gradle tests",
         false
     );
 
@@ -32,7 +32,7 @@ class ContextualToolPolicyServiceTest extends IntegrationTestSupport {
   void shouldFailAuditWhenRequiredCallsAreMissing() {
     ContextualToolPolicyService.ToolPolicyDecision decision = service.decide(
         "edit",
-        "Fix Java service wiring and failing Maven tests",
+        "Fix Java service wiring and failing Gradle tests",
         false
     );
     ContextualToolPolicyService.ToolPolicyAudit audit = service.audit(decision, Set.of("runHarnessToolBundle(repo-context)"));
@@ -319,4 +319,3 @@ class ContextualToolPolicyServiceTest extends IntegrationTestSupport {
     assertEquals("DEGRADED", audit.qdrantHealth());
   }
 }
-

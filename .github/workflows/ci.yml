@@ -1,0 +1,46 @@
+name: Java CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: agent_task_manager_gradle_test
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      AGENT_TASK_MANAGER_TEST_DB_URL: jdbc:postgresql://127.0.0.1:5432/agent_task_manager_gradle_test
+      AGENT_TASK_MANAGER_TEST_DB_USERNAME: postgres
+      AGENT_TASK_MANAGER_TEST_DB_PASSWORD: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: Bootstrap Gemini API
+        run: |
+          git clone --depth 1 https://github.com/TavallStudios/TavallCouriers.git /tmp/TavallCouriers
+          /tmp/TavallCouriers/gradlew -p /tmp/TavallCouriers \
+            --no-daemon --max-workers=1 \
+            -I "$GITHUB_WORKSPACE/gradle/bootstrap-version.init.gradle" \
+            :gemini-api:publishToMavenLocal
+      - name: Verify
+        run: ./gradlew --no-daemon --max-workers=1 clean check stageDistribution

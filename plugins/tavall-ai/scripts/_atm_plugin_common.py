@@ -19,7 +19,7 @@ def has_repo_layout(candidate: Path) -> bool:
   has_app = (candidate / "tavall-ai-app").is_dir()
   has_core = (candidate / "tavall-ai-core").is_dir()
   has_legacy_root = (candidate / "agent-task-manager").is_dir()
-  return (candidate / "pom.xml").is_file() and has_app and (has_core or has_legacy_root)
+  return (candidate / "settings.gradle.kts").is_file() and has_app and (has_core or has_legacy_root)
 
 
 def candidate_repo_roots() -> list[Path]:
@@ -69,59 +69,40 @@ def resolve_java_command() -> str:
   raise RuntimeError("Could not find java. Set JAVA_HOME or add java to PATH.")
 
 
-def resolve_maven_command() -> str | None:
-  for command in ("mvn", "mvn.cmd", "mvn.bat"):
-    resolved = shutil.which(command)
-    if resolved:
-      return resolved
-  return None
+def app_distribution_path(repo_root: Path) -> Path:
+  return repo_root / "distribution" / "agent-task-manager"
 
 
-def app_jar_candidates(repo_root: Path) -> list[Path]:
-  target_dir = repo_root / "tavall-ai-app" / "target"
-  if not target_dir.is_dir():
-    return []
-  candidates = [
-      path
-      for path in target_dir.glob("tavall-ai-app-*.jar")
-      if not path.name.endswith(('-sources.jar', '-javadoc.jar', '-tests.jar', '-plain.jar'))
-  ]
-  return sorted(candidates, key=lambda item: item.stat().st_mtime, reverse=True)
+def distribution_is_ready(distribution_path: Path) -> bool:
+  return (
+      (distribution_path / "application.jar").is_file()
+      and (distribution_path / "libs").is_dir()
+  )
 
 
-def app_jar_path(repo_root: Path) -> Path | None:
-  candidates = app_jar_candidates(repo_root)
-  return candidates[0] if candidates else None
+def ensure_app_distribution(repo_root: Path) -> Path:
+  distribution_path = app_distribution_path(repo_root)
+  if distribution_is_ready(distribution_path):
+    return distribution_path
 
-
-def ensure_app_jar(repo_root: Path) -> Path:
-  jar_path = app_jar_path(repo_root)
-  if jar_path and jar_path.is_file():
-    return jar_path
-
-  maven_command = resolve_maven_command()
-  if not maven_command:
-    raise RuntimeError(
-        "Could not find mvn, mvn.cmd, or mvn.bat and the ATM app jar is missing."
-    )
+  wrapper = repo_root / ("gradlew.bat" if os.name == "nt" else "gradlew")
+  if not wrapper.is_file():
+    raise RuntimeError("The Gradle wrapper is missing from the ATM repository.")
 
   subprocess.run(
-      [
-          maven_command,
-          "-q",
-          "-pl",
-          "tavall-ai-app",
-          "-am",
-          "-Dmaven.test.skip=true",
-          "package",
-      ],
+      [str(wrapper), "--no-daemon", "--max-workers=1", "stageDistribution"],
       cwd=repo_root,
       check=True,
   )
-  jar_path = app_jar_path(repo_root)
-  if not jar_path or not jar_path.is_file():
-    raise RuntimeError("Expected ATM app jar after build, but it was not created.")
-  return jar_path
+  if not distribution_is_ready(distribution_path):
+    raise RuntimeError("Expected ATM application distribution after build, but it was not created.")
+  return distribution_path
+
+
+def app_classpath(distribution_path: Path) -> str:
+  return os.pathsep.join(
+      [str(distribution_path / "application.jar"), str(distribution_path / "libs" / "*")]
+  )
 
 
 def lock_path(repo_root: Path) -> Path:
@@ -165,7 +146,7 @@ def _pid_command_line(pid: int) -> str:
   return result.stdout.strip()
 
 
-def acquire_mcp_stdio_lock(repo_root: Path, jar_path: Path) -> None:
+def acquire_mcp_stdio_lock(repo_root: Path, distribution_path: Path) -> None:
   lock_file = lock_path(repo_root)
   if lock_file.is_file():
     try:
@@ -176,7 +157,7 @@ def acquire_mcp_stdio_lock(repo_root: Path, jar_path: Path) -> None:
     pid = int(data.get("pid", 0) or 0)
     if _pid_exists(pid):
       cmdline = _pid_command_line(pid)
-      if cmdline and ("tavall-ai-app" in cmdline or jar_path.name in cmdline):
+      if cmdline and ("tavall-ai-app" in cmdline or str(distribution_path) in cmdline):
         raise RuntimeError(
             f"tavall-ai MCP stdio is already running (pid={pid})."
         )
@@ -191,7 +172,7 @@ def acquire_mcp_stdio_lock(repo_root: Path, jar_path: Path) -> None:
 
   payload = {
       "pid": os.getpid(),
-      "jar": str(jar_path),
+      "distribution": str(distribution_path),
       "started_at": int(time.time()),
   }
   lock_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -215,5 +196,4 @@ def quoted_command(arguments: list[str]) -> str:
 def fail(message: str) -> int:
   print(message, file=sys.stderr)
   return 1
-
 

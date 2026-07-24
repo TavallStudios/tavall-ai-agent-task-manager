@@ -7,5 +7,5 @@
     Deterministic PMD baseline for tjAI harness Java linting.
   </description>
 
-  <rule ref="category/java/bestpractices.xml/UnusedImports"/>
+  <rule ref="category/java/codestyle.xml/UnnecessaryImport"/>
 </ruleset>

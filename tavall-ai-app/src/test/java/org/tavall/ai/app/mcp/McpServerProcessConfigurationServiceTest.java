@@ -30,9 +30,10 @@ class McpServerProcessConfigurationServiceTest extends IntegrationTestSupport {
     );
 
     assertEquals("java", configuration.command());
-    assertTrue(configuration.args().contains("-jar"));
+    assertTrue(configuration.args().contains("-cp"));
     assertTrue(configuration.args().contains("serve-mcp-stdio"));
-    assertTrue(configuration.args().stream().anyMatch(arg -> arg.endsWith("tavall-ai-app-0.1.0-SNAPSHOT.jar")));
+    assertTrue(configuration.args().contains("org.tavall.ai.app.AgentTaskManagerLauncher"));
+    assertTrue(configuration.args().stream().anyMatch(arg -> arg.contains("distribution/agent-task-manager")));
     assertEquals("", configuration.env().get("AGENT_TASK_MANAGER_CODEX_DOWNSTREAM_CENTRAL_SERVER"));
     assertEquals("true", configuration.env().get("AGENT_TASK_MANAGER_CODEX_REMOTE_TOOL_EXECUTION_ENABLED"));
     assertEquals(
@@ -65,5 +66,4 @@ class McpServerProcessConfigurationServiceTest extends IntegrationTestSupport {
     assertTrue(exception.getMessage().contains("no longer launched as an MCP server"));
   }
 }
-
 

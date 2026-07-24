@@ -42,7 +42,13 @@ class WorkerPromptFactoryTest extends IntegrationTestSupport {
         "Worker prompt should check memory first " + suffix,
         SemanticCollectionDomain.TASK_HISTORY,
         SemanticContentType.RUN_SUMMARY,
-        Map.of("scope", "worker-prompt")
+        Map.of(
+            "scope", "PROJECT",
+            "userId", "",
+            "workspaceId", "",
+            "status", "active",
+            "tombstoned", false
+        )
     );
 
     WorkerTask workerTask = new WorkerTask(
@@ -86,4 +92,3 @@ class WorkerPromptFactoryTest extends IntegrationTestSupport {
     assertTrue(prompt.contains("Final response contract:"));
   }
 }
-

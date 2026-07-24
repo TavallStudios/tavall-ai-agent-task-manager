@@ -14,13 +14,14 @@ import os
 import subprocess
 import sys
 import threading
+from pathlib import Path
 from typing import Optional
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cwd", required=True)
-    parser.add_argument("--jar-path", required=True)
+    parser.add_argument("--distribution-path", required=True)
     parser.add_argument(
         "--protocol",
         choices=["auto", "content-length", "line"],
@@ -55,15 +56,22 @@ def normalize_protocol(value: str | None) -> str:
     return "auto"
 
 
-def start_child(cwd: str, jar_path: str, disable_db: bool, child_args: list[str]) -> subprocess.Popen[bytes]:
+def start_child(cwd: str, distribution_path: str, disable_db: bool, child_args: list[str]) -> subprocess.Popen[bytes]:
+    classpath = os.pathsep.join(
+        [
+            str(Path(distribution_path) / "application.jar"),
+            str(Path(distribution_path) / "libs" / "*"),
+        ]
+    )
     args = [
         "java",
         "--enable-preview",
         "-Dorg.springframework.boot.logging.LoggingSystem=none",
         "-Dspring.main.banner-mode=off",
         "-Dspring.output.ansi.enabled=never",
-        "-jar",
-        jar_path,
+        "-cp",
+        classpath,
+        "org.tavall.ai.app.AgentTaskManagerLauncher",
         "serve-mcp-stdio",
     ]
     if disable_db:
@@ -273,7 +281,7 @@ def main() -> int:
     if protocol != "auto":
         protocol_ready.set()
 
-    child = start_child(args.cwd, args.jar_path, disable_db, args.child_args)
+    child = start_child(args.cwd, args.distribution_path, disable_db, args.child_args)
 
     stdin_thread = threading.Thread(
         target=forward_parent_to_child,

@@ -90,7 +90,7 @@ public class ValidationPipelineService {
   }
 
   public boolean validatePatchScope(String diffBody) {
-    return diffBody != null && !diffBody.isBlank() && !diffBody.contains("/target/");
+    return diffBody != null && !diffBody.isBlank() && !diffBody.contains("/build/");
   }
 
   public Map<String, Object> runIntegrationTests(Path repoRoot) {
@@ -103,7 +103,12 @@ public class ValidationPipelineService {
     Path outputPath = null;
     try {
       outputPath = Files.createTempFile("atm-integration-tests-", ".log");
-      Process process = new ProcessBuilder("mvn", "-q", "-DskipTests=false", "-DskipITs=false", "verify")
+      Process process = new ProcessBuilder(
+          gradleWrapper(normalizedRepoRoot),
+          "--no-daemon",
+          "--max-workers=1",
+          "check"
+      )
           .directory(normalizedRepoRoot.toFile())
           .redirectErrorStream(true)
           .redirectOutput(outputPath.toFile())
@@ -243,5 +248,11 @@ public class ValidationPipelineService {
     }
     return output.substring(0, MAX_INTEGRATION_OUTPUT_CHARS) + "\n... integration output truncated ...";
   }
-}
 
+  private String gradleWrapper(Path repoRoot) {
+    String wrapperName = System.getProperty("os.name", "").toLowerCase().contains("win")
+        ? "gradlew.bat"
+        : "gradlew";
+    return repoRoot.resolve(wrapperName).toString();
+  }
+}

@@ -1,5 +1,6 @@
 package org.tavall.ai.app.mcp;
 
+import java.io.File;
 import org.tavall.ai.app.config.CodexExecutionProperties;
 import org.tavall.ai.app.desktop.DesktopMcpServerMode;
 import org.tavall.ai.app.desktop.DesktopMcpServerPreferenceCaps;
@@ -63,12 +64,27 @@ public class McpServerProcessConfigurationService {
     };
   }
 
-  private McpServerProcessConfiguration javaModuleServer(String serverName, String relativeJarPath) {
-    Path jarPath = repoRoot().resolve(relativeJarPath).normalize();
+  private McpServerProcessConfiguration javaDistributionServer(
+      String serverName,
+      String relativeDistributionPath,
+      String mainClass,
+      List<String> applicationArguments
+  ) {
+    Path distributionPath = repoRoot().resolve(relativeDistributionPath).normalize();
+    List<String> arguments = new ArrayList<>();
+    arguments.add("--enable-preview");
+    arguments.add("-cp");
+    arguments.add(
+        distributionPath.resolve("application.jar")
+            + File.pathSeparator
+            + distributionPath.resolve("libs/*")
+    );
+    arguments.add(mainClass);
+    arguments.addAll(applicationArguments);
     return new McpServerProcessConfiguration(
         serverName,
         "java",
-        List.of("-jar", jarPath.toString()),
+        List.copyOf(arguments),
         Map.of()
     );
   }
@@ -98,22 +114,27 @@ public class McpServerProcessConfigurationService {
   }
 
   private McpServerProcessConfiguration localCentralServer(String serverName) {
-    Path jarPath = resolveCentralServerJarPath();
+    if (properties.getCentralServerJarPath() != null && !properties.getCentralServerJarPath().isBlank()) {
+      Path jarPath = Path.of(properties.getCentralServerJarPath()).toAbsolutePath().normalize();
+      return new McpServerProcessConfiguration(
+          serverName,
+          "java",
+          List.of("--enable-preview", "-jar", jarPath.toString(), "serve-mcp-stdio"),
+          remoteToolExecutionConfigurationService.environmentOverrides()
+      );
+    }
+    McpServerProcessConfiguration configuration = javaDistributionServer(
+        serverName,
+        "distribution/agent-task-manager",
+        "org.tavall.ai.app.AgentTaskManagerLauncher",
+        List.of("serve-mcp-stdio")
+    );
     return new McpServerProcessConfiguration(
         serverName,
-        "java",
-        List.of("-jar", jarPath.toString(), "serve-mcp-stdio"),
+        configuration.command(),
+        configuration.args(),
         remoteToolExecutionConfigurationService.environmentOverrides()
     );
-  }
-
-  private Path resolveCentralServerJarPath() {
-    if (properties.getCentralServerJarPath() != null && !properties.getCentralServerJarPath().isBlank()) {
-      return Path.of(properties.getCentralServerJarPath()).toAbsolutePath().normalize();
-    }
-    return repoRoot()
-        .resolve("tavall-ai-app/target/tavall-ai-app-0.1.0-SNAPSHOT.jar")
-        .normalize();
   }
 
   private String resolveQdrantCollection(String projectKey) {
@@ -157,8 +178,7 @@ public class McpServerProcessConfigurationService {
   private Path repoRoot() {
     Path current = Path.of(".").toAbsolutePath().normalize();
     while (current != null) {
-      if (Files.isRegularFile(current.resolve("AGENTS.md"))
-          && Files.isRegularFile(current.resolve("pom.xml"))
+      if (Files.isRegularFile(current.resolve("settings.gradle.kts"))
           && Files.isDirectory(current.resolve("tavall-ai-core"))
           && Files.isDirectory(current.resolve("tavall-ai-app"))) {
         return current;
@@ -181,9 +201,11 @@ public class McpServerProcessConfigurationService {
           "tjai-harness (clean-java-harness compatibility alias) is bundled as a local validator/runtime dependency and is no longer launched as an MCP server."
       );
       case "clean-java-mcp" -> applyEnvOverrides(
-          javaModuleServer(
+          javaDistributionServer(
               serverName,
-              "tavall-ai-clean-java-mcp/target/tavall-ai-clean-java-mcp-0.1.0-SNAPSHOT-exec.jar"
+              "distribution/clean-java-mcp",
+              "org.tavall.ai.app.cleanjava.CleanJavaMcpLauncher",
+              List.of()
           ),
           envOverrides
       );
@@ -218,5 +240,4 @@ public class McpServerProcessConfigurationService {
     return new McpServerProcessConfiguration(base.serverName(), base.command(), base.args(), merged);
   }
 }
-
 

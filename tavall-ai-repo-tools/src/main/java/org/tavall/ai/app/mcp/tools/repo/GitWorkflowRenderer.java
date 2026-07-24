@@ -17,7 +17,8 @@ class GitWorkflowRenderer {
       "ARCHITECTURE.md",
       "HARNESS.md",
       "GIT_WORKFLOW.md",
-      "pom.xml"
+      "build.gradle.kts",
+      "settings.gradle.kts"
   );
 
   GitWorkflowPlan renderPlan(GitWorkflowRequest request, List<String> candidateFiles) {
@@ -185,5 +186,4 @@ class GitWorkflowRenderer {
   ) {
   }
 }
-
 

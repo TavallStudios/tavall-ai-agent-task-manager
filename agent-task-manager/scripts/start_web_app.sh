@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/web_app_env.sh"
 
 detach=false
-declare -a mvn_args=()
+declare -a app_args=()
 while (($# > 0)); do
   case "$1" in
     --detach)
@@ -14,7 +14,7 @@ while (($# > 0)); do
       shift
       ;;
     *)
-      mvn_args+=("$1")
+      app_args+=("$1")
       shift
       ;;
   esac
@@ -22,13 +22,15 @@ done
 
 REPO_ROOT="$(atm_resolve_repo_root)"
 LOG_FILE="$(atm_web_app_log_file)"
-MAVEN_COMMAND="$(atm_resolve_maven_command "$REPO_ROOT")"
+GRADLE_COMMAND="$(atm_resolve_gradle_command "$REPO_ROOT")"
+"$GRADLE_COMMAND" --no-daemon --max-workers=1 stageDistribution
+APP_CLASSPATH="$REPO_ROOT/distribution/agent-task-manager/application.jar:$REPO_ROOT/distribution/agent-task-manager/libs/*"
 
 if [[ "$detach" == "true" ]]; then
   mkdir -p "$(dirname -- "$LOG_FILE")"
   (
     cd "$REPO_ROOT"
-    exec "$MAVEN_COMMAND" -pl tavall-ai-app -am spring-boot:run "${mvn_args[@]}"
+    exec java --enable-preview -cp "$APP_CLASSPATH" org.tavall.ai.app.AgentTaskManagerLauncher "${app_args[@]}"
   ) >>"$LOG_FILE" 2>&1 &
   disown || true
   printf '%s\n' "Starting AgentTaskManager web panel from $REPO_ROOT. Log: $LOG_FILE"
@@ -36,5 +38,4 @@ if [[ "$detach" == "true" ]]; then
 fi
 
 cd "$REPO_ROOT"
-exec "$MAVEN_COMMAND" -pl tavall-ai-app -am spring-boot:run "${mvn_args[@]}"
-
+exec java --enable-preview -cp "$APP_CLASSPATH" org.tavall.ai.app.AgentTaskManagerLauncher "${app_args[@]}"

@@ -22,9 +22,11 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.EnumSet;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.simple.JdbcClient;
 
 class JavaSymbolHarnessServiceTest extends IntegrationTestSupport {
 
@@ -32,6 +34,9 @@ class JavaSymbolHarnessServiceTest extends IntegrationTestSupport {
 
   @Autowired
   private JavaContractDeltaCache contractDeltaCache;
+
+  @Autowired
+  private JdbcClient jdbcClient;
 
   @Autowired
   private JavaSymbolDocumentStore javaSymbolDocumentStore;
@@ -50,6 +55,11 @@ class JavaSymbolHarnessServiceTest extends IntegrationTestSupport {
 
   @Autowired
   private SharedTaskContextService sharedTaskContextService;
+
+  @BeforeEach
+  void cleanupSemanticSyncQueue() {
+    jdbcClient.sql("DELETE FROM agent_task_manager.semantic_sync_outbox").update();
+  }
 
   @Test
   void shouldSkipNonJavaRepo(@TempDir Path tempDir) throws Exception {
@@ -158,17 +168,15 @@ class JavaSymbolHarnessServiceTest extends IntegrationTestSupport {
   @Test
   void shouldRecordDegradedSourceOnlyWhenCompileFails(@TempDir Path tempDir) throws Exception {
     Path repoPath = initializeSimpleJavaRepo(tempDir.resolve("compile-failure-repo"), baselineFixtureSource());
-    Files.writeString(repoPath.resolve("pom.xml"), """
-        <project xmlns="http://maven.apache.org/POM/4.0.0"
-                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-          <modelVersion>4.0.0</modelVersion>
-          <groupId>example</groupId>
-          <artifactId>compile-failure-repo</artifactId>
-          <version>1.0.0</version>
-        </project>
+    Files.writeString(repoPath.resolve("settings.gradle.kts"), """
+        rootProject.name = "compile-failure-repo"
         """, StandardCharsets.UTF_8);
-    writeFailingMavenWrappers(repoPath);
+    Files.writeString(repoPath.resolve("build.gradle.kts"), """
+        plugins {
+            java
+        }
+        """, StandardCharsets.UTF_8);
+    writeFailingGradleWrappers(repoPath);
     JavaSymbolBaseline baseline = captureBaseline("compile-failure", repoPath);
     Files.writeString(repoPath.resolve(FIXTURE_PATH), localVariableRefactorSource(), StandardCharsets.UTF_8);
 
@@ -210,13 +218,14 @@ class JavaSymbolHarnessServiceTest extends IntegrationTestSupport {
 
   @Test
   void shouldQueueJavaSymbolProfilesForSemanticSearch(@TempDir Path tempDir) throws Exception {
+    String projectKey = "semantic-queue-project";
     Path repoPath = initializeSimpleJavaRepo(tempDir.resolve("semantic-queue-repo"), baselineFixtureSource());
 
     JavaSymbolBaseline baseline = javaSymbolHarnessService.captureBaseline(
         "semantic-queue",
         "",
         "",
-        "project",
+        projectKey,
         repoPath,
         "Update FixtureApp greet method safely",
         "base",
@@ -224,13 +233,13 @@ class JavaSymbolHarnessServiceTest extends IntegrationTestSupport {
         List.of(FIXTURE_PATH)
     );
     List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> before = sharedTaskContextService.searchProjectRelatedContexts(
-        "project",
+        projectKey,
         "FixtureApp greet method java contract",
         5
     );
     int processed = semanticSyncService.processPendingOperations();
     List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> after = sharedTaskContextService.searchProjectRelatedContexts(
-        "project",
+        projectKey,
         "FixtureApp greet method java contract",
         5
     );
@@ -291,11 +300,11 @@ class JavaSymbolHarnessServiceTest extends IntegrationTestSupport {
     return repoPath;
   }
 
-  private void writeFailingMavenWrappers(Path repoPath) throws IOException {
-    Files.writeString(repoPath.resolve("mvnw.cmd"), "@echo off\r\necho compile failed\r\nexit /b 1\r\n", StandardCharsets.UTF_8);
-    Files.writeString(repoPath.resolve("mvnw"), "#!/usr/bin/env bash\necho compile failed\nexit 1\n", StandardCharsets.UTF_8);
+  private void writeFailingGradleWrappers(Path repoPath) throws IOException {
+    Files.writeString(repoPath.resolve("gradlew.bat"), "@echo off\r\necho compile failed\r\nexit /b 1\r\n", StandardCharsets.UTF_8);
+    Files.writeString(repoPath.resolve("gradlew"), "#!/usr/bin/env bash\necho compile failed\nexit 1\n", StandardCharsets.UTF_8);
     try {
-      Files.setPosixFilePermissions(repoPath.resolve("mvnw"), EnumSet.of(
+      Files.setPosixFilePermissions(repoPath.resolve("gradlew"), EnumSet.of(
           PosixFilePermission.OWNER_READ,
           PosixFilePermission.OWNER_WRITE,
           PosixFilePermission.OWNER_EXECUTE
@@ -345,4 +354,3 @@ class JavaSymbolHarnessServiceTest extends IntegrationTestSupport {
         """;
   }
 }
-

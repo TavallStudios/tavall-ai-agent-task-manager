@@ -25,7 +25,8 @@ public class JavaCompiledArtifactResolver {
           .filter(Files::isDirectory)
           .filter(path -> {
             String normalized = path.toString().replace('\\', '/').toLowerCase(Locale.ROOT);
-            return normalized.endsWith("/target/classes") || normalized.endsWith("/target/test-classes");
+            return normalized.endsWith("/build/classes/java/main")
+                || normalized.endsWith("/build/classes/java/test");
           })
           .sorted()
           .toList();
@@ -37,7 +38,7 @@ public class JavaCompiledArtifactResolver {
   public JavaCompiledArtifacts compileChangedSources(Path repoRoot, List<String> changedSourcePaths) {
     List<Path> moduleRoots = moduleRoots(repoRoot, changedSourcePaths);
     if (moduleRoots.isEmpty()) {
-      return new JavaCompiledArtifacts("skipped-no-pom", List.of(), existingClasspathRoots(repoRoot), "");
+      return new JavaCompiledArtifacts("skipped-no-gradle-build", List.of(), existingClasspathRoots(repoRoot), "");
     }
     StringBuilder output = new StringBuilder();
     for (Path moduleRoot : moduleRoots) {
@@ -61,7 +62,7 @@ public class JavaCompiledArtifactResolver {
     Set<Path> moduleRoots = new LinkedHashSet<>();
     for (String changedSourcePath : changedSourcePaths == null ? List.<String>of() : changedSourcePaths) {
       Path sourcePath = normalizedRepoRoot.resolve(changedSourcePath).normalize();
-      Path moduleRoot = nearestPomDirectory(sourcePath, normalizedRepoRoot);
+      Path moduleRoot = nearestGradleBuildDirectory(sourcePath, normalizedRepoRoot);
       if (moduleRoot != null) {
         moduleRoots.add(moduleRoot);
       }
@@ -69,16 +70,16 @@ public class JavaCompiledArtifactResolver {
     if (!moduleRoots.isEmpty()) {
       return List.copyOf(moduleRoots);
     }
-    if (Files.isRegularFile(normalizedRepoRoot.resolve("pom.xml"))) {
+    if (hasGradleBuild(normalizedRepoRoot)) {
       return List.of(normalizedRepoRoot);
     }
     return List.of();
   }
 
-  private Path nearestPomDirectory(Path startPath, Path repoRoot) {
+  private Path nearestGradleBuildDirectory(Path startPath, Path repoRoot) {
     Path current = Files.isDirectory(startPath) ? startPath : startPath.getParent();
     while (current != null && current.startsWith(repoRoot)) {
-      if (Files.isRegularFile(current.resolve("pom.xml"))) {
+      if (hasGradleBuild(current)) {
         return current;
       }
       current = current.getParent();
@@ -87,13 +88,32 @@ public class JavaCompiledArtifactResolver {
   }
 
   private Command command(Path moduleRoot) {
-    if (isWindows() && Files.isRegularFile(moduleRoot.resolve("mvnw.cmd"))) {
-      return new Command(List.of(moduleRoot.resolve("mvnw.cmd").toString(), "-q", "-DskipTests", "compile", "test-compile"));
+    if (isWindows() && Files.isRegularFile(moduleRoot.resolve("gradlew.bat"))) {
+      return new Command(List.of(
+          moduleRoot.resolve("gradlew.bat").toString(),
+          "--no-daemon",
+          "--max-workers=1",
+          "classes",
+          "testClasses"
+      ));
     }
-    if (!isWindows() && Files.isRegularFile(moduleRoot.resolve("mvnw"))) {
-      return new Command(List.of(moduleRoot.resolve("mvnw").toString(), "-q", "-DskipTests", "compile", "test-compile"));
+    if (!isWindows() && Files.isRegularFile(moduleRoot.resolve("gradlew"))) {
+      return new Command(List.of(
+          moduleRoot.resolve("gradlew").toString(),
+          "--no-daemon",
+          "--max-workers=1",
+          "classes",
+          "testClasses"
+      ));
     }
-    return new Command(List.of("mvn", "-q", "-DskipTests", "compile", "test-compile"));
+    return new Command(List.of("gradle", "--no-daemon", "--max-workers=1", "classes", "testClasses"));
+  }
+
+  private boolean hasGradleBuild(Path path) {
+    return Files.isRegularFile(path.resolve("settings.gradle.kts"))
+        || Files.isRegularFile(path.resolve("settings.gradle"))
+        || Files.isRegularFile(path.resolve("build.gradle.kts"))
+        || Files.isRegularFile(path.resolve("build.gradle"));
   }
 
   private CommandResult run(Command command, Path moduleRoot) {
@@ -134,4 +154,3 @@ public class JavaCompiledArtifactResolver {
   private record CommandResult(boolean passed, String output) {
   }
 }
-

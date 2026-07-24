@@ -9,6 +9,7 @@ import org.tavall.ai.app.harness.intake.ParentTaskType;
 import org.tavall.ai.app.harness.state.HarnessStateSnapshot;
 import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.support.IntegrationTestSupport;
+import org.tavall.ai.app.support.TestWorkspacePaths;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,7 +52,7 @@ class HarnessTaskIntakeTest extends IntegrationTestSupport {
         ParentTaskType.DEBUG_ISSUE,
         "Fix broken output",
         "Debug the stale output and missing cleanup review state.",
-        "/srv/AgentTaskManager",
+        TestWorkspacePaths.repoRoot().toString(),
         "HIGH",
         "TJ",
         true,
@@ -91,4 +92,3 @@ class HarnessTaskIntakeTest extends IntegrationTestSupport {
     ).stream().anyMatch(item -> "CODE_REPO".equals(item.payload().get("semanticDomain"))));
   }
 }
-

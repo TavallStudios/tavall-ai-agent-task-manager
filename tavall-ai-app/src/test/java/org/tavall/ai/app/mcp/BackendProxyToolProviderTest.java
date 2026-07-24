@@ -110,7 +110,11 @@ class BackendProxyToolProviderTest {
 
       assertEquals("git", toolCallResponse.at("/result/structuredContent/backendId").asText());
       assertEquals("git_status", toolCallResponse.at("/result/structuredContent/toolName").asText());
-      assertTrue(toolCallResponse.toString().contains("output"));
+      assertEquals("completed", toolCallResponse.at("/result/structuredContent/status").asText());
+      assertTrue(
+          toolCallResponse.at("/result/structuredContent/textContent").asText().contains("working tree clean"),
+          toolCallResponse::toPrettyString
+      );
     }
   }
 
@@ -195,5 +199,3 @@ class BackendProxyToolProviderTest {
     return objectMapper.readTree(data);
   }
 }
-
-

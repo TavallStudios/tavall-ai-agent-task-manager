@@ -113,7 +113,7 @@ public sealed class DesktopRemoteDefaultsDetector
         while (current != null)
         {
             bool nameMatches = string.Equals(current.Name, repoName, StringComparison.OrdinalIgnoreCase);
-            bool looksLikeRepoRoot = File.Exists(Path.Combine(current.FullName, "pom.xml"))
+            bool looksLikeRepoRoot = File.Exists(Path.Combine(current.FullName, "settings.gradle.kts"))
                 || File.Exists(Path.Combine(current.FullName, $"{repoName}.sln"));
             if (nameMatches && looksLikeRepoRoot)
             {
@@ -126,4 +126,3 @@ public sealed class DesktopRemoteDefaultsDetector
         return null;
     }
 }
-

@@ -124,7 +124,8 @@ public sealed class WorkspaceRegistryService : IWorkspaceRegistryService
             {
                 bool hasGitMarker = Directory.Exists(Path.Combine(current.FullName, ".git"))
                     || File.Exists(Path.Combine(current.FullName, ".git"));
-                bool hasProjectMarker = File.Exists(Path.Combine(current.FullName, "pom.xml"))
+                bool hasProjectMarker = File.Exists(Path.Combine(current.FullName, "settings.gradle.kts"))
+                    || File.Exists(Path.Combine(current.FullName, "build.gradle.kts"))
                     || Directory.GetFiles(current.FullName, "*.sln").Length > 0;
                 if (hasGitMarker && hasProjectMarker)
                 {

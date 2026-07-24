@@ -105,7 +105,7 @@ The preferred runtime is MCP-first:
 - repo-local launchers:
   - [tavall-ai-mcp-stdio.sh](/srv/AgentTaskManager/scripts/tavall-ai-mcp-stdio.sh)
   - [tavall-ai-mcp-stdio.cmd](/srv/AgentTaskManager/scripts/tavall-ai-mcp-stdio.cmd)
-- Maven project: [/srv/AgentTaskManager/pom.xml](/srv/AgentTaskManager/pom.xml)
+- Gradle project: [/srv/AgentTaskManager/settings.gradle.kts](/srv/AgentTaskManager/settings.gradle.kts)
 
 When HTTP transport is needed:
 
@@ -164,5 +164,4 @@ Web panel startup overrides:
 - `postgres` becomes the viewer and history surface.
 - agents can coordinate without dragging large chat transcripts into context.
 - the mobile web app becomes the operator surface while agent bridges consume the same durable queue later.
-
 
