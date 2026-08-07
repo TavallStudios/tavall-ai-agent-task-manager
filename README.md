@@ -1,3 +1,5 @@
+> **AI-operable, human-legible.**
+
 # AgentTaskManager
 
 AgentTaskManager is a multi-module MCP-first control plane for local and remote Codex orchestration. It now includes:
@@ -90,7 +92,7 @@ VS Code and IntelliJ companion modules are removed from first-party builds. Use 
   Shared bridge, orchestration, validation, and API DTOs that are safe to reuse across layers.
 - `org.tavall.ai.app.mcp`
   MCP server bootstrap, resources, prompts, and shared tool wiring.
-  The dedicated `mcp.cleanjava` subpackage isolates the Clean Java MCP and harness tool implementations behind the existing handler surface.
+  The dedicated `mcp.cleanjava` subpackage isolates the Clean Java MCP and harness tool implementations behind the existing MCP handler surface.
 - `org.tavall.ai.app.mcp.tools.*`
   Domain-scoped MCP tool modules that plug into the central catalog.
 - `org.tavall.ai.app.orchestration`
