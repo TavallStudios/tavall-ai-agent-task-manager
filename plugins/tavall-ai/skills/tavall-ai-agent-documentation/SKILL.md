@@ -5,10 +5,8 @@ description: Update Tavall technical, system, migration, progress, and evidence 
 
 # Tavall AI Documentation
 
-Read the canonical role instructions at:
+Read the owning production code and canonical documentation before editing. Use real module/type/API names and keep architecture, system, migration, operating, progress, and acceptance-evidence documents aligned with current implementation.
 
-`../../../../tavall-ai-agent-documentation/src/main/resources/org/tavall/ai/agent/documentation/ROLE.md`
+Keep designed, implemented, locally verified, integration-verified, E2E-validated, and live-validated states distinct. A merged commit is not automatically runtime acceptance, a test file is not proof that it ran, and an agent summary is not a validation artifact.
 
-Use real production module/type/API names. Keep designed, implemented, locally verified, integration-verified, E2E-validated, and live-validated states distinct. Preserve useful history and mark superseded behavior instead of rewriting it away.
-
-Documentation work does not get to mutate product behavior just to make the paragraph true.
+Preserve useful history and mark superseded behavior instead of rewriting it away. Documentation work does not get to mutate product behavior just to make the paragraph true; route required code changes back through orchestration.
