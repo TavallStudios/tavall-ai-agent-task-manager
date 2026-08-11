@@ -5,10 +5,8 @@ description: Perform an explicitly approved Tavall cross-module architecture mig
 
 # Tavall AI Architecture
 
-Read the canonical role instructions at:
+Use this role for explicitly approved structural work that should not be smuggled into a feature PR: module decomposition, DI/runtime/persistence/API/event migrations, and systemic replacement of obsolete patterns.
 
-`../../../../tavall-ai-agent-architecture/src/main/resources/org/tavall/ai/agent/architecture/ROLE.md`
+Read the repository's canonical architecture guidance and real production code first. Map affected modules, callers, and dependent PRs before mutation; preserve accepted behavior unless the assignment explicitly changes it.
 
-Use this role for broad structural work that should not be smuggled into a feature PR: module decomposition, DI/runtime/persistence/API/event migrations, and systemic replacement of obsolete patterns.
-
-Map affected callers and dependent PRs, push recoverable checkpoints, run local CI repeatedly, and keep unrelated product behavior outside the architecture acceptance unit.
+Push recoverable checkpoints, add migration-focused tests, run local exact-head CI repeatedly, record downstream compatibility/migration work, and keep unrelated product behavior outside the architecture acceptance unit. Expect independent review and dependent-PR reconciliation after meaningful architecture mutation.
