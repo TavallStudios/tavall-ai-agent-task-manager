@@ -9,6 +9,7 @@ apply(from = "gradle/git-version.gradle.kts")
 version = extra["gitVersion"] as String
 
 val junitVersion = "5.12.2"
+val roleProviderService = "org.tavall.ai.agent.role.TavallAIAgentRoleProvider"
 val roleProjects = listOf(
     "tavall-ai-agent-scheduler",
     "tavall-ai-agent-orchestration",
@@ -86,10 +87,42 @@ configure(roleProjects.map(::project)) {
     dependencies {
         "api"(project(":tavall-ai-agent-core"))
     }
+
+    val verifyRoleDescriptor = tasks.register("verifyRoleDescriptor") {
+        group = "verification"
+        description = "Verifies this deployable Tavall AI role publishes one provider and one canonical ROLE.md."
+        doLast {
+            val serviceFile = file("src/main/resources/META-INF/services/$roleProviderService")
+            check(serviceFile.isFile) {
+                "Missing ServiceLoader registration for $path: $serviceFile"
+            }
+            val providers = serviceFile.readLines()
+                .map(String::trim)
+                .filter(String::isNotBlank)
+                .filterNot { it.startsWith("#") }
+            check(providers.size == 1) {
+                "Expected exactly one Tavall AI role provider for $path, found ${providers.size}"
+            }
+
+            val roleDocuments = fileTree("src/main/resources") {
+                include("**/ROLE.md")
+            }.files
+            check(roleDocuments.size == 1) {
+                "Expected exactly one canonical ROLE.md for $path, found ${roleDocuments.size}"
+            }
+            check(roleDocuments.single().readText().isNotBlank()) {
+                "Canonical ROLE.md must not be blank for $path"
+            }
+        }
+    }
+
+    tasks.named("check") {
+        dependsOn(verifyRoleDescriptor)
+    }
 }
 
 val verifyRoleModules = tasks.register("verifyRoleModules") {
-    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    group = "verification"
     description = "Runs checks for the Tavall AI agent core and every independently deployable role module."
     dependsOn(subprojects.map { it.tasks.named("check") })
 }
