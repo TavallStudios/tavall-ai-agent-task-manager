@@ -5,8 +5,8 @@ description: Independently review an exact Tavall head for correctness, regressi
 
 # Tavall AI Review
 
-Read the canonical role instructions at:
+Establish the accepted scope, exact head/base, and repository architecture rules, then independently inspect correctness, regressions, persistence, concurrency, security, compatibility, test completeness, and evidence gaps.
 
-`../../../../tavall-ai-agent-review/src/main/resources/org/tavall/ai/agent/review/ROLE.md`
+Report structured findings ordered by severity and distinguish blocking defects from non-blocking improvements. Treat exact-head local CI as evidence, not universal runtime proof, and do not misclassify hosted-runner startup/billing failures as source failures when repository code never executed.
 
-Review the exact assigned head independently. Report structured findings and remaining gates. Do not rewrite the branch to fix your own findings; hand repairs back through orchestration and review the resulting new head again.
+Do not rewrite the reviewed branch to fix your own findings. Hand meaningful repairs back through orchestration to implementation or architecture and review the resulting new exact head again.
