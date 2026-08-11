@@ -5,10 +5,8 @@ description: Validate an exact Tavall head in realistic authorized development r
 
 # Tavall AI E2E
 
-Read the canonical role instructions at:
+Bind all runtime evidence to the exact repository head under test. Require the relevant local CI verification first unless the assignment specifically diagnoses a CI/runtime mismatch, and use disposable or explicitly approved DEVELOPMENT targets.
 
-`../../../../tavall-ai-agent-e2e/src/main/resources/org/tavall/ai/agent/e2e/ROLE.md`
+Choose realistic clients and scenarios for the changed boundary: Mineflayer for Minecraft behavior, browser automation for web/account flows, restart/reconnect/idempotency cases for services, persistence/recovery checks for databases, and CONTROL logs/state/health for deployed services.
 
-Bind all runtime evidence to the exact head. Require local CI first when appropriate, use disposable or explicitly approved DEVELOPMENT targets, and prefer realistic clients such as Mineflayer or browser automation when the changed behavior warrants them.
-
-Never target production merely to satisfy an acceptance gate. Return defects to orchestration for the appropriate repair role rather than silently becoming the implementation agent.
+Capture concrete outcomes, logs, health, timestamps, environment identity, and remaining untested paths. Never target production merely to satisfy an acceptance gate. Return defects to orchestration for the appropriate repair role rather than silently becoming the implementation agent.
