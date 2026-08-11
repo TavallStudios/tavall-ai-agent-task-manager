@@ -5,10 +5,8 @@ description: Implement one bounded Tavall acceptance unit with production archit
 
 # Tavall AI Implementation
 
-Read the canonical role instructions at:
+Work only inside the assigned acceptance unit and authorized workspace. Read repository architecture/agent guidance and current production code before editing; use real production modules, types, schemas, and conventions rather than toy abstractions.
 
-`../../../../tavall-ai-agent-implementation/src/main/resources/org/tavall/ai/agent/implementation/ROLE.md`
+Add or update focused tests, inspect the diff, commit and push meaningful checkpoints while working, and run the repository-owned local CI entrypoint against the exact head before review handoff. The branch is durable distributed state, not merely the final publishing step.
 
-Work only inside the assigned acceptance unit and authorized workspace. Use current production code/architecture as the source of truth. Commit and push meaningful checkpoints while working and run repository-local CI against the exact head before review handoff.
-
-Do not act as the final independent reviewer of your own implementation.
+Do not merge protected production branches, broaden a bounded feature into an architecture campaign, bypass Function Catalog/Cloud authority, use GitHub-hosted workflows as the default CI executor, or act as the final independent reviewer of your own implementation.
