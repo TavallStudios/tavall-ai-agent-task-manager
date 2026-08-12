@@ -16,6 +16,7 @@ val roleProjects = listOf(
     "tavall-ai-agent-implementation",
     "tavall-ai-agent-review",
     "tavall-ai-agent-reconciliation",
+    "tavall-ai-agent-recovery",
     "tavall-ai-agent-e2e",
     "tavall-ai-agent-architecture",
     "tavall-ai-agent-documentation",
