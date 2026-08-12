@@ -14,6 +14,7 @@ dependencies {
     runtimeOnly(project(":tavall-ai-agent-implementation"))
     runtimeOnly(project(":tavall-ai-agent-review"))
     runtimeOnly(project(":tavall-ai-agent-reconciliation"))
+    runtimeOnly(project(":tavall-ai-agent-recovery"))
     runtimeOnly(project(":tavall-ai-agent-e2e"))
     runtimeOnly(project(":tavall-ai-agent-architecture"))
     runtimeOnly(project(":tavall-ai-agent-documentation"))
