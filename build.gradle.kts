@@ -121,6 +121,21 @@ configure(roleProjects.map(::project)) {
     }
 }
 
+val stageDistribution = tasks.register<Sync>("stageDistribution") {
+    group = "distribution"
+    description = "Stages the Tavall AI runtime distribution and ChatGPT plugin as one inspectable release candidate."
+
+    dependsOn(":tavall-ai-runtime:installDist")
+
+    into(layout.buildDirectory.dir("stage/tavall-ai"))
+    into("runtime") {
+        from(project(":tavall-ai-runtime").layout.buildDirectory.dir("install/tavall-ai-runtime"))
+    }
+    into("plugins/tavall-ai") {
+        from(layout.projectDirectory.dir("plugins/tavall-ai"))
+    }
+}
+
 val verifyRoleModules = tasks.register("verifyRoleModules") {
     group = "verification"
     description = "Runs checks for the Tavall AI agent core and every independently deployable role module."
