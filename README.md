@@ -2,11 +2,9 @@
 
 # Tavall AI
 
-This repository is transitioning from the historical AgentTaskManager runtime into the thin Tavall AI role layer.
+This repository is transitioning from the historical AgentTaskManager runtime into Tavall AI's role and runtime layers.
 
-The active build owns independently deployable `tavall-ai-agent-ROLE` modules: role instructions, requested Function Catalog capabilities, and policy metadata used by Tavall AI Node Agent implementations and Codex sessions.
-
-The historical AgentTaskManager modules remain in the repository only as migration/reference inputs and are no longer included by `settings.gradle.kts`. See [AgentTaskManager Deprecation](docs/AGENT_TASK_MANAGER_DEPRECATION.md).
+The active build owns independently deployable `tavall-ai-agent-ROLE` modules plus the explicit `tavall-ai-runtime` process boundary. The historical AgentTaskManager modules remain in the repository only as migration/reference inputs and are no longer included by `settings.gradle.kts`. See [AgentTaskManager Deprecation](docs/AGENT_TASK_MANAGER_DEPRECATION.md).
 
 ## Architecture
 
@@ -15,10 +13,15 @@ ChatGPT / automations / Codex
            |
            v
  tavall-ai-agent-scheduler
-   distributed placement
+   distributed placement request
            |
            v
-   Tavall AI Node Agent
+      Tavall Cloud
+ placement/process authority
+           |
+           v
+    tavall-ai-runtime
+       NODE_AGENT
            |
            v
       Codex session
@@ -34,7 +37,7 @@ ChatGPT / automations / Codex
 
 A single Codex session may use multiple specialized Tavall agents/subagents. The scheduler chooses the owning worker/top-level session; the orchestration role coordinates specialized agents inside that session. Another distributed session is requested only when machine capability, resource pressure, process/workspace isolation, dedicated E2E infrastructure, or safe independent parallelism requires it.
 
-Tavall does not recreate the model runtime. Function Catalog supplies typed functions and provider/runtime primitives; Tavall Cloud supplies authoritative DEVELOPMENT-node placement, durable AI-job/capability state, resource/workspace/process authority, and local CI infrastructure.
+Tavall does not recreate the model runtime. Function Catalog supplies typed functions, provider-neutral `AIAgentRuntime`, and provider implementations. `tavall-ai-runtime` owns the Tavall AI process shell and installed role set. Tavall Cloud supplies authoritative DEVELOPMENT-node placement, durable AI-job/capability state, resource/workspace/process authority, and local CI infrastructure.
 
 ## Active modules
 
@@ -47,8 +50,17 @@ Tavall does not recreate the model runtime. Function Catalog supplies typed func
 - `tavall-ai-agent-e2e` - realistic exact-head development runtime validation and evidence.
 - `tavall-ai-agent-architecture` - approved broad structural migrations.
 - `tavall-ai-agent-documentation` - owning technical/progress/evidence documentation.
+- `tavall-ai-runtime` - executable Tavall AI runtime family; currently `NODE_AGENT` only.
 
-Each role module registers `TavallAIAgentRoleProvider` with Java `ServiceLoader`, so AI-capable nodes can install only the roles they should host.
+Each role module registers `TavallAIAgentRoleProvider` with Java `ServiceLoader`, so AI-capable nodes can install only the roles they should host. Roles remain modules and never become one-daemon-per-role services.
+
+## Runtime boundary
+
+`TavallAIRuntimeMain` selects the runtime from the first CLI argument or `TAVALL_AI_RUNTIME`. Today the only runtime is `NODE_AGENT`.
+
+The Node Agent loads installed roles and then requires exactly one authorized `TavallAINodeAgentHost` adapter. The host adapter owns the external job/session transport; zero or multiple adapters fail closed. `NODE_AGENT --describe` validates the runtime artifact and lists installed roles without requiring CONTROL connectivity.
+
+See [Tavall AI Runtime Boundary](docs/architecture/TAVALL_AI_RUNTIME.md).
 
 ## Function Catalog
 
@@ -77,5 +89,6 @@ The intended distributed flow is for Tavall Cloud to run repository-owned CI ent
 ## Documents
 
 - [Tavall AI Agent Role Architecture](docs/architecture/TAVALL_AI_AGENT_ROLES.md)
+- [Tavall AI Runtime Boundary](docs/architecture/TAVALL_AI_RUNTIME.md)
 - [AgentTaskManager Deprecation](docs/AGENT_TASK_MANAGER_DEPRECATION.md)
-- [Earlier Tavall AI / Open Harness handoff](docs/TAVALL_AI_OPEN_HARNESS_HANDOFF.md) - historical design input; newer role/Cloud boundaries take precedence where they differ.
+- [Earlier Tavall AI / Open Harness handoff](docs/TAVALL_AI_OPEN_HARNESS_HANDOFF.md) - historical design input; newer role/Cloud/runtime boundaries take precedence where they differ.
