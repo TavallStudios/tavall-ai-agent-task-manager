@@ -8,6 +8,7 @@ application {
 
 dependencies {
     implementation(project(":tavall-ai-agent-core"))
+    implementation(project(":tavall-ai-runtime-spi"))
 
     runtimeOnly(project(":tavall-ai-agent-scheduler"))
     runtimeOnly(project(":tavall-ai-agent-orchestration"))
@@ -17,6 +18,7 @@ dependencies {
     runtimeOnly(project(":tavall-ai-agent-e2e"))
     runtimeOnly(project(":tavall-ai-agent-architecture"))
     runtimeOnly(project(":tavall-ai-agent-documentation"))
+    runtimeOnly(project(":tavall-ai-cloud-host"))
 
     implementation("org.tavall:agent-runtime") {
         version { branch = "main" }
