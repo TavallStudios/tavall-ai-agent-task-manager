@@ -10,6 +10,8 @@ include(
     "tavall-ai-agent-e2e",
     "tavall-ai-agent-architecture",
     "tavall-ai-agent-documentation",
+    "tavall-ai-runtime-spi",
+    "tavall-ai-cloud-host",
     "tavall-ai-runtime",
 )
 
@@ -18,5 +20,8 @@ sourceControl {
         producesModule("org.tavall:ai-core")
         producesModule("org.tavall:agent-runtime")
         producesModule("org.tavall:codex-agent-provider")
+    }
+    gitRepository(uri("https://github.com/TavallStudios/tavall-cloud.git")) {
+        producesModule("org.tavall.cloud:tavall-cloud-ai-broker-protocol")
     }
 }
