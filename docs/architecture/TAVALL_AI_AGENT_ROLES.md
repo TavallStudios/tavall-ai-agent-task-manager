@@ -1,28 +1,58 @@
-# Tavall AI Runtime and Module Architecture
+# Tavall Agent and AI Runtime Architecture
 
-> **Status:** Active architecture for the `tavall-ai` execution system.
+> **Status:** Active architecture for Tavall agents loaded by Tavall AI runtimes.
 
 ## Purpose
 
-Tavall AI is the execution/composition layer for model-backed Tavall work. Its roles and domain packages are modules loaded into actual model/runtime executions; they are not independent AIs or one-daemon-per-role services.
+Tavall agents are reusable behavior/instruction/capability packages. **They do not contain AI or a model runtime.** An authorized Tavall AI runtime loads agents and supplies the model/execution surface that performs the work.
 
-The repository is moving to the same conceptual separation used by Project Novus:
+The active separation is:
 
 ```text
-bootstrap
-  -> discovers/composes installed modules
+Tavall AI runtime
+  -> launchable model/execution identity
+  -> owns runtime capability modules/providers
+  -> uses Tavall AI bootstrap
+       -> discovers agents
+       -> discovers runtime capability modules
+       -> validates composition
 
-runtimes
-  -> launchable process identities
-
-modules
-  -> loadable role/domain capabilities
-
-execution providers
-  -> concrete model/process adapters
+Tavall agent
+  -> instructions
+  -> requested Function Catalog names
+  -> required runtime-module identities
+  -> domain/behavior contract
+  -> no model runtime
 ```
 
-The transitional `tavall-ai-agent-core` name remains only while the role-runtime PR stack is migrated. Generic composition belongs in explicit bootstrap modules rather than a permanent `core` junk drawer.
+## Naming rule
+
+Reusable agents use the `tavall-agent-*` artifact prefix and `org.tavall.agent.*` Java namespace.
+
+Active agents:
+
+- `tavall-agent-scheduler`
+- `tavall-agent-orchestration`
+- `tavall-agent-implementation`
+- `tavall-agent-review`
+- `tavall-agent-reconciliation`
+- `tavall-agent-e2e`
+- `tavall-agent-architecture`
+- `tavall-agent-documentation`
+- `tavall-agent-builder`
+
+The public bootstrap contract is:
+
+- `TavallAgent`
+- `TavallAgentProvider`
+- `TavallAgentRegistry`
+- `TavallAgentKind`
+- `TavallAgentCapability`
+- `TavallAgentInstructions`
+
+The obsolete `tavall-ai-agent-core`, `tavall-ai-agent-*`, and `tavall-ai-module-builder` artifact families are not active compatibility layers. They are removed.
+
+The `AI` prefix remains where the component actually owns model/runtime semantics, for example `tavall-ai-runtime` and `tavall-ai-runtime-distributed-execution`.
 
 ## System layering
 
@@ -37,7 +67,7 @@ ChatGPT / automation / operator
  placement / lease / tools / audit
               |
               v
-      Tavall AI runtime host
+       Tavall AI runtime
        +------+-------+
        |              |
        v              v
@@ -46,178 +76,147 @@ ChatGPT / automation / operator
        +------+-------+
               |
               v
-   bootstrap module graph
-       |              |
-       v              v
- role modules      domain modules
-       |              |
-       +------+-------+
-              |
-              v
- execution provider / distributed execution
+       tavall-ai-bootstrap
+       |               |
+       v               v
+ Tavall agents   runtime capability modules
+       |               |
+       +-------+-------+
+               |
+               v
+       execution provider
 ```
 
 ### Tavall Cloud
 
-Tavall Cloud remains the authority beneath Tavall AI execution. It owns:
+Tavall Cloud remains the authority beneath Tavall AI execution. It owns explicit DEVELOPMENT eligibility, durable jobs, capacity/workspace leases, process/sandbox/network authority, executable/tool/credential grants, mutation authorization, revocation, and fencing.
 
-- explicit DEVELOPMENT-node eligibility;
-- durable job lifecycle and audit;
-- worker/capacity reservation;
-- workspace leases;
-- process/cgroup/sandbox/network authority;
-- executable/tool and credential grants, including GitHub CLI;
-- target mutation authorization;
-- revocation and fencing.
-
-The ordinary Tavall Node Agent remains non-AI infrastructure. It may host/control the authorized transport without absorbing model prompts, Tavall AI modules, or provider behavior.
+The ordinary Tavall Cloud Node Agent remains non-AI infrastructure. Hosting an authorized Tavall AI runtime does not turn the Cloud node agent into a model runtime.
 
 ### Bootstrap
 
-`tavall-ai-bootstrap` owns provider-neutral module composition/discovery.
+`tavall-ai-bootstrap` is reusable composition infrastructure. It discovers both Tavall agents and Tavall AI runtime capability modules and validates the resulting graph before host execution.
 
-A `TavallAIModuleProvider` publishes one `TavallAIModule`. The registry rejects duplicate module identities and missing module dependencies before runtime execution.
+A `TavallAgentProvider` publishes one `TavallAgent`. A `TavallAIModuleProvider` publishes one actual runtime capability module. Agent metadata may declare required runtime-module IDs; the parent runtime must satisfy those requirements before execution begins.
 
-Bootstrap does not become a model runtime, scheduler, Cloud authority, or catch-all home for unrelated application behavior.
+Bootstrap does not execute a model, schedule Tavall work, or grant Cloud authority.
 
 ### Runtimes
 
-A runtime is a launchable Tavall AI process identity.
+A runtime is a launchable Tavall AI execution identity.
 
-Current runtime identities:
+Current identities:
 
-- `NODE_AGENT`: Tavall AI execution hosted on an authorized DEVELOPMENT node;
-- `CHATGPT_WEB`: Tavall AI execution through an authorized ChatGPT Web session/conversation host.
+- `NODE_AGENT`: model-backed Tavall execution hosted on an authorized DEVELOPMENT node;
+- `CHATGPT_WEB`: model-backed Tavall execution through an authorized ChatGPT Web host/session.
 
-Both runtimes compose the same installed role/module universe through `TavallAIRuntimeContext`. Their transports differ, but module semantics do not.
+Both compose the same installed agent and runtime-module universe through `TavallAIRuntimeContext`. Their transports differ; agent semantics do not.
 
-`CHATGPT_WEB` is intentionally separate from Tavall Cloud's inbound ChatGPT-to-CONTROL MCP adapter. The inbound adapter exposes Cloud operations to ChatGPT; the Tavall AI web runtime executes Tavall AI work through a web-backed model/session surface.
+`CHATGPT_WEB` remains distinct from Tavall Cloud's inbound ChatGPT-to-CONTROL MCP adapter. One is an execution surface; the other exposes Cloud operations to ChatGPT.
 
-### Role modules
+## Agents
 
-Role modules supply reusable execution behavior such as:
+Agents package reusable behavior and tool requirements. A single model session may load or coordinate several agents and may execute multiple logical subagents. Requiring another agent does not imply another machine, model process, or Cloud worker.
 
-- scheduler;
-- orchestration;
-- implementation;
-- review;
-- reconciliation;
-- E2E;
-- architecture;
-- documentation.
+Agent metadata describes intended requirements only. It never grants callable functions, shell access, credentials, Cloud authority, repository write authority, or deployment authority.
 
-A single Codex/model session may compose several role modules or subagents. Requiring another role is not by itself a reason to allocate another process or machine.
-
-The current `tavall-ai-agent-*` artifact names are transitional compatibility names. Their semantic category is **role module**.
-
-### Domain modules
-
-Domain modules compose Tavall AI around a durable product/domain workflow.
-
-The first concrete domain module is `tavall-ai-module-builder`.
-
-Builder composes Planner, Terrain, Architecture, Detail, Repair and Visual Critic behavior around the existing Project Novus `minecraft-bot-builder` artifact/validation platform. Tavall AI does not duplicate Builder geometry, palettes, schematics, replay, Studio, FAWE, Mineflayer or world-foundry implementation.
-
-Builder depends on the distributed-execution module for model/vision/repair calls that may route across authorized node or web runtimes.
-
-## Scheduler versus distributed AI execution
-
-These are deliberately separate.
-
-### Scheduler role
+### Scheduler agent
 
 The scheduler answers:
 
-> Where should this durable workload/top-level session live?
+> Where should this durable workload or top-level session live?
 
-It coordinates eligible worker/session placement, recovery and ownership using Tavall Cloud/Tavall Scheduler authority as appropriate.
+It coordinates eligible worker/session placement, ownership, and recovery using Tavall Cloud/Tavall Scheduler authority where appropriate. It does not contain a model runtime and does not own provider/model/web routing.
 
-It does not own AI provider/model/web routing.
+### Orchestration agent
 
-### Distributed execution module
+The orchestration agent coordinates the smallest useful set of specialized agents/subagents inside the owning model session. It may request runtime subagent/distributed-job functions but does not itself become the model/provider runtime.
 
-`tavall-ai-module-distributed-execution` answers:
+### Work agents
 
-> Which already-authorized AI execution surface/provider should satisfy this bounded AI call?
+Implementation, review, reconciliation, E2E, architecture, and documentation agents package their focused behavior and Function Catalog requirements. Repository mutation and acceptance authority remain external to the package.
 
-It owns:
+### Builder agent
 
-- authorized target-provider discovery;
-- required-capability filtering;
-- readiness filtering;
-- explicit allowed/preferred execution surfaces;
-- deterministic target priority;
-- bounded retry/failover;
-- ordered attempt evidence;
-- explicit no-target/terminal failure results.
+`tavall-agent-builder` composes Planner, Terrain, Architecture, Detail, Repair, and Visual Critic behavior around the Project Novus `minecraft-bot-builder` platform.
 
-Its first-class surfaces are `NODE_AGENT` and `CHATGPT_WEB`.
+It recognizes Builder artifacts such as BuildSpec, Sponge `.schem`, Tavall replay, visual evidence, and WorldBakeManifest without copying Builder geometry/rendering/replay/FAWE/Mineflayer implementation into Tavall AI.
 
-The module receives already-authorized targets from host/provider adapters. It does not infer DEVELOPMENT authority, mint Cloud grants, discover arbitrary infrastructure, or widen an allowed surface set.
+Builder declares the runtime requirement `distributed-execution` for model/vision/repair calls. It does **not** import the distributed AI runtime module. The parent runtime validates and supplies that capability.
 
-Tavall Scheduler remains generic workload coordination. It should not absorb model/provider semantics merely because an AI job uses it for placement.
+Builder can also request a typed Builder Studio simulation through `BuilderStudioSimulationRunner`. The runtime/Cloud host supplies the trusted executable/process boundary. The agent may pass only validated Studio arguments and workspace-contained artifact/evidence paths; it cannot submit arbitrary shell fragments.
+
+## Distributed AI execution
+
+`tavall-ai-runtime-distributed-execution` is an AI **runtime capability module**, not an agent.
+
+It answers:
+
+> Which already-authorized AI execution surface/provider should satisfy this bounded model call?
+
+It owns authorized target-provider discovery, capability/readiness filtering, explicit allowed/preferred surfaces, deterministic priority, bounded retry/failover, ordered attempt evidence, and explicit no-target/terminal results.
+
+Its first-class execution surfaces are `NODE_AGENT` and `CHATGPT_WEB`.
+
+It receives already-authorized targets from the host/provider boundary. It does not infer DEVELOPMENT authority, mint Cloud grants, discover arbitrary infrastructure, or widen an allowed target set.
+
+Tavall Scheduler remains generic workload coordination; distributed execution remains model/provider routing.
 
 ## Execution providers
 
-An execution provider adapts one authorized execution request to a concrete model/process backend.
+Execution providers adapt an authorized AI execution request to a concrete model/process backend.
 
-The current Function Catalog `codex-agent-provider` is actually this kind of component: it validates the leased Git workspace and launches supervised `codex exec`. It is not an agent definition or scheduler.
+The Function Catalog `agent-runtime` and `codex-agent-provider` modules are ownership drift. Their runtime/provider responsibilities migrate to Tavall AI; Function Catalog remains the typed callable-function/schema/invocation/policy/audit/MCP system.
 
-During the ownership migration it should move into Tavall AI and be renamed toward `tavall-ai-runtime-codex` / `CodexExecutionProvider`.
-
-The Cloud-owned process isolation supervisor boundary remains authoritative.
+The Cloud-owned process isolation/supervision boundary remains authoritative even when Tavall AI owns the provider adapter.
 
 ## Function Catalog integration
 
-Function Catalog owns **callable functions**, not Tavall AI runtimes/modules and not every executable the model may use.
+Agents declare requested callable function names. Function Catalog owns the real function implementations and the narrowed execution-specific view.
 
 ```text
-Tavall AI role/domain module
-  -> requested callable function names
-  -> authoritative Function Catalog policy view
-  -> execution-specific narrowed view
-  -> Java/application functions
+Tavall agent
+  -> requested function names
+  -> Function Catalog policy/view
+  -> typed Java function implementation
+  -> provider-neutral MCP projection when authorized
 ```
 
-Function Catalog remains responsible for:
+Function Catalog remains responsible for canonical function definitions/schemas, invocation, policy/audit hooks, scoped views, structured results, and MCP projection.
 
-- canonical function definitions and schemas;
-- invocation;
-- narrowed views;
-- policy/audit hooks;
-- structured/rich results;
-- provider-neutral MCP projection.
+Agent packages do not hand-maintain duplicate MCP schemas and do not gain authority by naming a function.
 
-The current Function Catalog modules named `agent-runtime` and `codex-agent-provider` are transitional ownership drift and should migrate into Tavall AI. The existing Function Catalog `ai-core` should be narrowed/renamed around Function Catalog concerns rather than treated as the Tavall AI core runtime.
-
-## Executable/CLI capabilities
+## Executable capabilities
 
 Functions and executables are different capability types.
 
-Git, GitHub CLI, Java, Gradle, browser/runtime helpers and other CLIs may be granted/materialized into an authorized Tavall AI execution by Tavall Cloud. Tavall AI modules describe how to use the capabilities they receive; they do not automatically turn every CLI operation into an MCP function.
+Git, GitHub CLI, Java, Gradle, Builder Studio, browser/runtime helpers, and other executables may be granted/materialized by Tavall Cloud or another authoritative runtime host. An agent describes how to use a granted capability; it does not convert every executable operation into an MCP function.
 
-A child/subagent execution may receive only the capabilities the owning authority/runtime permits it to inherit or delegate.
+## Local verification
 
-## Local CI
+Repository verification logic lives locally in the repository. Tavall execution workers run the canonical local entrypoint against an exact head and preserve evidence tied to that head.
 
-CI is deterministic infrastructure, not an AI role.
+For Tavall AI:
 
-Each repository should expose a canonical local verification entrypoint such as `scripts/ci/verify`. Tavall Cloud workers execute it against an exact commit inside an authorized workspace/sandbox. The result is tied to the exact head and may later be published to GitHub as a Check/status.
+```text
+scripts/ci/verify
+scripts/ci/verify.cmd
+```
 
-GitHub Actions is not the default Tavall execution plane.
+Those entrypoints run the actual Gradle checks and stage the runtime/plugin distribution. Stale GitHub Actions CI has been removed. GitHub may receive statuses/evidence later, but it is not the source of build logic.
 
 ## Durable progress
 
-Mutation roles commit and push meaningful checkpoints while working. A PR branch is durable distributed task state. Worker loss should be recoverable by another eligible execution fetching the latest pushed checkpoint and continuing from explicit handoff metadata.
+Mutation agents commit and push meaningful checkpoints while working. A PR branch is durable distributed task state. Worker loss should be recoverable by another eligible execution fetching the latest pushed checkpoint and explicit handoff metadata.
 
 Staging PR ancestry remains the integration/future-tree boundary for repository work; distributed AI execution does not replace the Git/PR workflow.
 
 ## Authority rule
 
-Runtime/module metadata describes intended behavior and capability requirements. It never grants authority.
-
-- Tavall Cloud controls development placement, leases, process/network/tool/credential authority and external mutation authorization.
-- Function Catalog controls callable function views.
-- Tavall AI bootstrap/runtimes/modules control model-execution composition.
+- Tavall Cloud controls development placement, leases, process/network/tool/credential authority, executable grants, and external mutation authorization.
+- Function Catalog controls callable function definitions and execution-specific views.
+- Tavall AI runtimes own model/runtime composition and runtime capability modules/providers.
+- Tavall AI bootstrap discovers and validates agents/modules.
+- Tavall agents package behavior and requirements only.
 - Tavall Scheduler controls generic workload coordination where used.
-- Git/PR ownership and reconciliation/staging markers control repository mutation coordination.
+- Git/PR ownership, staging metadata, review, and reconciliation control repository mutation coordination.
