@@ -1,7 +1,7 @@
 package org.tavall.ai.runtime;
 
 import org.tavall.ai.agent.role.TavallAIAgentRole;
-import org.tavall.ai.agent.role.TavallAIAgentRoleRegistry;
+import org.tavall.ai.bootstrap.TavallAIModule;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -15,13 +15,11 @@ final class TavallAIChatGPTWebRuntime {
     }
 
     static int run(List<String> arguments, PrintStream output, ClassLoader classLoader) throws Exception {
-        TavallAIAgentRoleRegistry roles = TavallAIAgentRoleRegistry.load(classLoader);
-        if (roles.size() == 0) {
-            throw new IllegalStateException("Tavall AI ChatGPT Web runtime has no installed role modules");
-        }
+        TavallAIRuntimeContext context = TavallAIRuntimeContext.load(classLoader);
+        requireInstalledComposition(context);
 
         if (arguments.contains("--describe")) {
-            describe(roles, output);
+            describe(context, output);
             return 0;
         }
 
@@ -33,14 +31,27 @@ final class TavallAIChatGPTWebRuntime {
                             + hosts.size()
             );
         }
-        return hosts.getFirst().run(roles, List.copyOf(arguments), output);
+        return hosts.getFirst().run(context, List.copyOf(arguments), output);
     }
 
-    private static void describe(TavallAIAgentRoleRegistry roles, PrintStream output) {
+    private static void requireInstalledComposition(TavallAIRuntimeContext context) {
+        if (context.roles().size() == 0) {
+            throw new IllegalStateException("Tavall AI ChatGPT Web runtime has no installed role modules");
+        }
+        if (context.modules().size() == 0) {
+            throw new IllegalStateException("Tavall AI ChatGPT Web runtime has no installed capability/domain modules");
+        }
+    }
+
+    private static void describe(TavallAIRuntimeContext context, PrintStream output) {
         output.println("runtime=CHATGPT_WEB");
-        output.println("roles=" + roles.size());
-        roles.roles().stream()
+        output.println("roles=" + context.roles().size());
+        context.roles().roles().stream()
                 .sorted(Comparator.comparing(TavallAIAgentRole::id))
                 .forEach(role -> output.println("role=" + role.id()));
+        output.println("modules=" + context.modules().size());
+        context.modules().modules().stream()
+                .sorted(Comparator.comparing(TavallAIModule::id))
+                .forEach(module -> output.println("module=" + module.id()));
     }
 }
