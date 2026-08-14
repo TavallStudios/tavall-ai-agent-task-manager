@@ -52,7 +52,7 @@ The public bootstrap contract is:
 
 The obsolete `tavall-ai-agent-core`, `tavall-ai-agent-*`, and `tavall-ai-module-builder` artifact families are not active compatibility layers. They are removed.
 
-The `AI` prefix remains where the component actually owns model/runtime semantics, for example `tavall-ai-runtime` and `tavall-ai-runtime-distributed-execution`.
+The `AI` prefix remains where the component actually owns model/runtime semantics, for example `tavall-ai-runtime`, `tavall-ai-runtime-model-execution`, `tavall-ai-runtime-codex`, and `tavall-ai-runtime-distributed-execution`.
 
 ## System layering
 
@@ -82,6 +82,9 @@ ChatGPT / automation / operator
  Tavall agents   runtime capability modules
        |               |
        +-------+-------+
+               |
+               v
+      model execution engine
                |
                v
        execution provider
@@ -146,6 +149,14 @@ Builder declares the runtime requirement `distributed-execution` for model/visio
 
 Builder can also request a typed Builder Studio simulation through `BuilderStudioSimulationRunner`. The runtime/Cloud host supplies the trusted executable/process boundary. The agent may pass only validated Studio arguments and workspace-contained artifact/evidence paths; it cannot submit arbitrary shell fragments.
 
+## Model execution
+
+`tavall-ai-runtime-model-execution` owns the actual provider-neutral single-model invocation boundary.
+
+It combines the canonical non-AI `TavallAgent` descriptor with a selected model provider, resolves the authoritative Function Catalog policy view, intersects that view with the agent's requested function names, enforces tool/delegation/time budgets, records observed Function Catalog invocations, and returns structured provider results.
+
+This is deliberately separate from distributed execution. Distributed execution chooses an already-authorized execution target; model execution invokes one selected provider with the scoped Function Catalog view and runtime budget.
+
 ## Distributed AI execution
 
 `tavall-ai-runtime-distributed-execution` is an AI **runtime capability module**, not an agent.
@@ -164,11 +175,11 @@ Tavall Scheduler remains generic workload coordination; distributed execution re
 
 ## Execution providers
 
-Execution providers adapt an authorized AI execution request to a concrete model/process backend.
+Execution providers adapt an authorized AI model-execution request to a concrete model/process backend.
 
-The Function Catalog `agent-runtime` and `codex-agent-provider` modules are ownership drift. Their runtime/provider responsibilities migrate to Tavall AI; Function Catalog remains the typed callable-function/schema/invocation/policy/audit/MCP system.
+The former Function Catalog `agent-runtime` and `codex-agent-provider` ownership has been replaced in this branch by `tavall-ai-runtime-model-execution` and `tavall-ai-runtime-codex`. Tavall AI now consumes Function Catalog only through `org.tavall:ai-core` for function/catalog-view semantics. Function Catalog PR #13 removes its obsolete runtime/provider copies once this replacement passes its owning acceptance gates.
 
-The Cloud-owned process isolation/supervision boundary remains authoritative even when Tavall AI owns the provider adapter.
+`CodexModelProvider` remains behind host-supplied `CodexWorkspaceResolver` and `CodexProcessIsolationSupervisor` boundaries. Moving the provider adapter into Tavall AI does not move ambient process/workspace authority out of Tavall Cloud or another explicitly authorized runtime host.
 
 ## Function Catalog integration
 
@@ -215,7 +226,7 @@ Staging PR ancestry remains the integration/future-tree boundary for repository 
 
 - Tavall Cloud controls development placement, leases, process/network/tool/credential authority, executable grants, and external mutation authorization.
 - Function Catalog controls callable function definitions and execution-specific views.
-- Tavall AI runtimes own model/runtime composition and runtime capability modules/providers.
+- Tavall AI runtimes own model execution, runtime composition, runtime capability modules, and model/provider adapters.
 - Tavall AI bootstrap discovers and validates agents/modules.
 - Tavall agents package behavior and requirements only.
 - Tavall Scheduler controls generic workload coordination where used.
