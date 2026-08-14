@@ -21,12 +21,15 @@ Tavall agent / runtime work
        |                        |
        v                        v
  NODE_AGENT target         CHATGPT_WEB target
- provider adapter          provider adapter
+ runtime target            runtime target
        |                        |
        +-----------+------------+
                    |
                    v
-          typed execution result
+      tavall-ai-runtime-model-execution
+                   |
+                   v
+          selected model provider
 ```
 
 ## Ownership boundaries
@@ -57,11 +60,19 @@ Tavall Scheduler remains generic workload coordination. The `tavall-agent-schedu
 
 It does not create Cloud grants, widen mutation scope, infer DEVELOPMENT authority, mint credentials, or bypass a durable lease.
 
+### Model execution runtime
+
+`tavall-ai-runtime-model-execution` owns the actual single-provider model invocation after distributed routing has selected/authorized an execution target.
+
+It combines a canonical non-AI `TavallAgent` with a selected provider id, resolves the authoritative Function Catalog policy view, intersects it with the agent's requested function names, enforces tool/delegation/time budgets, invokes the provider, records observed Function Catalog tool calls, and returns structured results.
+
+Distributed execution and model execution intentionally use distinct contracts: one routes among authorized targets; the other invokes one selected model provider.
+
 ### Function Catalog
 
 Function Catalog owns typed callable functions: canonical schemas, invocation, narrowed views, policy/audit hooks, structured results, and MCP projection.
 
-Distributed AI execution is not implemented by manufacturing MCP wrappers around every executable/process capability. Functions remain functions; executables remain executables.
+Distributed/model execution is not implemented by manufacturing MCP wrappers around every executable/process capability. Functions remain functions; executables remain executables.
 
 ## Repository layering
 
@@ -71,10 +82,11 @@ tavall-ai-runtime
        -> Tavall agents (`tavall-agent-*`)
        -> runtime capability modules
   -> tavall-ai-runtime-distributed-execution
-  -> execution-provider adapters
+  -> tavall-ai-runtime-model-execution
+  -> tavall-ai-runtime-codex
 ```
 
-Tavall agents contain instructions/tool requirements and may declare required runtime-module IDs. They do not import or embed the model runtime. The parent runtime validates that required runtime modules are installed before host execution.
+Tavall agents contain instructions/tool requirements and may declare required runtime-module IDs. They do not import or embed the model runtime. The parent runtime validates required runtime modules before host execution.
 
 The removed `tavall-ai-agent-core` compatibility surface is not part of the active architecture.
 
@@ -132,16 +144,21 @@ tavall-agent-scheduler
   -> where should this durable workload/top-level session live?
 
 tavall-ai-runtime-distributed-execution
-  -> which already-authorized AI target/provider satisfies this bounded model call?
+  -> which already-authorized AI target should satisfy this bounded model call?
+
+tavall-ai-runtime-model-execution
+  -> invoke the selected provider with the scoped Function Catalog view and model budget
 ```
 
-A placement decision may narrow the eligible target set. It does not replace provider selection.
+A placement decision may narrow the eligible target set. It does not replace distributed target selection or model-provider invocation.
 
 ## Codex execution provider
 
-The Function Catalog `codex-agent-provider` is semantically an execution adapter, not an agent definition or scheduler. Its runtime/provider responsibility should move into Tavall AI, toward a `tavall-ai-runtime-codex` / `CodexExecutionProvider` boundary.
+`tavall-ai-runtime-codex` now owns the Codex provider adapter previously held in Function Catalog.
 
-Cloud process isolation/supervision remains authoritative around that provider.
+`CodexModelProvider` preserves the fixed ephemeral CLI shape, sandbox selection, bounded output, environment allowlist, temporary-run cleanup, and Git-root validation. Tavall AI owns the provider adapter, while the authorized host supplies `CodexWorkspaceResolver` and `CodexProcessIsolationSupervisor` so workspace/process authority remains with Tavall Cloud or another explicit runtime host.
+
+Function Catalog PR #13 removes the obsolete `agent-runtime` / `codex-agent-provider` copies only after this replacement passes its owning exact-head/runtime acceptance.
 
 ## Builder acceptance case
 
@@ -162,14 +179,25 @@ tavall-agent-builder
 
 The Builder Studio runner is an executable capability supplied by the authorized runtime/Cloud host, not an MCP function and not an AI runtime. It accepts typed arguments, workspace-contained artifact/evidence paths, and returns session/status/evidence references. It never grants production-world mutation authority.
 
-## Migration sequence
+## Migration status
 
-1. Keep distributed execution runtime-owned under `tavall-ai-runtime-distributed-execution`.
-2. Keep scheduler behavior in `tavall-agent-scheduler`; no AI runtime inside the agent.
-3. Keep node + ChatGPT Web as parent runtime identities.
-4. Remove the old AI-agent core/namespace and load `tavall-agent-*` through bootstrap.
-5. Move actual AI runtime/provider ownership (`agent-runtime`, Codex adapter) out of Function Catalog into Tavall AI while Function Catalog retains callable-function/MCP ownership.
-6. Validate exact-head node/web routing and Builder Studio/live Builder acceptance on authorized DEVELOPMENT execution surfaces.
+Completed in source on this stack:
+
+1. distributed execution is runtime-owned under `tavall-ai-runtime-distributed-execution`;
+2. scheduler behavior is in non-AI `tavall-agent-scheduler`;
+3. node + ChatGPT Web remain parent runtime identities;
+4. the old AI-agent core/namespace is removed and `tavall-agent-*` loads through bootstrap;
+5. provider-neutral model execution is now `tavall-ai-runtime-model-execution`;
+6. Codex provider ownership is now `tavall-ai-runtime-codex`;
+7. Tavall AI source control consumes Function Catalog only through `org.tavall:ai-core`.
+
+Still required before calling the migration operationally accepted:
+
+- exact-head Java 25 local verification;
+- DEVELOPMENT Codex model-provider acceptance through the host-supplied process supervisor/workspace lease;
+- node/web distributed-routing acceptance;
+- Builder Studio/live Builder acceptance;
+- Function Catalog #13 removal reconciliation after the Tavall AI replacement is proven.
 
 ## Non-goals
 
