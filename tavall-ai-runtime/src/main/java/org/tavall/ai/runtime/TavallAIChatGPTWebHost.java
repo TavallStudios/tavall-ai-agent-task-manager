@@ -1,7 +1,5 @@
 package org.tavall.ai.runtime;
 
-import org.tavall.ai.agent.role.TavallAIAgentRoleRegistry;
-
 import java.io.PrintStream;
 import java.util.List;
 
@@ -13,5 +11,5 @@ import java.util.List;
  * supplied by Cloud or another authoritative caller.</p>
  */
 public interface TavallAIChatGPTWebHost {
-    int run(TavallAIAgentRoleRegistry roles, List<String> arguments, PrintStream output) throws Exception;
+    int run(TavallAIRuntimeContext context, List<String> arguments, PrintStream output) throws Exception;
 }
