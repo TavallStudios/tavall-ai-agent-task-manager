@@ -20,9 +20,13 @@ public final class BuilderAgentProvider implements TavallAgentProvider {
                 TavallAgentKind.WORK,
                 TavallAgentInstructions.load(BuilderAgentProvider.class, "ROLE.md"),
                 Set.of(),
-                Set.of(),
+                Set.of(
+                        "repository_staging_discover", "repository_staging_inspect_graph",
+                        "repository_staging_resolve_base", "repository_staging_validate"
+                ),
                 Set.of("distributed-execution"),
                 Set.of(
+                        TavallAgentCapability.FUNCTION_DISCOVERY,
                         TavallAgentCapability.REPOSITORY_READ,
                         TavallAgentCapability.RUNTIME_E2E
                 ),

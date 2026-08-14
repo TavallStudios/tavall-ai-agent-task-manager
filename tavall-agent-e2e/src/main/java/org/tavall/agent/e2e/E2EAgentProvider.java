@@ -16,10 +16,13 @@ public final class E2EAgentProvider implements TavallAgentProvider {
     public TavallAgent agent() {
         return new TavallAgent(
                 AGENT_ID,
-                "Deploys an exact head to an authorized development target and collects realistic acceptance evidence.",
+                "Deploys an exact staging/feature head to an authorized development target and collects realistic acceptance evidence.",
                 TavallAgentKind.WORK,
                 TavallAgentInstructions.load(E2EAgentProvider.class, "ROLE.md"),
-                Set.of("ci_verify", "cloud_deploy_development", "cloud_service_logs", "e2e_run"),
+                Set.of(
+                        "ci_verify", "cloud_deploy_development", "cloud_service_logs", "e2e_run",
+                        "repository_staging_discover", "repository_staging_inspect_graph", "repository_staging_validate"
+                ),
                 Set.of("repo_read", "github_inspect_pr", "cloud_inspect_service", "cloud_service_console"),
                 Set.of(
                         TavallAgentCapability.FUNCTION_DISCOVERY,

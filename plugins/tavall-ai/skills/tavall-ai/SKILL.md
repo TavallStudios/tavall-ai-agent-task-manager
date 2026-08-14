@@ -1,6 +1,6 @@
 ---
 name: tavall-ai
-description: Use for substantive Tavall AI runtime, agent, coding, PR, architecture, review, reconciliation, E2E, documentation, distributed execution, or Builder work while preserving Tavall Cloud authority.
+description: Use for substantive Tavall AI runtime, agent, coding, PR, architecture, review, reconciliation, E2E, documentation, distributed execution, staging, or Builder work while preserving Tavall Cloud authority.
 ---
 
 # Tavall AI
@@ -9,39 +9,27 @@ Use this as the normal Tavall AI operating entry point.
 
 ## Architecture
 
-Keep these boundaries explicit:
+- **bootstrap** discovers/validates Tavall agents and AI runtime capability modules;
+- **runtime** is a launchable AI/model execution identity such as `NODE_AGENT` or `CHATGPT_WEB`;
+- **agent** is reusable behavior/instructions/function requirements and contains no model runtime;
+- **runtime capability module** owns actual AI runtime behavior such as distributed provider routing;
+- **execution provider** adapts an authorized model/process backend;
+- **scheduler agent** describes workload/session placement and recovery only.
 
-- **bootstrap** discovers and validates installed Tavall agents and Tavall AI runtime capability modules;
-- **runtime** is a launchable AI/model execution process identity such as `NODE_AGENT` or `CHATGPT_WEB`;
-- **agent** is a reusable behavior/instruction/function-requirement package such as orchestration, implementation, review, E2E, scheduler, or Builder;
-- **runtime capability module** owns actual AI runtime behavior such as distributed model/provider routing;
-- **execution provider** adapts an authorized model/process backend such as Codex;
-- **scheduler agent** describes durable workload/session placement and recovery but does not contain a model runtime.
+## Repository routing
 
-Agents are not AIs. The parent Tavall AI runtime performs model execution with the agents, functions, executables, workspace, and authority granted to that execution.
+For substantive repository work:
 
-## Routing
+1. Start with `tavall-agent-orchestration`.
+2. Apply `tavall-staging-pr-workflow` before mutation/review/acceptance.
+3. Use specialized `tavall-agent-*` skills for implementation, architecture, review, reconciliation, E2E, documentation, scheduling, or Builder work.
+4. Use `tavall-staging-reconciliation` for topology repair and `tavall-staging-promotion` only at the staging-root promotion boundary.
+5. Use repository-owned local CI against exact heads; GitHub workflow YAML is not Tavall's build truth.
 
-- For substantive repository work, start with `tavall-agent-orchestration`.
-- Use the specialized `tavall-agent-*` skills for their acceptance-unit responsibilities.
-- Use `tavall-agent-scheduler` only for distributed worker/top-level-session placement or recovery.
-- Use `tavall-ai-distributed-execution` for a bounded AI/model call that may route across authorized node or web runtimes.
-- Use `tavall-agent-builder` for Builder domain work and preserve the Project Novus Builder implementation/artifact boundary.
-- Prefer multiple specialized agents/subagents inside one model session when they can safely share the owning workspace and resources.
-- Do not allocate another machine merely because another agent is useful.
+Function Catalog owns canonical typed functions, scoped callable views, policy/audit, and MCP projection. Agent metadata requests function names but grants no authority.
 
-## Capability model
+Executable capabilities such as Git, Java, Gradle, GitHub CLI, Builder Studio, or browsers remain tools granted by the owning Cloud/runtime authority. Do not manufacture MCP wrappers solely to turn an executable into a function.
 
-Functions, executables, and runtime capabilities are different things.
+Tavall Cloud controls DEVELOPMENT eligibility, jobs, workspace/process/network authority, executables/credentials, resource capacity, local CI execution, and external mutation authorization.
 
-Tavall Java/application code exposes genuinely callable typed operations through Function Catalog registration/annotations. Function Catalog owns canonical schemas, invocation, narrowed callable views, policy/audit hooks, and MCP projection.
-
-Executable capabilities such as Git, GitHub CLI, Java, Gradle, Builder Studio, browser/runtime helpers, or other CLIs remain tools granted/materialized by the owning Cloud/runtime authority. Do not manufacture MCP wrappers merely to turn a CLI command into a function.
-
-Tavall Cloud determines DEVELOPMENT eligibility, durable job authority, workspace/process/sandbox/network authority, executable/credential grants, resource capacity, local CI execution, and external-operation authorization.
-
-## Repository work
-
-Use current production code and architecture as the source of truth. Mutation agents must commit and push meaningful checkpoints so another authorized worker can resume from Git after session or machine loss.
-
-Use repository-owned local CI against the exact head before review-ready handoff. GitHub may display resulting status/evidence, but hosted workflow YAML is not the source of Tavall build logic.
+Mutation agents push meaningful checkpoints so branches remain durable distributed state. Staging integration, promotion to `main`, and deployment are separate state transitions and must remain separately evidenced/authorized.

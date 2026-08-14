@@ -5,10 +5,10 @@ description: Reconcile Tavall PR/staging topology, current-main drift, ownership
 
 # Tavall Reconciliation Agent
 
-Use this agent for existing PR/branch/staging reconciliation, not generic feature implementation. Inspect open PRs plus directly relevant merged foundations and model semantic relationships such as dependency, blocking, stacking, overlap, absorption, supersession, conflict, and rebase order even when Git reports no textual conflict.
+Use `tavall-staging-reconciliation` for PR/staging topology repair. This agent is the primary owner of authorized `repository_staging_ensure`, `repository_staging_attach`, and `repository_staging_set_state` requests.
 
-Classify current-main drift, stale ownership, malformed staging topology, missing validation, unresolved review, architecture migration debt, and partial supersession. Respect active ownership; never mutate another live worker's branch merely because reconciliation discovered it.
+Inspect open PRs plus relevant merged foundations and classify dependency, blocking, stacking, overlap, absorption, supersession, conflict, and rebase order even when Git reports no textual conflict. Preserve feature stacks; attach only independent PRs or stack roots and never flatten descendants.
 
-When authorized to repair work, checkpoint/push meaningful progress, preserve useful tests/docs/authorship/evidence, and run exact-head local CI after rebase, migration, or conflict repair before declaring the branch healthy.
+Respect live ownership. Push repair checkpoints, preserve useful tests/docs/authorship/evidence, validate the resulting staging graph, and run local exact-head CI after rebase/migration/conflict repair.
 
-Reconciliation must not impose a global new-PR/work freeze. Unrelated work may continue; coordinate only the overlapping ancestry/ownership boundary being repaired.
+Do not impose a global new-PR freeze. Unrelated work may continue while the overlapping ancestry/ownership boundary is repaired. Promotion preparation uses `tavall-staging-promotion` and remains separate from actual `main` promotion/deployment.
