@@ -9,16 +9,21 @@ apply(from = "gradle/git-version.gradle.kts")
 version = extra["gitVersion"] as String
 
 val junitVersion = "5.12.2"
-val roleProviderService = "org.tavall.ai.agent.role.TavallAIAgentRoleProvider"
-val roleProjects = listOf(
-    "tavall-ai-agent-scheduler",
-    "tavall-ai-agent-orchestration",
-    "tavall-ai-agent-implementation",
-    "tavall-ai-agent-review",
-    "tavall-ai-agent-reconciliation",
-    "tavall-ai-agent-e2e",
-    "tavall-ai-agent-architecture",
-    "tavall-ai-agent-documentation",
+val agentProviderService = "org.tavall.agent.TavallAgentProvider"
+val moduleProviderService = "org.tavall.ai.bootstrap.TavallAIModuleProvider"
+val agentProjects = listOf(
+    "tavall-agent-scheduler",
+    "tavall-agent-orchestration",
+    "tavall-agent-implementation",
+    "tavall-agent-review",
+    "tavall-agent-reconciliation",
+    "tavall-agent-e2e",
+    "tavall-agent-architecture",
+    "tavall-agent-documentation",
+    "tavall-agent-builder",
+)
+val runtimeModuleProjects = listOf(
+    "tavall-ai-runtime-distributed-execution",
 )
 
 subprojects {
@@ -83,25 +88,25 @@ subprojects {
     }
 }
 
-configure(roleProjects.map(::project)) {
+configure(agentProjects.map(::project)) {
     dependencies {
-        "api"(project(":tavall-ai-agent-core"))
+        "api"(project(":tavall-ai-bootstrap"))
     }
 
-    val verifyRoleDescriptor = tasks.register("verifyRoleDescriptor") {
+    val verifyAgentDescriptor = tasks.register("verifyAgentDescriptor") {
         group = "verification"
-        description = "Verifies this deployable Tavall AI role publishes one provider and one canonical ROLE.md."
+        description = "Verifies this Tavall agent publishes one provider and one canonical ROLE.md."
         doLast {
-            val serviceFile = file("src/main/resources/META-INF/services/$roleProviderService")
+            val serviceFile = file("src/main/resources/META-INF/services/$agentProviderService")
             check(serviceFile.isFile) {
-                "Missing ServiceLoader registration for $path: $serviceFile"
+                "Missing Tavall agent ServiceLoader registration for $path: $serviceFile"
             }
             val providers = serviceFile.readLines()
                 .map(String::trim)
                 .filter(String::isNotBlank)
                 .filterNot { it.startsWith("#") }
             check(providers.size == 1) {
-                "Expected exactly one Tavall AI role provider for $path, found ${providers.size}"
+                "Expected exactly one Tavall agent provider for $path, found ${providers.size}"
             }
 
             val roleDocuments = fileTree("src/main/resources") {
@@ -117,7 +122,31 @@ configure(roleProjects.map(::project)) {
     }
 
     tasks.named("check") {
-        dependsOn(verifyRoleDescriptor)
+        dependsOn(verifyAgentDescriptor)
+    }
+}
+
+configure(runtimeModuleProjects.map(::project)) {
+    val verifyRuntimeModuleDescriptor = tasks.register("verifyRuntimeModuleDescriptor") {
+        group = "verification"
+        description = "Verifies this Tavall AI runtime capability module publishes exactly one module provider."
+        doLast {
+            val serviceFile = file("src/main/resources/META-INF/services/$moduleProviderService")
+            check(serviceFile.isFile) {
+                "Missing Tavall AI runtime-module ServiceLoader registration for $path: $serviceFile"
+            }
+            val providers = serviceFile.readLines()
+                .map(String::trim)
+                .filter(String::isNotBlank)
+                .filterNot { it.startsWith("#") }
+            check(providers.size == 1) {
+                "Expected exactly one Tavall AI runtime module provider for $path, found ${providers.size}"
+            }
+        }
+    }
+
+    tasks.named("check") {
+        dependsOn(verifyRuntimeModuleDescriptor)
     }
 }
 
@@ -136,12 +165,12 @@ val stageDistribution = tasks.register<Sync>("stageDistribution") {
     }
 }
 
-val verifyRoleModules = tasks.register("verifyRoleModules") {
+val verifyTavallAISystem = tasks.register("verifyTavallAISystem") {
     group = "verification"
-    description = "Runs checks for the Tavall AI agent core and every independently deployable role module."
+    description = "Runs checks for Tavall AI bootstrap, agents, runtime modules, and runtimes."
     dependsOn(subprojects.map { it.tasks.named("check") })
 }
 
 tasks.named("check") {
-    dependsOn(verifyRoleModules)
+    dependsOn(verifyTavallAISystem)
 }
