@@ -10,6 +10,7 @@ version = extra["gitVersion"] as String
 
 val junitVersion = "5.12.2"
 val roleProviderService = "org.tavall.ai.agent.role.TavallAIAgentRoleProvider"
+val moduleProviderService = "org.tavall.ai.bootstrap.TavallAIModuleProvider"
 val roleProjects = listOf(
     "tavall-ai-agent-scheduler",
     "tavall-ai-agent-orchestration",
@@ -19,6 +20,10 @@ val roleProjects = listOf(
     "tavall-ai-agent-e2e",
     "tavall-ai-agent-architecture",
     "tavall-ai-agent-documentation",
+)
+val moduleProjects = listOf(
+    "tavall-ai-module-distributed-execution",
+    "tavall-ai-module-builder",
 )
 
 subprojects {
@@ -90,7 +95,7 @@ configure(roleProjects.map(::project)) {
 
     val verifyRoleDescriptor = tasks.register("verifyRoleDescriptor") {
         group = "verification"
-        description = "Verifies this deployable Tavall AI role publishes one provider and one canonical ROLE.md."
+        description = "Verifies this Tavall AI role module publishes one provider and one canonical ROLE.md."
         doLast {
             val serviceFile = file("src/main/resources/META-INF/services/$roleProviderService")
             check(serviceFile.isFile) {
@@ -121,6 +126,30 @@ configure(roleProjects.map(::project)) {
     }
 }
 
+configure(moduleProjects.map(::project)) {
+    val verifyModuleDescriptor = tasks.register("verifyModuleDescriptor") {
+        group = "verification"
+        description = "Verifies this Tavall AI capability/domain module publishes exactly one module provider."
+        doLast {
+            val serviceFile = file("src/main/resources/META-INF/services/$moduleProviderService")
+            check(serviceFile.isFile) {
+                "Missing Tavall AI module ServiceLoader registration for $path: $serviceFile"
+            }
+            val providers = serviceFile.readLines()
+                .map(String::trim)
+                .filter(String::isNotBlank)
+                .filterNot { it.startsWith("#") }
+            check(providers.size == 1) {
+                "Expected exactly one Tavall AI module provider for $path, found ${providers.size}"
+            }
+        }
+    }
+
+    tasks.named("check") {
+        dependsOn(verifyModuleDescriptor)
+    }
+}
+
 val stageDistribution = tasks.register<Sync>("stageDistribution") {
     group = "distribution"
     description = "Stages the Tavall AI runtime distribution and ChatGPT plugin as one inspectable release candidate."
@@ -136,12 +165,12 @@ val stageDistribution = tasks.register<Sync>("stageDistribution") {
     }
 }
 
-val verifyRoleModules = tasks.register("verifyRoleModules") {
+val verifyTavallAISystem = tasks.register("verifyTavallAISystem") {
     group = "verification"
-    description = "Runs checks for the Tavall AI agent core and every independently deployable role module."
+    description = "Runs checks for Tavall AI bootstrap, role modules, capability/domain modules, and runtimes."
     dependsOn(subprojects.map { it.tasks.named("check") })
 }
 
 tasks.named("check") {
-    dependsOn(verifyRoleModules)
+    dependsOn(verifyTavallAISystem)
 }
