@@ -1,133 +1,107 @@
 # Tavall AI Distributed Execution Architecture
 
-> **Status:** Active correction layered on the Tavall AI role-runtime transition.
+> **Status:** Active Tavall AI runtime capability.
 
 ## Purpose
 
-Tavall AI needs a first-class execution layer for bounded AI/model calls across all eligible Tavall AI execution surfaces, including development-node runtimes and web-backed runtimes such as ChatGPT Web.
+Tavall AI needs a first-class execution layer for bounded model calls across already-authorized execution surfaces, including DEVELOPMENT-node runtimes and web-backed runtimes such as ChatGPT Web.
 
-This responsibility is distinct from generic workload scheduling.
+This is an **AI runtime capability**, not a Tavall agent and not generic workload scheduling.
 
 ```text
-requesting Tavall AI runtime/module
+Tavall agent / runtime work
             |
             v
- distributed AI execution module
-   capability / health / policy-safe routing
+ parent Tavall AI runtime
             |
-      +-----+--------------------+
-      |                          |
-      v                          v
- Tavall AI node runtime     Tavall AI web runtime
- Codex / provider process   ChatGPT Web / future web provider
-      |                          |
-      +------------+-------------+
+            v
+ tavall-ai-runtime-distributed-execution
+ capability / readiness / bounded routing
+       +----+-------------------+
+       |                        |
+       v                        v
+ NODE_AGENT target         CHATGPT_WEB target
+ provider adapter          provider adapter
+       |                        |
+       +-----------+------------+
                    |
                    v
           typed execution result
 ```
 
-The distributed execution module routes only among execution targets already made eligible by the owning authority. It is not a second scheduler, control plane, credential broker, or infrastructure authority.
-
 ## Ownership boundaries
 
 ### Tavall Cloud
 
-Tavall Cloud remains the authority beneath distributed AI execution. It owns:
+Tavall Cloud owns DEVELOPMENT eligibility, durable job identity/lifecycle, capacity and workspace leases, process/sandbox/network authority, executable/tool/credential grants, mutation authorization, audit, revocation, and fencing.
 
-- DEVELOPMENT-node eligibility;
-- durable job identity and lifecycle;
-- worker/node capacity and reservations;
-- workspace leases;
-- process, cgroup, sandbox and network isolation;
-- credential and executable/tool grants, including GitHub CLI materialization;
-- target mutation authorization;
-- audit and revocation.
+A target is not eligible because it advertises itself. The target-provider/host boundary supplies only targets already authorized for the request.
 
-A Tavall AI execution target is never eligible merely because it advertises itself. Cloud or another explicitly authorized host adapter must supply the already-authorized target/lease context.
+### Tavall Scheduler and scheduler agent
 
-### Tavall Scheduler
+Tavall Scheduler remains generic workload coordination. The `tavall-agent-scheduler` package describes placement/recovery behavior for durable work and top-level sessions. Neither owns model/provider semantics, model fallback, or web-vs-node routing.
 
-Tavall Scheduler remains generic workload coordination. It may decide where durable work should run and may use Cloud scheduling primitives, but it does not own model/provider semantics, AI capability matching, model fallback, web execution selection, or AI response handling.
+### Distributed execution runtime module
 
-The Tavall AI scheduler role therefore coordinates durable worker/session placement only.
+`tavall-ai-runtime-distributed-execution` owns AI-specific routing after authority/placement boundaries are satisfied:
 
-### Tavall AI distributed execution
-
-The distributed execution module owns AI-specific routing after authority and placement boundaries are satisfied:
-
-- execution-surface discovery from authorized providers;
+- target-provider discovery from authorized providers;
 - capability matching;
 - health/readiness filtering;
-- deterministic priority selection;
-- bounded retry/failover across eligible targets;
+- explicit allowed/preferred surface handling;
+- deterministic target priority;
+- bounded retry/failover;
 - request/result correlation;
-- attempt evidence;
-- explicit terminal failure when no eligible target remains.
+- ordered attempt evidence;
+- explicit terminal results when no eligible target remains.
 
-It does not create Cloud grants, widen mutation scope, infer DEVELOPMENT authority, mint credentials, or bypass a durable job lease.
+It does not create Cloud grants, widen mutation scope, infer DEVELOPMENT authority, mint credentials, or bypass a durable lease.
 
 ### Function Catalog
 
-Function Catalog remains the provider-neutral callable-function system: canonical schemas, invocation, narrowed views, policy/audit hooks and MCP projection.
+Function Catalog owns typed callable functions: canonical schemas, invocation, narrowed views, policy/audit hooks, structured results, and MCP projection.
 
-Distributed AI execution is not implemented by manufacturing an MCP wrapper for every CLI or process capability. Functions remain functions; executables remain executables.
+Distributed AI execution is not implemented by manufacturing MCP wrappers around every executable/process capability. Functions remain functions; executables remain executables.
 
-## Tavall AI repository layering
-
-Tavall AI follows the same conceptual separation used by the Project Novus runtime/module architecture:
+## Repository layering
 
 ```text
-bootstrap
-  -> discovers and composes runtimes/modules/providers
-
-runtimes
-  -> launchable process identities
-  -> node runtime
-  -> web runtime
-  -> provider-specific runtime adapters such as Codex
-
-modules
-  -> loadable behavior/domain capabilities
-  -> orchestration
-  -> implementation
-  -> review
-  -> reconciliation
-  -> E2E
-  -> architecture
-  -> documentation
-  -> distributed execution
-  -> Builder
+tavall-ai-runtime
+  -> tavall-ai-bootstrap
+       -> Tavall agents (`tavall-agent-*`)
+       -> runtime capability modules
+  -> tavall-ai-runtime-distributed-execution
+  -> execution-provider adapters
 ```
 
-The existing `tavall-ai-agent-core` name is transitional. Core responsibilities should move into explicit bootstrap/composition modules rather than becoming a permanent generic dependency bucket.
+Tavall agents contain instructions/tool requirements and may declare required runtime-module IDs. They do not import or embed the model runtime. The parent runtime validates that required runtime modules are installed before host execution.
 
-Likewise, role modules are modules, not separate AI processes. A Codex/model execution may load and compose multiple role modules inside one authorized runtime.
+The removed `tavall-ai-agent-core` compatibility surface is not part of the active architecture.
 
 ## Runtime identities
 
-The runtime contract must support at least:
+The common runtime model currently supports:
 
-- `NODE_AGENT`: an authorized Tavall AI runtime on a DEVELOPMENT node;
-- `CHATGPT_WEB`: a Tavall AI web execution runtime that owns ChatGPT Web conversation/session mechanics without becoming Tavall Cloud's inbound ChatGPT-to-CONTROL adapter.
+- `NODE_AGENT`: authorized Tavall AI execution on a DEVELOPMENT node;
+- `CHATGPT_WEB`: authorized Tavall AI execution through a ChatGPT Web host/session.
 
-Later runtimes/providers may be added without changing the distributed execution contract.
+Transport may differ, but request identity, capability requirements, attempt evidence, and result semantics remain common.
 
-Transport may differ between node and web execution, but request identity, capability requirements, attempt evidence and result semantics remain common.
+`CHATGPT_WEB` remains separate from Tavall Cloud's inbound ChatGPT-to-CONTROL MCP adapter.
 
 ## Distributed execution contract
 
-A distributed request carries only AI execution concerns that are safe to route after authority has already been established:
+A request carries AI execution concerns safe to route after authority is established:
 
 - execution id;
-- durable job id/version or equivalent authority correlation;
+- durable job/version or equivalent correlation;
 - required capabilities;
-- preferred execution surfaces when present;
+- allowed/preferred execution surfaces;
 - bounded attempt count;
 - task/payload reference;
 - opaque authority/lease reference owned by the host adapter.
 
-An execution target carries:
+A target carries:
 
 - stable target id;
 - execution surface;
@@ -136,76 +110,66 @@ An execution target carries:
 - routing priority;
 - provider-specific opaque handle.
 
-The router must not inspect or reinterpret secrets from the opaque handle.
+The router does not inspect/reinterpret secrets from opaque handles.
 
 ## Routing rules
 
-1. Reject an invalid or empty execution request.
-2. Ask registered target providers only for targets authorized for that request.
-3. Filter targets that are not ready or do not satisfy every required capability.
-4. Honor explicit surface constraints/preferences without silently widening them.
-5. Rank deterministically by request preference, provider priority and stable target id.
+1. Reject invalid/empty requests.
+2. Ask registered providers only for targets authorized for that request.
+3. Reject targets that are unready or missing required capabilities.
+4. Honor explicit surface constraints without widening them.
+5. Rank deterministically by request preference, provider priority, and stable target id.
 6. Execute against the highest-ranked eligible target.
-7. Retry/fail over only when the provider marks the failure retryable and the request attempt budget remains.
+7. Retry/fail over only for provider-declared retryable failures while budget remains.
 8. Preserve ordered attempt evidence.
-9. Stop on success or a non-retryable failure.
-10. Return an explicit terminal result when no eligible target remains.
+9. Stop on success or terminal failure.
+10. Return explicit no-target/attempt-exhausted results rather than silently falling back outside policy.
 
-## Scheduler correction
-
-The current scheduler role description overstates its ownership by treating worker/session placement as the Tavall AI distributed execution system.
-
-Correct split:
+## Scheduler split
 
 ```text
-Tavall AI scheduler role
-  -> where should this durable workload/session live?
+tavall-agent-scheduler
+  -> where should this durable workload/top-level session live?
 
-Tavall AI distributed execution module
-  -> which authorized AI execution surface/provider should satisfy this AI call?
+tavall-ai-runtime-distributed-execution
+  -> which already-authorized AI target/provider satisfies this bounded model call?
 ```
 
-A scheduler decision may produce or narrow the set of eligible targets. It does not perform provider selection on behalf of the distributed execution module.
+A placement decision may narrow the eligible target set. It does not replace provider selection.
 
 ## Codex execution provider
 
-The existing `codex-agent-provider` is an execution adapter, not an agent or scheduler. Its responsibility is to turn one already-authorized Tavall AI execution request into a supervised `codex exec` process inside the exact authorized workspace.
+The Function Catalog `codex-agent-provider` is semantically an execution adapter, not an agent definition or scheduler. Its runtime/provider responsibility should move into Tavall AI, toward a `tavall-ai-runtime-codex` / `CodexExecutionProvider` boundary.
 
-During the runtime/module migration it should move under Tavall AI and be renamed toward `CodexExecutionProvider` / `tavall-ai-runtime-codex`.
+Cloud process isolation/supervision remains authoritative around that provider.
 
-The process supervisor and Cloud authority boundary remain intact.
+## Builder acceptance case
 
-## Builder as the first domain-agent acceptance case
+`tavall-agent-builder` is the first serious domain-agent acceptance case.
 
-Builder is the first serious Tavall domain-agent workload and must be included in this architecture pass rather than treated as an unrelated Project Novus tool.
+Builder keeps Minecraft implementation in Project Novus: BuildSpec, schematics, replay/mock simulation, Builder Studio/Prismarine rendering, Mineflayer/FAWE certification, and visual evidence.
 
-Existing Builder authoring/validation remains where its Minecraft implementation belongs, including BuildSpec, Sponge schematic artifacts, mock worlds, replay-first simulation, Prismarine/Studio visualization, Mineflayer/FAWE certification and visual evidence.
-
-Tavall AI adds the domain-agent composition layer:
+The Tavall agent adds behavior/composition only:
 
 ```text
-Builder module
-  -> Builder-specific instructions and skills
+tavall-agent-builder
   -> Planner / Terrain / Architecture / Detail / Repair / Visual Critic behavior
-  -> generic orchestration/review/E2E modules
-  -> distributed AI execution for ambiguous/visual/model calls
-  -> Cloud-granted CLIs/functions/workspaces
-  -> existing minecraft-bot-builder artifact + validation contracts
+  -> existing Tavall agent orchestration/review/E2E behavior as needed
+  -> declares runtime requirement: distributed-execution
+  -> typed Builder Studio simulation runner
+  -> existing Project Novus Builder artifacts/acceptance
 ```
 
-Builder does not become a production Minecraft runtime and does not duplicate its world/schematic implementation inside Tavall AI.
-
-This makes Builder the acceptance proof that Tavall AI can host a persistent domain module combining skills, specialized tools, distributed model calls, visual feedback, replay artifacts and iterative execution.
+The Builder Studio runner is an executable capability supplied by the authorized runtime/Cloud host, not an MCP function and not an AI runtime. It accepts typed arguments, workspace-contained artifact/evidence paths, and returns session/status/evidence references. It never grants production-world mutation authority.
 
 ## Migration sequence
 
-1. Add the distributed-execution contracts/router as an independent Tavall AI module.
-2. Correct scheduler role/docs so it owns placement only.
-3. Add node + ChatGPT Web runtime identities to the common runtime model.
-4. Refactor the transitional `agent-core` surface into explicit bootstrap/composition modules.
-5. Move AI runtime/provider ownership (`agent-runtime`, Codex execution adapter) out of Function Catalog and into Tavall AI while retaining Function Catalog dependencies for callable functions.
-6. Add the Tavall AI Builder domain module and bind it to existing Builder skills/artifacts rather than duplicating implementation.
-7. Validate node->web fallback, web->node preference, capability filtering, bounded retry, cancellation/revocation behavior and Builder end-to-end delegation on authorized DEVELOPMENT infrastructure.
+1. Keep distributed execution runtime-owned under `tavall-ai-runtime-distributed-execution`.
+2. Keep scheduler behavior in `tavall-agent-scheduler`; no AI runtime inside the agent.
+3. Keep node + ChatGPT Web as parent runtime identities.
+4. Remove the old AI-agent core/namespace and load `tavall-agent-*` through bootstrap.
+5. Move actual AI runtime/provider ownership (`agent-runtime`, Codex adapter) out of Function Catalog into Tavall AI while Function Catalog retains callable-function/MCP ownership.
+6. Validate exact-head node/web routing and Builder Studio/live Builder acceptance on authorized DEVELOPMENT execution surfaces.
 
 ## Non-goals
 
@@ -213,7 +177,6 @@ This makes Builder the acceptance proof that Tavall AI can host a persistent dom
 - no direct agent-to-agent SSH/private control plane;
 - no replacement for Tavall Scheduler;
 - no second Cloud authority implementation;
-- no generic browser automation masquerading as ChatGPT Web runtime;
-- no duplication of GitHub CLI ownership outside Tavall Cloud;
-- no migration of Builder world/schematic production code into the Tavall AI runtime;
+- no duplication of Builder Minecraft implementation inside Tavall AI;
+- no arbitrary shell field in Builder Studio execution;
 - no production deployment implied by source integration.
