@@ -1,6 +1,7 @@
 rootProject.name = "tavall-ai"
 
 include(
+    "tavall-ai-bootstrap",
     "tavall-ai-agent-core",
     "tavall-ai-agent-scheduler",
     "tavall-ai-agent-orchestration",
