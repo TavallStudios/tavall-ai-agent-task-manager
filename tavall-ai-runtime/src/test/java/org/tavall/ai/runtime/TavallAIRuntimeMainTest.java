@@ -21,24 +21,25 @@ class TavallAIRuntimeMainTest {
     }
 
     @Test
-    void nodeDescribeProvesInstalledRolesAndModulesWithoutStartingAHostTransport() throws Exception {
+    void nodeDescribeProvesInstalledAgentsAndRuntimeModulesWithoutStartingAHostTransport() throws Exception {
         String description = describe("NODE_AGENT");
 
         assertTrue(description.contains("runtime=NODE_AGENT"));
-        assertTrue(description.contains("roles=8"));
-        assertTrue(description.contains("modules=2"));
-        assertTrue(description.contains("module=builder"));
+        assertTrue(description.contains("agents=9"));
+        assertTrue(description.contains("agent=builder"));
+        assertTrue(description.contains("agent=scheduler"));
+        assertTrue(description.contains("modules=1"));
         assertTrue(description.contains("module=distributed-execution"));
     }
 
     @Test
-    void chatGptWebDescribeUsesTheSameModuleUniverseWithoutStartingAWebSession() throws Exception {
+    void chatGptWebDescribeUsesTheSameAgentAndRuntimeModuleUniverseWithoutStartingAWebSession() throws Exception {
         String description = describe("CHATGPT_WEB");
 
         assertTrue(description.contains("runtime=CHATGPT_WEB"));
-        assertTrue(description.contains("roles=8"));
-        assertTrue(description.contains("modules=2"));
-        assertTrue(description.contains("module=builder"));
+        assertTrue(description.contains("agents=9"));
+        assertTrue(description.contains("agent=builder"));
+        assertTrue(description.contains("modules=1"));
         assertTrue(description.contains("module=distributed-execution"));
     }
 
