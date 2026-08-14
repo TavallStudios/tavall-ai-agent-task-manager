@@ -9,7 +9,7 @@ public final class ProcessBuilderStudioSimulationRunner implements BuilderStudio
     private final List<String> launcherCommand;
     private final BuilderStudioProcessExecutor processExecutor;
 
-    ProcessBuilderStudioSimulationRunner(
+    public ProcessBuilderStudioSimulationRunner(
             List<String> launcherCommand,
             BuilderStudioProcessExecutor processExecutor
     ) {
