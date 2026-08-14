@@ -5,10 +5,12 @@ import org.junit.jupiter.api.io.TempDir;
 import org.tavall.agent.TavallAgent;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -39,25 +41,13 @@ class TavallBuilderAgentTest {
     }
 
     @Test
-    void studioCommandIsTypedAndWorkspaceBound(@TempDir Path workspace) throws Exception {
-        Path replay = workspace.resolve("artifacts/build.replay.json");
-        Path evidence = workspace.resolve("evidence");
-        BuilderStudioSimulationRequest request = new BuilderStudioSimulationRequest(
-                "builder-job-7",
-                workspace,
-                replay,
-                Optional.of("ffa"),
-                16.0,
-                true,
-                OptionalLong.of(100),
-                OptionalLong.of(800),
-                OptionalInt.of(50),
-                Optional.of(evidence),
-                BuilderStudioSimulationMode.VISIBLE
-        );
+    void studioCommandIsTypedAndWorkspaceBound(@TempDir Path workspace) {
+        BuilderStudioSimulationRequest request = request(workspace);
+        Path replay = request.artifactPath();
+        Path evidence = request.evidenceDirectory().orElseThrow();
 
         assertEquals(
-                java.util.List.of(
+                List.of(
                         "--open", replay.toAbsolutePath().normalize().toString(),
                         "--builder-job", "builder-job-7",
                         "--mode", "visible",
@@ -71,6 +61,35 @@ class TavallBuilderAgentTest {
                 ),
                 BuilderStudioCommandFactory.arguments(request)
         );
+    }
+
+    @Test
+    void processRunnerAppendsTypedArgumentsToTrustedLauncher(@TempDir Path workspace) throws Exception {
+        BuilderStudioSimulationRequest request = request(workspace);
+        AtomicReference<List<String>> observedCommand = new AtomicReference<>();
+        AtomicReference<Path> observedDirectory = new AtomicReference<>();
+        ProcessBuilderStudioSimulationRunner runner = new ProcessBuilderStudioSimulationRunner(
+                List.of("npm", "--prefix", "minecraft-bot-builder/studio-app", "start", "--"),
+                (command, workingDirectory, simulationRequest) -> {
+                    observedCommand.set(command);
+                    observedDirectory.set(workingDirectory);
+                    return new BuilderStudioSimulationResult(
+                            "studio-session-7",
+                            BuilderStudioSimulationStatus.STARTED,
+                            simulationRequest.artifactPath(),
+                            List.of(),
+                            ""
+                    );
+                }
+        );
+
+        BuilderStudioSimulationResult result = runner.run(request);
+
+        assertEquals(BuilderStudioSimulationStatus.STARTED, result.status());
+        assertEquals(workspace.toAbsolutePath().normalize(), observedDirectory.get());
+        assertEquals("npm", observedCommand.get().getFirst());
+        assertTrue(observedCommand.get().contains("--open"));
+        assertTrue(observedCommand.get().contains(request.artifactPath().toAbsolutePath().normalize().toString()));
     }
 
     @Test
@@ -125,12 +144,29 @@ class TavallBuilderAgentTest {
 
     @Test
     void builderAgentContractContainsNoAiNamedTypes() {
-        assertTrue(java.util.List.of(
+        assertTrue(List.of(
                 BuilderAgentProvider.class,
                 TavallBuilderAgentContract.class,
                 TavallBuilderRole.class,
                 TavallBuilderArtifactKind.class,
-                BuilderStudioSimulationRequest.class
+                BuilderStudioSimulationRequest.class,
+                BuilderStudioSimulationRunner.class
         ).stream().noneMatch(type -> type.getSimpleName().contains("AI")));
+    }
+
+    private BuilderStudioSimulationRequest request(Path workspace) {
+        return new BuilderStudioSimulationRequest(
+                "builder-job-7",
+                workspace,
+                workspace.resolve("artifacts/build.replay.json"),
+                Optional.of("ffa"),
+                16.0,
+                true,
+                OptionalLong.of(100),
+                OptionalLong.of(800),
+                OptionalInt.of(50),
+                Optional.of(workspace.resolve("evidence")),
+                BuilderStudioSimulationMode.VISIBLE
+        );
     }
 }
