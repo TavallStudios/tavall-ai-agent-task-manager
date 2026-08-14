@@ -7,6 +7,7 @@ application {
 }
 
 dependencies {
+    implementation(project(":tavall-ai-bootstrap"))
     implementation(project(":tavall-ai-agent-core"))
     implementation(project(":tavall-ai-module-distributed-execution"))
 
