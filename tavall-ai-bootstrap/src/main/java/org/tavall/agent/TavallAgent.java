@@ -10,8 +10,8 @@ import java.util.Set;
  * Provider-neutral description of one Tavall agent.
  *
  * <p>An agent is behavior and execution requirements: instructions, requested Function Catalog
- * function names, and coarse policy metadata. It contains no model, AI runtime, scheduler daemon,
- * process supervisor, or infrastructure authority.</p>
+ * function names, required runtime-module identities, and coarse policy metadata. It contains no
+ * model, AI runtime, scheduler daemon, process supervisor, or infrastructure authority.</p>
  */
 public record TavallAgent(
         String id,
@@ -20,6 +20,7 @@ public record TavallAgent(
         String instructions,
         Set<String> requiredFunctionNames,
         Set<String> optionalFunctionNames,
+        Set<String> requiredRuntimeModuleIds,
         Set<TavallAgentCapability> capabilities,
         boolean maySpawnSubagents,
         boolean mayRequestDistributedSession
@@ -29,8 +30,9 @@ public record TavallAgent(
         description = requireText(description, "description");
         kind = Objects.requireNonNull(kind, "kind");
         instructions = requireText(instructions, "instructions");
-        requiredFunctionNames = copyFunctionNames(requiredFunctionNames, "requiredFunctionNames");
-        optionalFunctionNames = copyFunctionNames(optionalFunctionNames, "optionalFunctionNames");
+        requiredFunctionNames = copyNames(requiredFunctionNames, "requiredFunctionNames");
+        optionalFunctionNames = copyNames(optionalFunctionNames, "optionalFunctionNames");
+        requiredRuntimeModuleIds = copyNames(requiredRuntimeModuleIds, "requiredRuntimeModuleIds");
         capabilities = capabilities == null || capabilities.isEmpty()
                 ? Set.of()
                 : Collections.unmodifiableSet(EnumSet.copyOf(capabilities));
@@ -54,6 +56,31 @@ public record TavallAgent(
         }
     }
 
+    public TavallAgent(
+            String id,
+            String description,
+            TavallAgentKind kind,
+            String instructions,
+            Set<String> requiredFunctionNames,
+            Set<String> optionalFunctionNames,
+            Set<TavallAgentCapability> capabilities,
+            boolean maySpawnSubagents,
+            boolean mayRequestDistributedSession
+    ) {
+        this(
+                id,
+                description,
+                kind,
+                instructions,
+                requiredFunctionNames,
+                optionalFunctionNames,
+                Set.of(),
+                capabilities,
+                maySpawnSubagents,
+                mayRequestDistributedSession
+        );
+    }
+
     /** Function names used to derive the execution's restricted Function Catalog view. */
     public Set<String> requestedFunctionNames() {
         LinkedHashSet<String> requested = new LinkedHashSet<>(requiredFunctionNames);
@@ -61,7 +88,7 @@ public record TavallAgent(
         return Collections.unmodifiableSet(requested);
     }
 
-    private static Set<String> copyFunctionNames(Set<String> names, String fieldName) {
+    private static Set<String> copyNames(Set<String> names, String fieldName) {
         LinkedHashSet<String> copy = new LinkedHashSet<>();
         if (names != null) {
             for (String name : names) {
