@@ -1,6 +1,6 @@
 package org.tavall.ai.runtime;
 
-import org.tavall.ai.agent.role.TavallAIAgentRole;
+import org.tavall.agent.TavallAgent;
 import org.tavall.ai.bootstrap.TavallAIModule;
 
 import java.io.PrintStream;
@@ -35,20 +35,20 @@ final class TavallAIChatGPTWebRuntime {
     }
 
     private static void requireInstalledComposition(TavallAIRuntimeContext context) {
-        if (context.roles().size() == 0) {
-            throw new IllegalStateException("Tavall AI ChatGPT Web runtime has no installed role modules");
+        if (context.agents().size() == 0) {
+            throw new IllegalStateException("Tavall AI ChatGPT Web runtime has no installed agents");
         }
         if (context.modules().size() == 0) {
-            throw new IllegalStateException("Tavall AI ChatGPT Web runtime has no installed capability/domain modules");
+            throw new IllegalStateException("Tavall AI ChatGPT Web runtime has no installed runtime capability modules");
         }
     }
 
     private static void describe(TavallAIRuntimeContext context, PrintStream output) {
         output.println("runtime=CHATGPT_WEB");
-        output.println("roles=" + context.roles().size());
-        context.roles().roles().stream()
-                .sorted(Comparator.comparing(TavallAIAgentRole::id))
-                .forEach(role -> output.println("role=" + role.id()));
+        output.println("agents=" + context.agents().size());
+        context.agents().agents().stream()
+                .sorted(Comparator.comparing(TavallAgent::id))
+                .forEach(agent -> output.println("agent=" + agent.id()));
         output.println("modules=" + context.modules().size());
         context.modules().modules().stream()
                 .sorted(Comparator.comparing(TavallAIModule::id))
