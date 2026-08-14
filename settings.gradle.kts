@@ -2,17 +2,16 @@ rootProject.name = "tavall-ai"
 
 include(
     "tavall-ai-bootstrap",
-    "tavall-ai-agent-core",
-    "tavall-ai-agent-scheduler",
-    "tavall-ai-agent-orchestration",
-    "tavall-ai-agent-implementation",
-    "tavall-ai-agent-review",
-    "tavall-ai-agent-reconciliation",
-    "tavall-ai-agent-e2e",
-    "tavall-ai-agent-architecture",
-    "tavall-ai-agent-documentation",
-    "tavall-ai-module-distributed-execution",
-    "tavall-ai-module-builder",
+    "tavall-agent-scheduler",
+    "tavall-agent-orchestration",
+    "tavall-agent-implementation",
+    "tavall-agent-review",
+    "tavall-agent-reconciliation",
+    "tavall-agent-e2e",
+    "tavall-agent-architecture",
+    "tavall-agent-documentation",
+    "tavall-agent-builder",
+    "tavall-ai-runtime-distributed-execution",
     "tavall-ai-runtime",
 )
 
