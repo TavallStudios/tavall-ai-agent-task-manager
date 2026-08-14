@@ -8,7 +8,7 @@ import org.tavall.ai.agent.role.TavallAIAgentRoleProvider;
 
 import java.util.Set;
 
-/** Distributed control-plane role that chooses the owning Tavall AI session and worker. */
+/** Distributed control role for durable workload, worker, and top-level-session placement. */
 public final class SchedulerAgentRoleProvider implements TavallAIAgentRoleProvider {
     public static final String ROLE_ID = "scheduler";
 
@@ -16,7 +16,8 @@ public final class SchedulerAgentRoleProvider implements TavallAIAgentRoleProvid
     public TavallAIAgentRole role() {
         return new TavallAIAgentRole(
                 ROLE_ID,
-                "Chooses the development worker and top-level Tavall AI session for executable work.",
+                "Places durable Tavall AI work on an authorized development worker/session; "
+                        + "AI provider and node-versus-web call routing belongs to the distributed execution module.",
                 TavallAIAgentRoleKind.CONTROL,
                 TavallAIAgentRoleInstructions.load(SchedulerAgentRoleProvider.class, "ROLE.md"),
                 Set.of(
