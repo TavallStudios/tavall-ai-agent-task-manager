@@ -31,6 +31,7 @@ public final class TavallAIRuntimeMain {
 
         return switch (runtime) {
             case NODE_AGENT -> TavallAINodeAgentRuntime.run(runtimeArguments, output, classLoader);
+            case CHATGPT_WEB -> TavallAIChatGPTWebRuntime.run(runtimeArguments, output, classLoader);
         };
     }
 }
