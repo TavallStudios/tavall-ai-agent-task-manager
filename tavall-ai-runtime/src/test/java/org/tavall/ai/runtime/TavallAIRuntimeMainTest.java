@@ -25,8 +25,9 @@ class TavallAIRuntimeMainTest {
         String description = describe("NODE_AGENT");
 
         assertTrue(description.contains("runtime=NODE_AGENT"));
-        assertTrue(description.contains("agents=9"));
+        assertTrue(description.contains("agents=10"));
         assertTrue(description.contains("agent=builder"));
+        assertTrue(description.contains("agent=web"));
         assertTrue(description.contains("agent=scheduler"));
         assertTrue(description.contains("modules=1"));
         assertTrue(description.contains("module=distributed-execution"));
@@ -37,8 +38,9 @@ class TavallAIRuntimeMainTest {
         String description = describe("CHATGPT_WEB");
 
         assertTrue(description.contains("runtime=CHATGPT_WEB"));
-        assertTrue(description.contains("agents=9"));
+        assertTrue(description.contains("agents=10"));
         assertTrue(description.contains("agent=builder"));
+        assertTrue(description.contains("agent=web"));
         assertTrue(description.contains("modules=1"));
         assertTrue(description.contains("module=distributed-execution"));
     }
