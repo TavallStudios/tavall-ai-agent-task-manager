@@ -31,6 +31,21 @@ class FileTavallProductIntelligenceStoreTest {
     }
 
     @Test
+    void persistsShortValidEntryIdentifiers(@TempDir Path root) throws Exception {
+        TavallProductIntelligenceEntry entry = entry(
+                "a",
+                "project-novus",
+                "web",
+                TavallProductIntelligenceDisposition.REFERENCE
+        );
+        FileTavallProductIntelligenceStore store = new FileTavallProductIntelligenceStore(root);
+
+        store.record(entry);
+
+        assertEquals(java.util.List.of(entry), store.load("project-novus", "web"));
+    }
+
+    @Test
     void isolatesAgentsWithinTheSameProduct(@TempDir Path root) throws Exception {
         FileTavallProductIntelligenceStore store = new FileTavallProductIntelligenceStore(root);
         store.record(entry("web-choice", "project-novus", "web", TavallProductIntelligenceDisposition.REFERENCE));
