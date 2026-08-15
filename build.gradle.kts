@@ -9,6 +9,7 @@ apply(from = "gradle/git-version.gradle.kts")
 version = extra["gitVersion"] as String
 
 val junitVersion = "5.12.2"
+val tavallPlatformVersion = "1.0.0"
 val agentProviderService = "org.tavall.agent.TavallAgentProvider"
 val moduleProviderService = "org.tavall.ai.bootstrap.TavallAIModuleProvider"
 val agentProjects = listOf(
@@ -40,9 +41,28 @@ subprojects {
 
     repositories {
         mavenCentral()
+        val githubToken = providers.environmentVariable("GITHUB_TOKEN").orNull
+        if (!githubToken.isNullOrBlank()) {
+            listOf(
+                "tavall-di",
+                "tavall-registry",
+                "tavall-concurrency",
+                "tavall-logging",
+            ).forEach { repository ->
+                maven("https://maven.pkg.github.com/TavallStudios/$repository") {
+                    name = "github${repository.replace("-", "")}"
+                    credentials {
+                        username = providers.environmentVariable("GITHUB_ACTOR").orElse("github").get()
+                        password = githubToken
+                    }
+                }
+            }
+        }
     }
 
     dependencies {
+        // Tavall DI is the baseline composition layer for every Tavall-owned Java consumer module.
+        "implementation"("org.tavall:tavall-di:$tavallPlatformVersion")
         "testImplementation"(platform("org.junit:junit-bom:$junitVersion"))
         "testImplementation"("org.junit.jupiter:junit-jupiter")
         "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
@@ -88,6 +108,19 @@ subprojects {
     }
 }
 
+project(":tavall-ai-bootstrap") {
+    dependencies {
+        "api"("org.tavall:tavall-registry:$tavallPlatformVersion")
+    }
+}
+
+project(":tavall-ai-runtime") {
+    dependencies {
+        "implementation"("org.tavall:tavall-concurrency:$tavallPlatformVersion")
+        "implementation"("org.tavall:tavall-logging:$tavallPlatformVersion")
+    }
+}
+
 configure(agentProjects.map(::project)) {
     dependencies {
         "api"(project(":tavall-ai-bootstrap"))
@@ -95,18 +128,18 @@ configure(agentProjects.map(::project)) {
 
     val verifyAgentDescriptor = tasks.register("verifyAgentDescriptor") {
         group = "verification"
-        description = "Verifies this Tavall agent publishes one provider and one canonical ROLE.md."
+        description = "Verifies this Tavall agent publishes one transitional provider descriptor and one canonical ROLE.md."
         doLast {
             val serviceFile = file("src/main/resources/META-INF/services/$agentProviderService")
             check(serviceFile.isFile) {
-                "Missing Tavall agent ServiceLoader registration for $path: $serviceFile"
+                "Missing transitional Tavall agent provider descriptor for $path: $serviceFile"
             }
             val providers = serviceFile.readLines()
                 .map(String::trim)
                 .filter(String::isNotBlank)
                 .filterNot { it.startsWith("#") }
             check(providers.size == 1) {
-                "Expected exactly one Tavall agent provider for $path, found ${providers.size}"
+                "Expected exactly one transitional Tavall agent provider for $path, found ${providers.size}"
             }
 
             val roleDocuments = fileTree("src/main/resources") {
@@ -129,18 +162,18 @@ configure(agentProjects.map(::project)) {
 configure(runtimeModuleProjects.map(::project)) {
     val verifyRuntimeModuleDescriptor = tasks.register("verifyRuntimeModuleDescriptor") {
         group = "verification"
-        description = "Verifies this Tavall AI runtime capability module publishes exactly one module provider."
+        description = "Verifies this Tavall AI runtime capability module publishes exactly one transitional module provider descriptor."
         doLast {
             val serviceFile = file("src/main/resources/META-INF/services/$moduleProviderService")
             check(serviceFile.isFile) {
-                "Missing Tavall AI runtime-module ServiceLoader registration for $path: $serviceFile"
+                "Missing transitional Tavall AI runtime-module provider descriptor for $path: $serviceFile"
             }
             val providers = serviceFile.readLines()
                 .map(String::trim)
                 .filter(String::isNotBlank)
                 .filterNot { it.startsWith("#") }
             check(providers.size == 1) {
-                "Expected exactly one Tavall AI runtime module provider for $path, found ${providers.size}"
+                "Expected exactly one transitional Tavall AI runtime module provider for $path, found ${providers.size}"
             }
         }
     }
