@@ -10,8 +10,10 @@ version = extra["gitVersion"] as String
 
 val junitVersion = "5.12.2"
 val tavallPlatformVersion = "1.0.0"
-val agentProviderService = "org.tavall.agent.TavallAgentProvider"
-val moduleProviderService = "org.tavall.ai.bootstrap.TavallAIModuleProvider"
+val agentProviderIndex = "META-INF/tavall/agent-provider"
+val moduleProviderIndex = "META-INF/tavall/runtime-module-provider"
+val legacyAgentProviderService = "META-INF/services/org.tavall.agent.TavallAgentProvider"
+val legacyModuleProviderService = "META-INF/services/org.tavall.ai.bootstrap.TavallAIModuleProvider"
 val agentProjects = listOf(
     "tavall-agent-scheduler",
     "tavall-agent-orchestration",
@@ -61,7 +63,6 @@ subprojects {
     }
 
     dependencies {
-        // Tavall DI is the baseline composition layer for every Tavall-owned Java consumer module.
         "implementation"("org.tavall:tavall-di:$tavallPlatformVersion")
         "testImplementation"(platform("org.junit:junit-bom:$junitVersion"))
         "testImplementation"("org.junit.jupiter:junit-jupiter")
@@ -128,18 +129,22 @@ configure(agentProjects.map(::project)) {
 
     val verifyAgentDescriptor = tasks.register("verifyAgentDescriptor") {
         group = "verification"
-        description = "Verifies this Tavall agent publishes one transitional provider descriptor and one canonical ROLE.md."
+        description = "Verifies this Tavall agent publishes one DI provider index, no first-party ServiceLoader descriptor, and one canonical ROLE.md."
         doLast {
-            val serviceFile = file("src/main/resources/META-INF/services/$agentProviderService")
-            check(serviceFile.isFile) {
-                "Missing transitional Tavall agent provider descriptor for $path: $serviceFile"
+            val providerFile = file("src/main/resources/$agentProviderIndex")
+            check(providerFile.isFile) {
+                "Missing Tavall agent provider index for $path: $providerFile"
             }
-            val providers = serviceFile.readLines()
+            val providers = providerFile.readLines()
                 .map(String::trim)
                 .filter(String::isNotBlank)
                 .filterNot { it.startsWith("#") }
             check(providers.size == 1) {
-                "Expected exactly one transitional Tavall agent provider for $path, found ${providers.size}"
+                "Expected exactly one Tavall agent provider for $path, found ${providers.size}"
+            }
+            val legacyServiceFile = file("src/main/resources/$legacyAgentProviderService")
+            check(!legacyServiceFile.exists()) {
+                "First-party ServiceLoader agent composition is forbidden: $legacyServiceFile"
             }
 
             val roleDocuments = fileTree("src/main/resources") {
@@ -162,18 +167,22 @@ configure(agentProjects.map(::project)) {
 configure(runtimeModuleProjects.map(::project)) {
     val verifyRuntimeModuleDescriptor = tasks.register("verifyRuntimeModuleDescriptor") {
         group = "verification"
-        description = "Verifies this Tavall AI runtime capability module publishes exactly one transitional module provider descriptor."
+        description = "Verifies this runtime module publishes one DI provider index and no first-party ServiceLoader descriptor."
         doLast {
-            val serviceFile = file("src/main/resources/META-INF/services/$moduleProviderService")
-            check(serviceFile.isFile) {
-                "Missing transitional Tavall AI runtime-module provider descriptor for $path: $serviceFile"
+            val providerFile = file("src/main/resources/$moduleProviderIndex")
+            check(providerFile.isFile) {
+                "Missing Tavall AI runtime-module provider index for $path: $providerFile"
             }
-            val providers = serviceFile.readLines()
+            val providers = providerFile.readLines()
                 .map(String::trim)
                 .filter(String::isNotBlank)
                 .filterNot { it.startsWith("#") }
             check(providers.size == 1) {
-                "Expected exactly one transitional Tavall AI runtime module provider for $path, found ${providers.size}"
+                "Expected exactly one Tavall AI runtime module provider for $path, found ${providers.size}"
+            }
+            val legacyServiceFile = file("src/main/resources/$legacyModuleProviderService")
+            check(!legacyServiceFile.exists()) {
+                "First-party ServiceLoader runtime-module composition is forbidden: $legacyServiceFile"
             }
         }
     }
