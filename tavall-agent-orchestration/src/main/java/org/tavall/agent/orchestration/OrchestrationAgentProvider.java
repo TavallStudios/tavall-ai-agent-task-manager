@@ -5,10 +5,12 @@ import org.tavall.agent.TavallAgentCapability;
 import org.tavall.agent.TavallAgentInstructions;
 import org.tavall.agent.TavallAgentKind;
 import org.tavall.agent.TavallAgentProvider;
+import org.tavall.dependency.annotations.DelegatesTo;
 
 import java.util.Set;
 
 /** Session-level control agent that composes specialized Tavall agents inside one model session. */
+@DelegatesTo
 public final class OrchestrationAgentProvider implements TavallAgentProvider {
     public static final String AGENT_ID = "orchestration";
 
