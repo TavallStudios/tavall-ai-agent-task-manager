@@ -4,6 +4,7 @@ import org.tavall.dependency.injection.helpers.DependencyInjectorHelper;
 import org.tavall.dependency.maps.DependencyMap;
 import org.tavall.dependency.maps.interfaces.IDependencyMap;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -30,9 +31,10 @@ public final class TavallProviderDependencyBootstrap {
         }
 
         IDependencyMap dependencies = DependencyMap.getDependencyMap();
-        return providerTypes.stream()
-                .map(dependencies::getInstance)
-                .map(provider -> (T) provider)
-                .toList();
+        List<T> providers = new ArrayList<>(providerTypes.size());
+        for (Class<? extends T> providerType : providerTypes) {
+            providers.add(providerType.cast(dependencies.getInstance(providerType)));
+        }
+        return List.copyOf(providers);
     }
 }
