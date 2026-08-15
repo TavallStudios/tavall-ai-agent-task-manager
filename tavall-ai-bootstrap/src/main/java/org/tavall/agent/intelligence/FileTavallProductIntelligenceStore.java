@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 public final class FileTavallProductIntelligenceStore implements TavallProductIntelligenceStore {
     private static final Pattern PATH_IDENTIFIER = Pattern.compile("[A-Za-z0-9._-]+");
     private static final String FILE_SUFFIX = ".properties";
+    private static final String TEMP_FILE_PREFIX = "tpi-";
 
     private final Path root;
 
@@ -49,7 +50,7 @@ public final class FileTavallProductIntelligenceStore implements TavallProductIn
 
         Properties properties = encode(entry);
         Path target = directory.resolve(entryId + FILE_SUFFIX);
-        Path temporary = Files.createTempFile(directory, entryId + ".", ".tmp");
+        Path temporary = Files.createTempFile(directory, TEMP_FILE_PREFIX, ".tmp");
         try {
             try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
                 properties.store(writer, null);
