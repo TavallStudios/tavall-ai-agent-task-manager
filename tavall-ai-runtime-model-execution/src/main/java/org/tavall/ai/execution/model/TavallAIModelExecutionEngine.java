@@ -2,6 +2,7 @@ package org.tavall.ai.execution.model;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.tavall.ai.context.TavallAIProjectContextBundle;
 import org.tavall.ai.core.catalog.AIFunctionCatalog;
 import org.tavall.ai.core.catalog.AIFunctionCatalogView;
 
@@ -19,7 +20,8 @@ import java.util.concurrent.TimeoutException;
  * Provider-neutral single-model execution engine owned by Tavall AI.
  *
  * <p>The agent descriptor is non-AI behavior metadata. This engine is where that descriptor is
- * paired with an actual model provider and an authoritative Function Catalog view.</p>
+ * paired with an actual model provider, an authoritative Function Catalog view, and optional
+ * bounded project context.</p>
  */
 public final class TavallAIModelExecutionEngine {
     public static final String PROVIDER_NOT_FOUND = "provider_not_found";
@@ -56,9 +58,21 @@ public final class TavallAIModelExecutionEngine {
             TavallAIModelJob job,
             TavallAIModelExecutionBudget budget
     ) {
+        return execute(definition, job, budget, TavallAIProjectContextBundle.empty());
+    }
+
+    public TavallAIModelExecutionResult execute(
+            TavallAIModelExecutionDefinition definition,
+            TavallAIModelJob job,
+            TavallAIModelExecutionBudget budget,
+            TavallAIProjectContextBundle projectContext
+    ) {
         TavallAIModelExecutionDefinition safeDefinition = Objects.requireNonNull(definition, "definition");
         TavallAIModelJob safeJob = Objects.requireNonNull(job, "job");
         TavallAIModelExecutionBudget safeBudget = Objects.requireNonNull(budget, "budget");
+        TavallAIProjectContextBundle safeProjectContext = Objects.requireNonNullElseGet(
+                projectContext, TavallAIProjectContextBundle::empty
+        );
         if (safeJob.delegationDepth() > safeBudget.maxDelegations()) {
             return failure(BUDGET_EXCEEDED, "Job delegation depth exceeds the model execution budget.", 0);
         }
@@ -82,7 +96,7 @@ public final class TavallAIModelExecutionEngine {
                 .narrow(function -> safeDefinition.agent().requestedFunctionNames().contains(function.getName()))
                 .withInvocationLimit(safeBudget.maxToolCalls());
         TavallAIModelExecutionRequest request = new TavallAIModelExecutionRequest(
-                safeDefinition, safeJob, safeBudget, effectiveView
+                safeDefinition, safeJob, safeBudget, effectiveView, safeProjectContext
         );
 
         ExecutorService executor = Executors.newThreadPerTaskExecutor(
