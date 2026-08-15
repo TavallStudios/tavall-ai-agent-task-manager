@@ -4,21 +4,28 @@ import org.tavall.registry.AbstractRegistry;
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
-import java.util.ServiceLoader;
 
-/** Tavall Registry-backed module graph used by Tavall AI runtimes. */
-public final class TavallAIModuleRegistry extends AbstractRegistry<String, TavallAIModule> {
+/** Read-only Tavall Registry-backed module graph used by Tavall AI runtimes. */
+public final class TavallAIModuleRegistry {
+    private final ModuleCatalog catalog = new ModuleCatalog();
+
     private TavallAIModuleRegistry() {
     }
 
-    /** Transitional discovery seam while provider construction moves to Tavall DI. */
     public static TavallAIModuleRegistry load(ClassLoader classLoader) {
-        ServiceLoader<TavallAIModuleProvider> loader = ServiceLoader.load(
-                TavallAIModuleProvider.class,
-                Objects.requireNonNull(classLoader, "classLoader")
+        ClassLoader safeClassLoader = Objects.requireNonNull(classLoader, "classLoader");
+        List<Class<? extends TavallAIModuleProvider>> providerTypes = TavallProviderIndex.load(
+                safeClassLoader,
+                TavallProviderIndex.RUNTIME_MODULE_PROVIDER_RESOURCE,
+                TavallAIModuleProvider.class
         );
-        return of(loader);
+        List<TavallAIModuleProvider> providers = TavallProviderDependencyBootstrap.resolve(
+                safeClassLoader,
+                providerTypes
+        );
+        return of(providers);
     }
 
     public static TavallAIModuleRegistry of(Iterable<? extends TavallAIModuleProvider> providers) {
@@ -29,7 +36,7 @@ public final class TavallAIModuleRegistry extends AbstractRegistry<String, Taval
                     Objects.requireNonNull(provider, "provider").module(),
                     "module"
             );
-            if (registry.putIfAbsent(module.id(), module) != null) {
+            if (registry.catalog.putIfAbsent(module.id(), module) != null) {
                 throw new IllegalArgumentException("Duplicate Tavall AI module id: " + module.id());
             }
         }
@@ -38,28 +45,35 @@ public final class TavallAIModuleRegistry extends AbstractRegistry<String, Taval
     }
 
     public Collection<TavallAIModule> modules() {
-        return values().stream()
+        return catalog.values().stream()
                 .sorted(Comparator.comparing(TavallAIModule::id))
                 .toList();
     }
 
     public TavallAIModule require(String id) {
-        TavallAIModule module = get(id);
+        TavallAIModule module = catalog.get(id);
         if (module == null) {
             throw new IllegalArgumentException("Unknown Tavall AI module: " + id);
         }
         return module;
     }
 
+    public int size() {
+        return catalog.size();
+    }
+
     private static void validateDependencies(TavallAIModuleRegistry modules) {
-        for (TavallAIModule module : modules.values()) {
+        for (TavallAIModule module : modules.catalog.values()) {
             for (String requiredModuleId : module.requiredModuleIds()) {
-                if (!modules.containsKey(requiredModuleId)) {
+                if (!modules.catalog.containsKey(requiredModuleId)) {
                     throw new IllegalStateException(
                             "Tavall AI module " + module.id() + " requires missing module " + requiredModuleId
                     );
                 }
             }
         }
+    }
+
+    private static final class ModuleCatalog extends AbstractRegistry<String, TavallAIModule> {
     }
 }
