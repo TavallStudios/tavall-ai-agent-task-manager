@@ -4,11 +4,11 @@
 
 ## Decision
 
-Create `tavall-agent-minecraft` in Tavall AI as the parent package for the specialized Minecraft agent family. Migrate the current standalone Builder agent beneath that family, preserve its Builder behavior roles, and add the existing observer/validation bot specializations as independently addressable child agents.
+Create `tavall-agent-minecraft` in Tavall AI as the parent package for the specialized Minecraft agent family. Migrate the current standalone Builder agent beneath that family, preserve its Builder behavior roles, and expose the existing observer/validation bot specializations as independently addressable child agents.
 
 Expose Minecraft world mutation through canonical typed Function Catalog functions. Those functions express Tavall-owned world-operation semantics; they are not raw WorldEdit command passthroughs.
 
-Project Novus remains authoritative for the actual Minecraft execution implementation. Mineflayer bots are the in-game execution actors and FAWE/WorldEdit is the bulk world-edit engine. The existing `FaweCommandClient`, `TavallBuilder`, observation stack, traversal validation, schematics, replay, Studio, and world-foundry machinery are reused rather than duplicated.
+Project Novus remains authoritative for the actual Minecraft execution implementation. Mineflayer bots are the in-game execution actors and FAWE/WorldEdit is the bulk world-edit engine. Reuse the existing `FaweCommandClient`, `TavallBuilder`, observation stack, traversal validation, schematics, replay, Studio, and world-foundry machinery.
 
 ## Existing architecture that must be preserved
 
@@ -20,7 +20,7 @@ PR #8 currently models Builder as a standalone `tavall-agent-builder` package. T
 
 ### Project Novus
 
-`minecraft-bot-builder` already owns the relevant implementation seams:
+`minecraft-bot-builder` already owns:
 
 - `FaweCommandClient` and `MineflayerChatTransport` for chat-backed FAWE/WorldEdit execution;
 - `TavallBuilder` and `bot.tavallBuilder` for Mineflayer-backed build orchestration;
@@ -38,9 +38,9 @@ Function Catalog remains authoritative for canonical typed callable functions, s
 
 ### VibeCraft
 
-VibeCraft source commit `be5045f20027b60dd1d1a8604379c51ebf84e2f4` is a seed/reference corpus, not a runtime dependency. Its WorldEdit wrappers and JSON knowledge can be used to recover coverage and data. Any copied or substantially derived source/data must preserve the upstream MIT copyright/license notice.
+VibeCraft source commit `be5045f20027b60dd1d1a8604379c51ebf84e2f4` is a seed/reference corpus, not a runtime dependency. Its WorldEdit wrappers and JSON knowledge may be used to recover coverage and data. Any copied or substantially derived source/data must preserve the upstream MIT copyright/license notice.
 
-VibeCraft data belongs with Project Novus Builder knowledge/assets, not in Function Catalog. Function Catalog stores semantics and schemas, not building-template/furniture knowledge.
+VibeCraft data belongs with Project Novus Builder knowledge/assets, not in Function Catalog.
 
 ## Tavall AI agent-family model
 
@@ -62,8 +62,6 @@ public interface TavallAgentProvider {
 
 `TavallAgentRegistry` registers every entry returned by `provider.agents()`. Existing providers remain single-agent providers without source changes. `MinecraftAgentProvider` returns the Minecraft coordinator plus its specialists.
 
-This preserves the current one-provider-index-per-package invariant while allowing `tavall-agent-minecraft` to contain the bot-agent family the product already uses.
-
 ### Initial Minecraft family
 
 ```text
@@ -80,20 +78,20 @@ minecraft                         coordinator / specialist dispatcher
 └── minecraft-gameplay-validator  multi-bot player-flow/gameplay acceptance specialist
 ```
 
-The `builder` id remains stable during the package migration so existing Tavall AI references do not break merely because ownership moves under the Minecraft family.
+The `builder` id remains stable during the package migration.
 
 The `minecraft` coordinator declares subagent orchestration capability and routes work to specialists. Specialist function views stay narrow:
 
 - Builder may request authorized world-mutation functions plus existing Builder simulation/evidence capabilities.
 - Observer is read/evidence oriented and receives no WorldEdit mutation authority by default.
-- Traversal validator is navigation/acceptance oriented and receives no WorldEdit mutation authority by default.
-- Gameplay validator is player-flow/multi-bot acceptance oriented and receives no WorldEdit mutation authority by default.
+- Traversal Validator is navigation/acceptance oriented and receives no WorldEdit mutation authority by default.
+- Gameplay Validator is player-flow/multi-bot acceptance oriented and receives no WorldEdit mutation authority by default.
 
 Agent metadata requests functions. It never grants server, bot, world, credential, or production authority.
 
 ## Canonical WorldOps function surface
 
-The first implementation slice deliberately covers the FAWE capabilities Project Novus already implements today. This gives the agent family useful typed world editing without inventing a second command language.
+The first implementation slice covers the FAWE capabilities Project Novus already implements today.
 
 ### Block and region
 
@@ -121,27 +119,11 @@ The first implementation slice deliberately covers the FAWE capabilities Project
 - `minecraft_world_history_undo`
 - `minecraft_world_history_redo`
 
-There is intentionally **no** `minecraft_world_command`, `worldedit_command`, generic chat command, shell field, or arbitrary `//...` argument.
+There is intentionally no `minecraft_world_command`, `worldedit_command`, generic chat command, shell field, or arbitrary `//...` argument.
 
-### Typed data
+Public requests use typed values for positions, regions, block ids/states, clipboard operations, schematic identifiers/formats, and logical world references. Raw WorldEdit command strings are an executor implementation detail.
 
-Public requests use typed values such as:
-
-- integer block positions;
-- normalized min/max block regions;
-- Minecraft block ids/states;
-- typed weighted block palettes when mixed patterns are introduced;
-- typed clipboard rotations and flip directions;
-- validated schematic identifiers and formats;
-- logical world references that are checked against the provider's host-authorized scope.
-
-Raw WorldEdit pattern/command strings are an executor implementation detail. Credentials, server addresses, operator permissions, and production-world authority never appear as model-selectable function arguments.
-
-### Provider boundary
-
-`MinecraftWorldOpsFunctions` delegates semantic validation and normalization to `MinecraftWorldOpsService`. The service delegates external Minecraft I/O to `MinecraftWorldOpsProvider`.
-
-The provider is execution-scoped by the runtime/host. A model cannot gain a world merely by naming it. The provider must reject targets outside the host-authorized execution scope.
+`MinecraftWorldOpsFunctions` delegates semantic validation and normalization to `MinecraftWorldOpsService`. The service delegates external Minecraft I/O to `MinecraftWorldOpsProvider`. The provider is execution-scoped by the runtime/host and must reject targets outside the host-authorized execution scope.
 
 Function Catalog automatically projects the annotated canonical Java functions to MCP. Tavall AI requests the canonical function names and does not duplicate their schemas.
 
@@ -158,11 +140,11 @@ bot.tavallWorldOps
                     -> FAWE / WorldEdit on Paper
 ```
 
-`TavallBuilder` should reuse the same WorldOps/FAWE client path rather than maintaining a separate set of command translations.
+`TavallBuilder` reuses the same WorldOps/FAWE client path rather than maintaining a separate set of command translations.
 
 ### Operation-level serialization
 
-The existing `FaweCommandClient` serializes individual chat commands, but a WorldEdit operation can require multiple commands whose selection state must remain atomic:
+The existing `FaweCommandClient` serializes individual chat commands, but a WorldEdit operation may require multiple commands whose selection state must remain atomic:
 
 ```text
 //pos1 ...
@@ -171,8 +153,6 @@ The existing `FaweCommandClient` serializes individual chat commands, but a Worl
 ```
 
 Concurrent operations on the same bot must not interleave those sequences. `MineflayerWorldOpsExecutor` therefore owns an operation-level queue/mutex above `FaweCommandClient`.
-
-This is required even though individual chat sends are already queued.
 
 ### Bot authority
 
@@ -184,52 +164,48 @@ Production world mutation is a separate explicit authorization boundary and is n
 
 After the existing FAWE surface is typed and live-certified, use VibeCraft as a coverage checklist to expand Tavall WorldOps rather than exposing its generic command buckets verbatim.
 
-Candidate Tavall-owned additions include:
-
-- region faces, overlay, move, and stack;
-- typed sphere, hollow sphere, cylinder, hollow cylinder, pyramid, and hollow pyramid generation;
-- terrain smoothing/naturalization and terrain-pattern operations;
-- spatial/world scanning and clearance analysis;
-- block/item lookup;
-- reusable building-pattern, terrain-pattern, furniture, and template knowledge imported into Project Novus Builder data with required attribution;
-- preview/diff/rollback orchestration built on Project Novus simulation/replay plus FAWE history where the semantics are proven.
-
-Each addition becomes a typed function or Project Novus knowledge primitive. No generic command escape hatch is added as a shortcut.
+Candidate additions include region faces/overlay/move/stack, typed shape generation, terrain operations, spatial scanning, block/item lookup, imported pattern/template/furniture knowledge, and preview/diff/rollback orchestration where semantics are proven.
 
 ## Testing and acceptance
 
+Tavall testing policy governs this work. Generic RED-first TDD does not override repository quality rules.
+
+Tests must exercise real production behavior at the narrowest meaningful boundary. Use real domain objects, enums, interfaces, and concrete implementations wherever possible. Fake only true external boundaries such as host providers, Mineflayer transport edges, test clocks, or disposable infrastructure. Do not create tests whose purpose is merely to prove that a future class or function is missing.
+
+Tests and production behavior move together as one coherent system boundary. Java test classes match the production class name plus `Test`, and package structure mirrors production structure. TypeScript/Mineflayer tests should likewise target the concrete executor/plugin behavior rather than dynamic-import absence checks.
+
 ### Tavall AI
 
-- RED first: runtime agent registry expects the Minecraft coordinator and all four specialists while the current branch still exposes standalone Builder only.
-- Provider-family compatibility tests prove existing one-agent providers still work unchanged.
-- Registry rejects duplicate ids across family providers.
-- Builder Studio/domain contracts survive the package migration.
-- Java 25 exact-head local verification through the repository-owned verifier.
+- `TavallAgentProviderTest` exercises the real provider-family compatibility behavior using concrete Tavall agents.
+- `TavallAgentRegistryTest` exercises real registration, duplicate-id rejection, and family/single-provider compatibility.
+- `MinecraftAgentProviderTest` exercises the concrete coordinator/specialist definitions, function requests, and mutation boundaries.
+- Existing Builder tests move with the Builder implementation and continue exercising the real Builder Studio/domain contracts.
+- Runtime integration tests verify the installed agent universe only after the concrete provider/package is present.
+- Java 25 exact-head local verification runs through the repository-owned verifier.
 
 ### Function Catalog
 
-- RED first: MCP/catalog contract expects the fourteen initial `minecraft_world_*` functions and no generic command function.
-- Typed request validation rejects malformed regions, unsafe schematic ids, invalid rotations/flips, and unscoped targets.
-- Provider tests prove normalized typed requests reach the provider and provider failures remain explicit.
-- Automatic MCP projection exposes the canonical schemas without a second hand-written MCP implementation.
-- Java 25 exact-head local verification through the repository-owned verifier.
+- `MinecraftBlockRegionTest`, `MinecraftWorldOpsServiceTest`, `MinecraftWorldOpsFunctionsTest`, and `MinecraftWorldOpsRegistrarTest` exercise the actual concrete value/service/function/registration boundaries.
+- Provider tests use a narrow fake external provider while calling the real service/functions.
+- MCP projection tests register the real `MinecraftWorldOpsFunctions` and inspect the actual projected schemas.
+- Validation covers malformed regions, unsafe schematic ids, invalid rotations/flips, unscoped targets, provider failures, and absence of generic command authority.
+- Java 25 exact-head local verification runs through the repository-owned verifier.
 
 ### Project Novus
 
-- RED first: concurrent region operations demonstrate the current selection-command interleaving hazard.
-- WorldOps executor serializes whole selection+operation sequences.
-- Every initial typed operation maps deterministically to the existing safe FAWE client.
-- Existing command-injection protections remain intact.
-- `bot.tavallWorldOps` and `bot.tavallBuilder` share the canonical execution path.
-- npm typecheck/test/build gates pass.
-- Disposable Paper + FAWE + Mineflayer acceptance proves real commands, undo/redo, schematic operations, and a concurrent multi-bot scenario.
+- `MineflayerWorldOpsExecutor` tests use the real executor and real `FaweCommandClient`, faking only the chat transport where a live Minecraft server is not the boundary under test.
+- Concurrency coverage invokes real executor operations and verifies complete selection+mutation sequencing.
+- `TavallWorldOps` plugin tests exercise the real Mineflayer plugin composition.
+- `TavallBuilder` tests verify Builder and direct WorldOps share the canonical execution path.
+- Mineflayer raw TypeScript acceptance exercises real commands, undo/redo, schematics, traversal, observation, and multi-bot behavior in disposable Paper + FAWE.
+- npm typecheck/test/build gates run locally.
 
-No GitHub-hosted workflow is used for these gates. No production world mutation is part of acceptance.
+Validation reports state exactly what ran and what remains untested. No GitHub-hosted workflow is used for these gates, and no production world mutation is part of acceptance.
 
 ## PR ownership / stacking
 
 - **Tavall AI:** `working/minecraft-agent-family-worldops`, stacked on Java Tools platform PR #16.
 - **Function Catalog:** `working/minecraft-worldops-functions`, stacked on Java Tools platform PR #15.
-- **Project Novus:** `working/minecraft-worldops-mineflayer`, based on current Combined Runtime Staging #153 so it sees the merged Builder implementation.
+- **Project Novus:** `working/minecraft-worldops-mineflayer`, based on current Combined Runtime Staging #153.
 
 All three remain Draft until their exact-head local checks and cross-repository disposable Minecraft acceptance are truthful.
