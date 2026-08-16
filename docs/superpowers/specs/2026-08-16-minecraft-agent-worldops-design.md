@@ -16,7 +16,7 @@ Project Novus remains authoritative for the actual Minecraft execution implement
 
 The current platform baseline is Tavall AI PR #16, stacked on the runtime/agent architecture in PR #8. It uses Tavall DI/provider indexes and Tavall Registry-backed agent discovery. First-party ServiceLoader composition must not be reintroduced.
 
-PR #8 currently models Builder as a standalone `tavall-agent-builder` package. The approved correction is to make Builder a specialization under `tavall-agent-minecraft`.
+PR #8 currently models Builder as a standalone `tavall-agent-builder` package. The owner-directed correction is to make Builder a specialization under `tavall-agent-minecraft`.
 
 ### Project Novus
 
@@ -168,11 +168,11 @@ Candidate additions include region faces/overlay/move/stack, typed shape generat
 
 ## Testing and acceptance
 
-Tavall testing policy governs this work. Generic RED-first TDD does not override repository quality rules.
+Repository-specific Tavall testing policy governs this work.
 
-Tests must exercise real production behavior at the narrowest meaningful boundary. Use real domain objects, enums, interfaces, and concrete implementations wherever possible. Fake only true external boundaries such as host providers, Mineflayer transport edges, test clocks, or disposable infrastructure. Do not create tests whose purpose is merely to prove that a future class or function is missing.
+Tests exercise real production behavior at the narrowest meaningful boundary. Use real domain objects, enums, interfaces, and concrete implementations wherever possible. Fake only true external boundaries such as host providers, Mineflayer transport edges, test clocks, or disposable infrastructure. Do not create tests whose purpose is merely to prove that a future class or function is missing.
 
-Tests and production behavior move together as one coherent system boundary. Java test classes match the production class name plus `Test`, and package structure mirrors production structure. TypeScript/Mineflayer tests should likewise target the concrete executor/plugin behavior rather than dynamic-import absence checks.
+Tests and production behavior move together as one coherent system boundary. Java test classes match the production class name plus `Test`, and package structure mirrors production structure. TypeScript/Mineflayer tests likewise target the concrete executor/plugin behavior rather than dynamic-import absence checks.
 
 ### Tavall AI
 
