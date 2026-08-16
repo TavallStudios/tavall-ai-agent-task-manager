@@ -6,7 +6,7 @@
 
 ## Testing discipline
 
-Follow Tavall delegate-style testing, not generic RED-first TDD.
+Follow Tavall delegate-style testing and the repository's current engineering rules.
 
 - Implement a real production boundary, then exercise that real concrete behavior at the narrowest meaningful boundary.
 - Use real domain objects, enums, interfaces, and concrete implementations wherever possible.
