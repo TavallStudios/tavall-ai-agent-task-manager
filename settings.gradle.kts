@@ -23,4 +23,16 @@ sourceControl {
         producesModule("org.tavall:agent-runtime")
         producesModule("org.tavall:codex-agent-provider")
     }
+    gitRepository(uri("https://github.com/TavallStudios/tavall-cache.git")) {
+        producesModule("org.tavall:abstract-cache-semantic")
+        producesModule("org.tavall:abstract-cache-storage-memory")
+    }
+    gitRepository(uri("https://github.com/TavallStudios/tavall-concurrency.git")) { producesModule("org.tavall:tavall-concurrency") }
+    gitRepository(uri("https://github.com/TavallStudios/tavall-database.git")) { producesModule("org.tavall:tavall-database-core-contracts") }
+    gitRepository(uri("https://github.com/TavallStudios/tavall-di.git")) { producesModule("org.tavall:tavall-di") }
+    gitRepository(uri("https://github.com/TavallStudios/tavall-eventbus.git")) { producesModule("org.tavall:tavall-eventbus") }
+    gitRepository(uri("https://github.com/TavallStudios/tavall-logging.git")) { producesModule("org.tavall:tavall-logging") }
+    gitRepository(uri("https://github.com/TavallStudios/tavall-reflection.git")) { producesModule("org.tavall:tavall-reflection") }
+    gitRepository(uri("https://github.com/TavallStudios/tavall-registry.git")) { producesModule("org.tavall:tavall-registry") }
+    gitRepository(uri("https://github.com/TavallStudios/tavall-scheduler.git")) { producesModule("org.tavall:tavall-scheduler") }
 }
