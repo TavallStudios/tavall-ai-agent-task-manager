@@ -126,6 +126,21 @@ configure(agentProjects.map(::project)) {
     }
 }
 
+project(":tavall-agent-review") {
+    dependencies {
+        "implementation"("org.tavall:abstract-cache-semantic") { version { branch = "main" } }
+        "runtimeOnly"("org.tavall:abstract-cache-storage-memory") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-concurrency") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-database-core-contracts") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-di") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-eventbus") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-logging") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-reflection") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-registry") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-scheduler") { version { branch = "main" } }
+    }
+}
+
 configure(runtimeModuleProjects.map(::project)) {
     val verifyRuntimeModuleDescriptor = tasks.register("verifyRuntimeModuleDescriptor") {
         group = "verification"
