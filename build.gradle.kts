@@ -128,21 +128,16 @@ configure(agentProjects.map(::project)) {
 
 project(":tavall-agent-review") {
     dependencies {
-        fun tavallMain(configuration: String, module: String) {
-            configuration("org.tavall:$module") {
-                version { branch = "main" }
-            }
-        }
-        tavallMain("implementation", "abstract-cache-semantic")
-        tavallMain("runtimeOnly", "abstract-cache-storage-memory")
-        tavallMain("implementation", "tavall-concurrency")
-        tavallMain("implementation", "tavall-database-core-contracts")
-        tavallMain("implementation", "tavall-di")
-        tavallMain("implementation", "tavall-eventbus")
-        tavallMain("implementation", "tavall-logging")
-        tavallMain("implementation", "tavall-reflection")
-        tavallMain("implementation", "tavall-registry")
-        tavallMain("implementation", "tavall-scheduler")
+        "implementation"("org.tavall:abstract-cache-semantic") { version { branch = "main" } }
+        "runtimeOnly"("org.tavall:abstract-cache-storage-memory") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-concurrency") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-database-core-contracts") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-di") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-eventbus") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-logging") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-reflection") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-registry") { version { branch = "main" } }
+        "implementation"("org.tavall:tavall-scheduler") { version { branch = "main" } }
     }
 }
 
