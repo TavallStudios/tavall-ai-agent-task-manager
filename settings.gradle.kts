@@ -1,17 +1,22 @@
-rootProject.name = "tavall-ai-agent-task-manager"
+rootProject.name = "tavall-ai"
 
 include(
-    "tavall-ai-core",
-    "tavall-ai-spring-webview",
-    "tavall-ai-clean-java-mcp",
-    "tavall-ai-clean-java-harness",
-    "tavall-ai-artifact-tools",
-    "tavall-ai-cache-tools",
-    "tavall-ai-context-tools",
-    "tavall-ai-computer-use-tools",
-    "tavall-ai-orchestration-tools",
-    "tavall-ai-repo-tools",
-    "tavall-ai-validation-tools",
-    "tavall-ai-vector-memory-tools",
-    "tavall-ai-app",
+    "tavall-ai-agent-core",
+    "tavall-ai-agent-scheduler",
+    "tavall-ai-agent-orchestration",
+    "tavall-ai-agent-implementation",
+    "tavall-ai-agent-review",
+    "tavall-ai-agent-reconciliation",
+    "tavall-ai-agent-e2e",
+    "tavall-ai-agent-architecture",
+    "tavall-ai-agent-documentation",
+    "tavall-ai-runtime",
 )
+
+sourceControl {
+    gitRepository(uri("https://github.com/TavallStudios/function-catalog.git")) {
+        producesModule("org.tavall:ai-core")
+        producesModule("org.tavall:agent-runtime")
+        producesModule("org.tavall:codex-agent-provider")
+    }
+}
