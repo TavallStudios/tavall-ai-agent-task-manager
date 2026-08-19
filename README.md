@@ -209,20 +209,22 @@ Embedding overrides:
 - `AGENT_TASK_MANAGER_LOCAL_EMBEDDING_MODEL`
 - `AGENT_TASK_MANAGER_LOCAL_EMBEDDING_TIMEOUT_SECONDS`
 
-Default embedding order is `gemini,local,hash`. The Gemini default model is `gemini-embedding-2-preview`, the runtime default dimension is `1536`, and the local runner points at `scripts/fastembed_embed.py`, which expects `fastembed` to be installed on the host:
+Default semantic embeddings are local and free: provider order `local`, model `BAAI/bge-small-en-v1.5`, and `384` dimensions through `scripts/fastembed_embed.py`. Install `fastembed` on the host:
 
 ```bash
 python3 -m pip install fastembed
 ```
+
+Gemini and hash embeddings remain available only when explicitly selected. Qdrant project and knowledge collection names include the active embedding profile so incompatible vector spaces are not mixed. Existing unsuffixed collections remain available for non-destructive migration. See [`docs/LOCAL_MEMORY_EMBEDDINGS.md`](docs/LOCAL_MEMORY_EMBEDDINGS.md) for setup and migration details.
 
 `app.qdrant.collection` is now migration-only for purging old data. New semantic writes land in project-scoped collections under `app.qdrant.project-collection-prefix`, and indexed knowledge lands in `app.qdrant.knowledge-collection-prefix`.
 
 Semantic retrieval flow:
 
 - raw content is chunked by content type before embedding
-- each chunk is embedded with the retrieval-purpose-specific Gemini task type
+- each chunk is embedded with the configured provider using the retrieval-document purpose
 - Qdrant stores the embedding together with the original chunk text/code and metadata
-- query text is embedded separately and searches Qdrant
+- query text is embedded separately with the configured retrieval-query purpose and searches the matching embedding-profile collection
 - workers and harness services consume the retrieved payload chunk text, not the raw vectors
 
 ## MCP
@@ -270,7 +272,7 @@ The central MCP also exposes the external runner orchestration surface for Hytal
 - `waitForComputerUseVisionMatch`
 - `stopComputerUseSession`
 
-The `tavall-ai-clean-java-harness` module (module path `tavall-ai-clean-java-harness`) is now a bundled local validator/runtime dependency for future Codex wrapping and local validation flows. It is no longer launched as a separate MCP server process.
+The `tavall-ai-clean-java-harness` module (module path: `tavall-ai-clean-java-harness`) is now a bundled local validator/runtime dependency for future Codex wrapping and local validation flows. It is no longer launched as a separate MCP server process.
 
 Codex worker runs now inject `tavall-ai` as the default downstream central MCP server. Repository inspection and retrieval should flow through `runHarnessToolBundle`, which fans out to filesystem, ripgrep, and git on the harness host in parallel and returns one merged payload.
 Repository mutation should then use `planGitCommit`, `prepareGitBranch`, and `createGitCommit` so branch naming and verbose commit structure stay auditable inside the first-party MCP workflow.
@@ -347,6 +349,5 @@ The MCP surface now also exposes canonical semantic/context tool names that matc
 For AgentTaskManager itself, custom memory no longer depends on the legacy file-backed `memory` MCP server. Prompt and task memory flow through the harness semantic pipeline, which chunks payloads, embeds them, stores them in Qdrant with metadata, and retrieves the original chunk text/code back into worker context.
 
 Tool modules are now split by domain/concern instead of keeping every handler inside `tavall-ai-core`. The central MCP imports dedicated artifact, cache, context, orchestration, repo-workflow, validation, and vector-memory tool modules, leaving `tavall-ai-core` focused on shared runtime services and MCP infrastructure.
-
 
 
