@@ -62,12 +62,12 @@ public class EmbeddingProviderChain {
         }
         throw new IllegalStateException("Embedding provider returned a vector with the wrong size.");
       } catch (RuntimeException exception) {
-        Log.warn("Embedding provider {} failed. Falling back to the next provider: {}", provider.providerId(), exception.getMessage());
+        Log.warn("Embedding provider {} failed. Falling back to the next configured provider: {}", provider.providerId(), exception.getMessage());
         Log.exception(exception);
         failures.add(provider.providerId() + ": " + exception.getMessage());
       }
     }
-    throw new IllegalStateException("No embedding provider succeeded. Failures: " + String.join(" | ", failures));
+    throw new IllegalStateException("No configured embedding provider succeeded. Failures: " + String.join(" | ", failures));
   }
 
   private List<EmbeddingProvider> orderProviders(
@@ -87,9 +87,6 @@ public class EmbeddingProviderChain {
       if (provider != null && !ordered.contains(provider)) {
         ordered.add(provider);
       }
-    }
-    if (!ordered.contains(hashEmbeddingService)) {
-      ordered.add(hashEmbeddingService);
     }
     return ordered;
   }
@@ -113,4 +110,3 @@ public class EmbeddingProviderChain {
     EmbeddingVectorResult run(EmbeddingProvider provider);
   }
 }
-
