@@ -1,7 +1,6 @@
 package org.tavall.ai.app.persistence.qdrant;
 
 import org.tavall.ai.app.config.QdrantProperties;
-import org.tavall.ai.app.console.Log;
 import org.tavall.ai.app.model.orchestration.RetrievedSemanticContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,7 +14,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
@@ -27,7 +25,6 @@ public class QdrantContextStore {
   private final InMemoryQdrantStore inMemoryQdrantStore;
   private final ObjectMapper objectMapper;
   private final QdrantProperties qdrantProperties;
-  private final AtomicBoolean localFallbackEnabled = new AtomicBoolean();
 
   public QdrantContextStore(
       HttpClient httpClient,
@@ -87,17 +84,12 @@ public class QdrantContextStore {
       inMemoryQdrantStore.upsert(collectionName, pointId, embedding.vector(), fullPayload);
       return pointId;
     }
-    try {
-      ensureCollection(collectionName);
-      sendRequest(
-          "/collections/" + collectionName + "/points?wait=true",
-          Map.of("points", List.of(point)),
-          "PUT"
-      );
-    } catch (IllegalStateException exception) {
-      activateLocalFallback(exception);
-      inMemoryQdrantStore.upsert(collectionName, pointId, embedding.vector(), fullPayload);
-    }
+    ensureCollection(collectionName);
+    sendRequest(
+        "/collections/" + collectionName + "/points?wait=true",
+        Map.of("points", List.of(point)),
+        "PUT"
+    );
     return pointId;
   }
 
@@ -127,33 +119,28 @@ public class QdrantContextStore {
     if (payloadFilter != null && !payloadFilter.isEmpty()) {
       requestBody.put("filter", buildFilter(payloadFilter));
     }
-    try {
-      ensureCollection(collectionName);
-      Map<String, Object> response = sendRequest(
-          "/collections/" + collectionName + "/points/query",
-          requestBody
-      );
-      Object result = response.get("result");
-      Object points = result;
-      if (result instanceof Map<?, ?> resultMap) {
-        points = resultMap.get("points");
-      }
-      if (!(points instanceof List<?> items)) {
-        return List.of();
-      }
-      return items.stream()
-          .filter(Map.class::isInstance)
-          .map(Map.class::cast)
-          .map(item -> new RetrievedSemanticContext(
-              String.valueOf(item.get("id")),
-              ((Number) item.getOrDefault("score", 0.0D)).doubleValue(),
-              (Map<String, Object>) item.getOrDefault("payload", Map.of())
-          ))
-          .toList();
-    } catch (IllegalStateException exception) {
-      activateLocalFallback(exception);
-      return inMemoryQdrantStore.search(collectionName, embedding.vector(), limit, payloadFilter);
+    ensureCollection(collectionName);
+    Map<String, Object> response = sendRequest(
+        "/collections/" + collectionName + "/points/query",
+        requestBody
+    );
+    Object result = response.get("result");
+    Object points = result;
+    if (result instanceof Map<?, ?> resultMap) {
+      points = resultMap.get("points");
     }
+    if (!(points instanceof List<?> items)) {
+      return List.of();
+    }
+    return items.stream()
+        .filter(Map.class::isInstance)
+        .map(Map.class::cast)
+        .map(item -> new RetrievedSemanticContext(
+            String.valueOf(item.get("id")),
+            ((Number) item.getOrDefault("score", 0.0D)).doubleValue(),
+            (Map<String, Object>) item.getOrDefault("payload", Map.of())
+        ))
+        .toList();
   }
 
   public void deleteContexts(String collectionName, Map<String, Object> payloadFilter) {
@@ -164,16 +151,11 @@ public class QdrantContextStore {
       inMemoryQdrantStore.deleteByFilter(collectionName, payloadFilter);
       return;
     }
-    try {
-      ensureCollection(collectionName);
-      sendRequest(
-          "/collections/" + collectionName + "/points/delete?wait=true",
-          Map.of("filter", buildFilter(payloadFilter))
-      );
-    } catch (IllegalStateException exception) {
-      activateLocalFallback(exception);
-      inMemoryQdrantStore.deleteByFilter(collectionName, payloadFilter);
-    }
+    ensureCollection(collectionName);
+    sendRequest(
+        "/collections/" + collectionName + "/points/delete?wait=true",
+        Map.of("filter", buildFilter(payloadFilter))
+    );
   }
 
   public void deleteCollection(String collectionName) {
@@ -181,12 +163,7 @@ public class QdrantContextStore {
       inMemoryQdrantStore.deleteCollection(collectionName);
       return;
     }
-    try {
-      sendRequest("/collections/" + collectionName, Map.of(), "DELETE");
-    } catch (IllegalStateException exception) {
-      activateLocalFallback(exception);
-      inMemoryQdrantStore.deleteCollection(collectionName);
-    }
+    sendRequest("/collections/" + collectionName, Map.of(), "DELETE");
   }
 
   private void ensureCollection(String collectionName) {
@@ -256,13 +233,7 @@ public class QdrantContextStore {
   }
 
   private boolean shouldUseLocalFallback() {
-    return localFallbackEnabled.get() || !StringUtils.hasText(qdrantProperties.getBaseUrl());
-  }
-
-  private void activateLocalFallback(IllegalStateException exception) {
-    if (localFallbackEnabled.compareAndSet(false, true)) {
-      Log.warn("Qdrant unavailable. Falling back to in-memory semantic storage: {}", exception.getMessage());
-    }
+    return !isConfigured();
   }
 
   public boolean isConfigured() {
@@ -270,7 +241,6 @@ public class QdrantContextStore {
   }
 
   public boolean isLocalFallbackEnabled() {
-    return localFallbackEnabled.get() || !isConfigured();
+    return !isConfigured();
   }
 }
-
