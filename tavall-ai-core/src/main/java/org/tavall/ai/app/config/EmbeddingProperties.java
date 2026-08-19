@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.embedding")
 public class EmbeddingProperties {
 
-  private List<String> providerOrder = new ArrayList<>(List.of("local", "hash"));
+  private List<String> providerOrder = new ArrayList<>(List.of("local"));
   private int dimensions = 384;
   private String geminiApiKey = "";
   private String geminiModel = "gemini-embedding-2-preview";
