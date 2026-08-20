@@ -156,7 +156,7 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
 
   @Test
   void shouldForceExplicitConsentOnExplicitWriter() {
-    MemoryIdentity identity = identity("memory-project", "shared-thread", "session-1");
+    MemoryIdentity identity = identity("authority-project", "authority-thread", "authority-session");
 
     MemoryRecord record = memoryRecordService.record(identity, write(
         MemoryScope.PROJECT,
@@ -179,8 +179,8 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
 
   @Test
   void shouldRejectSupersedingProjectMemoryOutsideCurrentAuthorityScope() {
-    MemoryIdentity projectA = identity("project-a", "thread-a", "session-a");
-    MemoryIdentity projectB = identity("project-b", "thread-b", "session-b");
+    MemoryIdentity projectA = identity("authority-project-a", "authority-thread-a", "authority-session-a");
+    MemoryIdentity projectB = identity("authority-project-b", "authority-thread-b", "authority-session-b");
     MemoryRecord original = memoryRecordService.record(projectA, write(
         MemoryScope.PROJECT,
         "Project A authority",
@@ -213,7 +213,7 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
             .single()
     );
     assertEquals(1, semanticMemoryService.searchProject(
-        "project-a",
+        "authority-project-a",
         "This record belongs to project A",
         10,
         Map.of("memoryId", original.memoryId())
@@ -221,8 +221,44 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
   }
 
   @Test
+  void shouldRejectSupersessionThatChangesMemoryScope() {
+    MemoryIdentity identity = identity("scope-project", "scope-thread", "scope-session");
+    MemoryRecord original = memoryRecordService.record(identity, write(
+        MemoryScope.GLOBAL,
+        "Global scope authority",
+        "This record is intentionally global.",
+        "explicit",
+        "issue://scope/global",
+        null
+    ));
+
+    assertThrows(IllegalArgumentException.class, () -> memoryRecordService.record(identity, write(
+        MemoryScope.PROJECT,
+        "Project scope replacement",
+        "Supersession must not silently migrate scope.",
+        "explicit",
+        "issue://scope/project",
+        original.memoryId()
+    )));
+
+    assertEquals(
+        "active",
+        jdbcClient.sql("SELECT status FROM agent_task_manager.memory_records WHERE memory_id = :memoryId")
+            .param("memoryId", original.memoryId())
+            .query(String.class)
+            .single()
+    );
+    assertEquals(
+        1L,
+        jdbcClient.sql("SELECT count(*) FROM agent_task_manager.memory_records")
+            .query(Long.class)
+            .single()
+    );
+  }
+
+  @Test
   void shouldSupersedeExplicitMemoryAndRemoveItsSemanticRepresentation() {
-    MemoryIdentity identity = identity("memory-project", "shared-thread", "session-1");
+    MemoryIdentity identity = identity("supersession-project", "supersession-thread", "supersession-session");
     MemoryRecord original = memoryRecordService.record(identity, write(
         MemoryScope.PROJECT,
         "Runtime ownership",
@@ -249,13 +285,13 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
             .single()
     );
     assertTrue(semanticMemoryService.searchProject(
-        "memory-project",
+        "supersession-project",
         "The old runtime owns this memory",
         10,
         Map.of("memoryId", original.memoryId())
     ).isEmpty());
     var replacementSemantic = semanticMemoryService.searchProject(
-        "memory-project",
+        "supersession-project",
         "The new runtime owns this memory",
         10,
         Map.of("memoryId", replacement.memoryId())
@@ -265,9 +301,30 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
   }
 
   @Test
+  void shouldInvalidateOtherProjectExactCachesWhenGlobalMemoryChanges() {
+    MemoryIdentity projectA = identity("global-cache-project-a", "global-cache-thread-a", "global-cache-session-a");
+    MemoryIdentity projectB = identity("global-cache-project-b", "global-cache-thread-b", "global-cache-session-b");
+
+    assertTrue(memoryRetrievalService.loadExactState(projectB).isEmpty());
+
+    MemoryRecord global = memoryRecordService.record(projectA, write(
+        MemoryScope.GLOBAL,
+        "Global cache revision",
+        "A global memory write must invalidate exact-state cache views across projects.",
+        "explicit",
+        "issue://global/cache-revision",
+        null
+    ));
+
+    List<MemoryRecord> projectBExact = memoryRetrievalService.loadExactState(projectB);
+    assertEquals(1, projectBExact.size());
+    assertEquals(global.memoryId(), projectBExact.getFirst().memoryId());
+  }
+
+  @Test
   void shouldDeleteGlobalMemoryFromItsOriginalSemanticProjectWhenSupersededElsewhere() {
-    MemoryIdentity projectA = identity("project-a", "thread-a", "session-a");
-    MemoryIdentity projectB = identity("project-b", "thread-b", "session-b");
+    MemoryIdentity projectA = identity("global-semantic-project-a", "global-semantic-thread-a", "global-semantic-session-a");
+    MemoryIdentity projectB = identity("global-semantic-project-b", "global-semantic-thread-b", "global-semantic-session-b");
     MemoryRecord original = memoryRecordService.record(projectA, write(
         MemoryScope.GLOBAL,
         "Global runtime fact",
@@ -277,9 +334,9 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
         null
     ));
 
-    assertEquals("project-a", original.metadata().get("semanticProjectId"));
+    assertEquals("global-semantic-project-a", original.metadata().get("semanticProjectId"));
     assertEquals(1, semanticMemoryService.searchProject(
-        "project-a",
+        "global-semantic-project-a",
         "global fact first recorded",
         10,
         Map.of("memoryId", original.memoryId())
@@ -295,14 +352,14 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
     ));
 
     assertTrue(semanticMemoryService.searchProject(
-        "project-a",
+        "global-semantic-project-a",
         "global fact first recorded",
         10,
         Map.of("memoryId", original.memoryId())
     ).isEmpty());
-    assertEquals("project-b", replacement.metadata().get("semanticProjectId"));
+    assertEquals("global-semantic-project-b", replacement.metadata().get("semanticProjectId"));
     assertEquals(1, semanticMemoryService.searchProject(
-        "project-b",
+        "global-semantic-project-b",
         "global fact superseded",
         10,
         Map.of("memoryId", replacement.memoryId())
