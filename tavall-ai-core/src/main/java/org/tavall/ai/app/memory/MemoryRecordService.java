@@ -42,7 +42,7 @@ public class MemoryRecordService {
     String supersedesMemoryId = blank(request.supersedesMemoryId());
     MemoryRecord superseded = supersedesMemoryId.isBlank()
         ? null
-        : accessibleSupersessionTarget(identity, supersedesMemoryId);
+        : accessibleSupersessionTarget(identity, plan.scope(), supersedesMemoryId);
 
     MemoryRecord record;
     if (superseded != null) {
@@ -105,13 +105,22 @@ public class MemoryRecordService {
     );
   }
 
-  private MemoryRecord accessibleSupersessionTarget(MemoryIdentity identity, String memoryId) {
+  private MemoryRecord accessibleSupersessionTarget(
+      MemoryIdentity identity,
+      MemoryScope replacementScope,
+      String memoryId
+  ) {
     MemoryRecord record = recordRepository.getById(memoryId.strip());
     if (!same(record.userId(), identity.userId()) || !same(record.workspaceId(), identity.workspaceId())) {
       throw inaccessible(memoryId);
     }
     if (!"active".equals(record.status()) || record.tombstoned() || !blank(record.supersededBy()).isBlank()) {
       throw new IllegalArgumentException("superseded memory must be active: " + memoryId);
+    }
+    if (record.scope() != replacementScope) {
+      throw new IllegalArgumentException(
+          "superseding memory must preserve scope: existing=" + record.scope() + ", replacement=" + replacementScope
+      );
     }
     boolean accessible = switch (record.scope()) {
       case GLOBAL -> true;
