@@ -1,0 +1,19 @@
+[Unit]
+Description=Tavall Graphiti memory-plane MCP sidecar
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/srv/AgentTaskManager/sidecars/graphiti/mcp_server
+EnvironmentFile=/etc/tavall/tavall.env
+EnvironmentFile=-/etc/tavall/graphiti-memory-plane.env
+Environment=FALKORDB_URI=redis://127.0.0.1:6380
+Environment=GRAPHITI_GROUP_ID=tavall
+ExecStart=/usr/bin/bash /srv/AgentTaskManager/sidecars/graphiti-start.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

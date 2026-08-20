@@ -1,0 +1,18 @@
+{
+  "repositories": [
+    {"repository":"TavallStudios/tavall-ai-agent-task-manager","defaultBranch":"main","workspacePath":"/srv/workspace/tavall-ai-agent-task-manager"},
+    {"repository":"TavallStudios/tavall-project-novus","defaultBranch":"main","workspacePath":"/srv/workspace/tavall-project-novus"},
+    {"repository":"TavallStudios/tavall-cloud","defaultBranch":"main","workspacePath":"/srv/workspace/tavall-cloud"},
+    {"repository":"TavallStudios/tavall-cache","defaultBranch":"main","workspacePath":"/srv/workspace/tavall-cache"},
+    {"repository":"TavallStudios/tavall-database","defaultBranch":"main","workspacePath":"/srv/workspace/tavall-database"},
+    {"repository":"TavallStudios/tavall-di","defaultBranch":"main","workspacePath":"/srv/workspace/tavall-di"},
+    {"repository":"TavallStudios/tavall-registry","defaultBranch":"main","workspacePath":"/srv/workspace/tavall-registry"},
+    {"repository":"TavallStudios/tavall-java-tools","defaultBranch":"main","workspacePath":"/srv/workspace/tavall-java-tools"}
+  ],
+  "refreshPolicy": {
+    "initial":"graphify extract <workspacePath> --code-only --no-cluster",
+    "incremental":"graphify update <workspacePath> --no-cluster",
+    "watch":"graphify watch <workspacePath>",
+    "canonicalSource":"Git repository; graphify-out is a rebuildable structural index"
+  }
+}

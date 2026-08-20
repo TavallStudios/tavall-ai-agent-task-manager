@@ -18,8 +18,15 @@ public class QdrantHealthService {
     if (!configured) {
       return new Snapshot("DEGRADED", "Qdrant base URL is not configured.", false, false);
     }
-    if (fallbackEnabled) {
-      return new Snapshot("DEGRADED", "Qdrant is unavailable and the runtime is using local fallback.", true, false);
+    if (fallbackEnabled || qdrantContextStore.hasRecentFailure()) {
+      String failure = qdrantContextStore.lastFailure();
+      String summary = failure.isBlank()
+          ? "Qdrant is unavailable and the runtime is using local fallback."
+          : "Qdrant request failed: " + failure;
+      return new Snapshot("DEGRADED", summary, true, false);
+    }
+    if (!qdrantContextStore.hasSuccessfulRequest()) {
+      return new Snapshot("UNKNOWN", "Qdrant has not completed a successful request yet.", true, false);
     }
     return new Snapshot("HEALTHY", "Qdrant write-through is healthy.", true, true);
   }
@@ -36,4 +43,3 @@ public class QdrantHealthService {
   ) {
   }
 }
-

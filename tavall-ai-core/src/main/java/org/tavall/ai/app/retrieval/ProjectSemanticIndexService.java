@@ -3,7 +3,6 @@ package org.tavall.ai.app.retrieval;
 import org.tavall.ai.app.config.SemanticIndexProperties;
 import org.tavall.ai.app.harness.cleanjava.symbol.JavaSymbolSemanticIndexingService;
 import org.tavall.ai.app.model.KnownRepo;
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.service.RepoCatalogService;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,23 +21,20 @@ public class ProjectSemanticIndexService {
   private final JavaSymbolSemanticIndexingService javaSymbolSemanticIndexingService;
   private final SemanticIndexProperties properties;
   private final RepoSemanticFileSupport repoSemanticFileSupport;
-  private final SemanticSyncService semanticSyncService;
-  private final SharedTaskContextService sharedTaskContextService;
+  private final SemanticMemoryService semanticMemoryService;
 
   public ProjectSemanticIndexService(
       RepoCatalogService repoCatalogService,
       JavaSymbolSemanticIndexingService javaSymbolSemanticIndexingService,
       SemanticIndexProperties properties,
       RepoSemanticFileSupport repoSemanticFileSupport,
-      SemanticSyncService semanticSyncService,
-      SharedTaskContextService sharedTaskContextService
+      SemanticMemoryService semanticMemoryService
   ) {
     this.repoCatalogService = repoCatalogService;
     this.javaSymbolSemanticIndexingService = javaSymbolSemanticIndexingService;
     this.properties = properties;
     this.repoSemanticFileSupport = repoSemanticFileSupport;
-    this.semanticSyncService = semanticSyncService;
-    this.sharedTaskContextService = sharedTaskContextService;
+    this.semanticMemoryService = semanticMemoryService;
   }
 
   public ProjectSemanticIndexSummary reindexConfiguredRepos() {
@@ -53,8 +49,8 @@ public class ProjectSemanticIndexService {
 
   public RepoSemanticSummary reindexRepo(KnownRepo repo) {
     Path repoPath = Path.of(repo.repoPath());
-    semanticSyncService.deleteProject(repo.projectKey(), Map.of("semanticDomain", SemanticCollectionDomain.CODE_REPO.name()), null);
-    semanticSyncService.deleteProject(repo.projectKey(), Map.of("semanticDomain", SemanticCollectionDomain.KNOWLEDGE_RULES.name()), null);
+    semanticMemoryService.deleteProjectContexts(repo.projectKey(), Map.of("semanticDomain", SemanticCollectionDomain.CODE_REPO.name()));
+    semanticMemoryService.deleteProjectContexts(repo.projectKey(), Map.of("semanticDomain", SemanticCollectionDomain.KNOWLEDGE_RULES.name()));
     int indexedDocs = 0;
     int indexedCodeFiles = 0;
     int indexedJavaSymbols = 0;
@@ -67,7 +63,7 @@ public class ProjectSemanticIndexService {
       for (Path file : files) {
         String relativePath = repoSemanticFileSupport.relativePath(repoPath, file);
         SemanticDocumentRequest request = repoSemanticFileSupport.buildRequest(repo, repoPath, file);
-        sharedTaskContextService.storeProjectSemanticDocument(
+        semanticMemoryService.storeProjectDocument(
             repo.projectKey(),
             request,
             repoSemanticFileSupport.upsertDedupeKey(repo, relativePath)
@@ -114,4 +110,3 @@ public class ProjectSemanticIndexService {
     }
   }
 }
-

@@ -1,9 +1,9 @@
 package org.tavall.ai.app.harness.cleanjava.symbol;
 
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.retrieval.SemanticCollectionDomain;
 import org.tavall.ai.app.retrieval.SemanticContentType;
 import org.tavall.ai.app.retrieval.SemanticDocumentRequest;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.retrieval.SemanticSyncMode;
 import org.tavall.ai.app.retrieval.SemanticVectorStoreService;
 import java.nio.file.Path;
@@ -24,18 +24,18 @@ public class JavaSymbolSemanticIndexingService {
   private final JavaSourceFileDiscoveryService sourceFileDiscoveryService;
   private final JavaSourceSymbolReader sourceSymbolReader;
   private final JavaSymbolSemanticDocumentRenderer renderer;
-  private final SharedTaskContextService sharedTaskContextService;
+  private final SemanticMemoryService semanticMemoryService;
 
   public JavaSymbolSemanticIndexingService(
       JavaSourceFileDiscoveryService sourceFileDiscoveryService,
       JavaSourceSymbolReader sourceSymbolReader,
       JavaSymbolSemanticDocumentRenderer renderer,
-      SharedTaskContextService sharedTaskContextService
+      SemanticMemoryService semanticMemoryService
   ) {
     this.sourceFileDiscoveryService = sourceFileDiscoveryService;
     this.sourceSymbolReader = sourceSymbolReader;
     this.renderer = renderer;
-    this.sharedTaskContextService = sharedTaskContextService;
+    this.semanticMemoryService = semanticMemoryService;
   }
 
   public void queueProfiles(String projectKey, String taskId, String workerTaskId, List<JavaClassProfile> profiles) {
@@ -121,9 +121,9 @@ public class JavaSymbolSemanticIndexingService {
           payload(profile)
       );
       if (mode == SemanticSyncMode.BACKGROUND_ONLY) {
-        sharedTaskContextService.enqueueProjectSemanticDocument(projectKey, request, dedupeKey(projectKey, profile));
+        semanticMemoryService.enqueueProjectDocument(projectKey, request, dedupeKey(projectKey, profile));
       } else {
-        sharedTaskContextService.storeProjectSemanticDocument(projectKey, request, dedupeKey(projectKey, profile));
+        semanticMemoryService.storeProjectDocument(projectKey, request, dedupeKey(projectKey, profile));
       }
       indexed++;
     }
@@ -157,4 +157,3 @@ public class JavaSymbolSemanticIndexingService {
     return value == null ? "" : value.strip();
   }
 }
-

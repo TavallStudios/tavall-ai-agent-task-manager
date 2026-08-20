@@ -10,6 +10,7 @@ import org.tavall.ai.app.model.orchestration.RetrievedSemanticContext;
 import org.tavall.ai.app.model.orchestration.SharedTaskContext;
 import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.persistence.postgres.ValidationReportRepository;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.service.PromptThreadService;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import java.io.IOException;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Component;
 public class ContextToolHandler extends McpToolSupport implements McpToolProvider {
 
   private final SharedTaskContextService sharedTaskContextService;
+  private final SemanticMemoryService semanticMemoryService;
   private final ValidationReportRepository validationReportRepository;
   private final DashboardSummaryService dashboardSummaryService;
   private final PromptThreadService promptThreadService;
@@ -32,6 +34,7 @@ public class ContextToolHandler extends McpToolSupport implements McpToolProvide
 
   public ContextToolHandler(
       SharedTaskContextService sharedTaskContextService,
+      SemanticMemoryService semanticMemoryService,
       ValidationReportRepository validationReportRepository,
       DashboardSummaryService dashboardSummaryService,
       PromptThreadService promptThreadService,
@@ -41,6 +44,7 @@ public class ContextToolHandler extends McpToolSupport implements McpToolProvide
   ) {
     super(schemaFactory);
     this.sharedTaskContextService = sharedTaskContextService;
+    this.semanticMemoryService = semanticMemoryService;
     this.validationReportRepository = validationReportRepository;
     this.dashboardSummaryService = dashboardSummaryService;
     this.promptThreadService = promptThreadService;
@@ -89,10 +93,11 @@ public class ContextToolHandler extends McpToolSupport implements McpToolProvide
             List.of("projectKey", "queryText"),
             arguments -> {
               SemanticContextRequest request = map(arguments, SemanticContextRequest.class);
-              List<RetrievedSemanticContext> items = sharedTaskContextService.searchProjectRelatedContexts(
+              List<RetrievedSemanticContext> items = semanticMemoryService.searchProject(
                   requireProjectKey(request.projectKey()),
                   request.queryText(),
-                  normalizeLimit(request.limit())
+                  normalizeLimit(request.limit()),
+                  Map.of()
               );
               return new SemanticContextResponse(items);
             }
@@ -148,10 +153,26 @@ public class ContextToolHandler extends McpToolSupport implements McpToolProvide
 
   private String readDoc(String fileName) {
     try {
-      return Files.readString(Path.of(fileName), StandardCharsets.UTF_8);
+      return Files.readString(resolveDocPath(fileName), StandardCharsets.UTF_8);
     } catch (IOException exception) {
       return "Failed to read " + fileName + ": " + exception.getMessage();
     }
+  }
+
+  private Path resolveDocPath(String fileName) throws IOException {
+    Path current = Path.of(".").toAbsolutePath().normalize();
+    while (current != null) {
+      Path direct = current.resolve(fileName);
+      if (Files.isRegularFile(direct)) {
+        return direct;
+      }
+      Path documented = current.resolve("docs").resolve(fileName);
+      if (Files.isRegularFile(documented)) {
+        return documented;
+      }
+      current = current.getParent();
+    }
+    throw new IOException("Unable to locate " + fileName + " from the working directory.");
   }
 
   private int normalizeLimit(Integer limit) {
@@ -195,4 +216,3 @@ public class ContextToolHandler extends McpToolSupport implements McpToolProvide
     Object run(Map<String, Object> arguments);
   }
 }
-

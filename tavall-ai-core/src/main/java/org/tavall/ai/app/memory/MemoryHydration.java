@@ -7,7 +7,11 @@ public record MemoryHydration(
     String summary,
     String section,
     List<MemoryRecord> exactRecords,
-    List<RetrievedSemanticContext> semanticCandidates
+    List<RetrievedSemanticContext> semanticCandidates,
+    List<MemoryKnowledgeContext> providerContexts
 ) {
-}
 
+  public MemoryHydration {
+    providerContexts = providerContexts == null ? List.of() : List.copyOf(providerContexts);
+  }
+}

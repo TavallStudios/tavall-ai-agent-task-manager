@@ -166,8 +166,8 @@ Source: [VectorMemoryToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-
 | `purgeLegacySemanticCollection` | Deletes the legacy shared Qdrant collection. |
 | `storeTaskEmbedding` | Stores chunked task embedding payloads into vector memory. |
 | `searchRelatedContexts` | Searches related semantic context chunks. |
-| `loadRelatedSemanticContext` | Loads related semantic context for the active project. |
 | `searchPriorFixes` | Searches semantic task history for prior fixes and reviews. |
+| `recordMemory` | Persists one intentional distilled durable memory with provenance. |
 | `attachSemanticContextToTask` | Stores shared task context and indexes the same body through the semantic pipeline. |
 
 ### Harness Validator Tools (`tavall-ai-clean-java-harness`)
@@ -202,5 +202,4 @@ Source: [CleanJavaMcpTools.java](/F:/workspace/AgentTaskManager/tavall-ai-clean-
 | `runCleanJavaArchUnit` | Runs clean Java ArchUnit rules against a repo. |
 | `runCleanJavaSpoon` | Runs clean Java Spoon source-shape rules. |
 | `validateCleanJavaPatchScope` | Validates clean Java patch scope. |
-
 

@@ -3,7 +3,6 @@ package org.tavall.ai.app.validation;
 import org.tavall.ai.app.model.validation.ValidationEngine;
 import org.tavall.ai.app.model.validation.ValidationSeverity;
 import org.tavall.ai.app.model.validation.ValidationViolation;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -281,4 +280,3 @@ public class SpoonCodeRuleSet {
     return new ValidationViolation(ruleId, severity, targetType, targetName, ValidationEngine.SPOON, explanation, remediation);
   }
 }
-

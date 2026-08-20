@@ -227,7 +227,6 @@ public class RemoteHeadlessPromptExecutionService {
       appendMessage(claim, runHandle.runId(), "bridge-run-failure", "codex", summary, resultMetadata(effectiveResult, javaSymbolPostEdit));
       promptRunRepository.failRun(claim.requestId(), runHandle.runId(), effectiveResult.effectiveExitCode(), summary, threadSessionId.get());
     }
-    promptThreadMemoryService.capturePromptThreadSnapshot(claim.projectKey(), claim.threadKey());
     return effectiveResult;
   }
 
@@ -272,16 +271,6 @@ public class RemoteHeadlessPromptExecutionService {
       Map<String, Object> metadata
   ) {
     promptMessageRepository.appendPromptMessage(claim.requestId(), runId, kind, sender, body, metadata);
-    promptThreadMemoryService.capturePromptThreadMessage(
-        claim.projectKey(),
-        claim.requestId(),
-        claim.threadKey(),
-        claim.repoPath(),
-        BRIDGE_TARGET,
-        kind,
-        body,
-        metadata
-    );
   }
 
   private Map<String, Object> resultMetadata(CodexRunResult result, JavaSymbolPostEditResult javaSymbolPostEdit) {
@@ -407,5 +396,4 @@ public class RemoteHeadlessPromptExecutionService {
         .toList();
   }
 }
-
 

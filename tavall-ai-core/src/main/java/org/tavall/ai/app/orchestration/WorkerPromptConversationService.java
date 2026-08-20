@@ -8,7 +8,6 @@ import org.tavall.ai.app.model.bridge.BridgeRunHandle;
 import org.tavall.ai.app.persistence.postgres.PromptMessageRepository;
 import org.tavall.ai.app.persistence.postgres.PromptRunRepository;
 import org.tavall.ai.app.service.PromptRequestService;
-import org.tavall.ai.app.service.PromptThreadMemoryService;
 import org.tavall.ai.app.harness.cleanjava.symbol.JavaSymbolRunContext;
 import java.nio.file.Path;
 import java.util.Map;
@@ -20,7 +19,6 @@ public class WorkerPromptConversationService {
   private final PromptMessageRepository promptMessageRepository;
   private final PromptRequestService promptRequestService;
   private final PromptRunRepository promptRunRepository;
-  private final PromptThreadMemoryService promptThreadMemoryService;
   private final MemoryRuntimeService memoryRuntimeService;
   private final HarnessTranscriptService harnessTranscriptService;
 
@@ -28,14 +26,12 @@ public class WorkerPromptConversationService {
       PromptMessageRepository promptMessageRepository,
       PromptRequestService promptRequestService,
       PromptRunRepository promptRunRepository,
-      PromptThreadMemoryService promptThreadMemoryService,
       MemoryRuntimeService memoryRuntimeService,
       HarnessTranscriptService harnessTranscriptService
   ) {
     this.promptMessageRepository = promptMessageRepository;
     this.promptRequestService = promptRequestService;
     this.promptRunRepository = promptRunRepository;
-    this.promptThreadMemoryService = promptThreadMemoryService;
     this.memoryRuntimeService = memoryRuntimeService;
     this.harnessTranscriptService = harnessTranscriptService;
   }
@@ -240,7 +236,6 @@ public class WorkerPromptConversationService {
     recordMessage(handle, projectKey, repoPath, "worker-final-response", "codex", effectiveBody, Map.of());
     promptRunRepository.completeRun(handle.requestId(), handle.runId(), summary, handle.threadSessionId());
     memoryRuntimeService.completeTurn(handle.memoryTurnHandle(), effectiveBody, false);
-    promptThreadMemoryService.capturePromptThreadSnapshot(projectKey, handle.threadKey());
   }
 
   public void failRun(
@@ -253,7 +248,6 @@ public class WorkerPromptConversationService {
     recordMessage(handle, projectKey, repoPath, "worker-run-failure", "codex", summary, Map.of("exitCode", exitCode));
     promptRunRepository.failRun(handle.requestId(), handle.runId(), exitCode, summary, handle.threadSessionId());
     memoryRuntimeService.completeTurn(handle.memoryTurnHandle(), summary, true);
-    promptThreadMemoryService.capturePromptThreadSnapshot(projectKey, handle.threadKey());
   }
 
   private void recordMessage(
@@ -266,16 +260,6 @@ public class WorkerPromptConversationService {
       Map<String, Object> metadata
   ) {
     promptMessageRepository.appendPromptMessage(handle.requestId(), handle.runId(), kind, sender, body, metadata);
-    promptThreadMemoryService.capturePromptThreadMessage(
-        projectKey,
-        handle.requestId(),
-        handle.threadKey(),
-        repoPath.toString(),
-        "local-codex-worker",
-        kind,
-        body,
-        metadata
-    );
   }
 
   private String extractThreadSessionId(String body) {
@@ -286,5 +270,3 @@ public class WorkerPromptConversationService {
     return body.startsWith(prefix) ? body.substring(prefix.length()).strip() : body.strip();
   }
 }
-
-

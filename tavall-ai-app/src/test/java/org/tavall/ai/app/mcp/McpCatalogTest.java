@@ -1,5 +1,6 @@
 package org.tavall.ai.app.mcp;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.tavall.ai.app.support.IntegrationTestSupport;
@@ -46,9 +47,10 @@ class McpCatalogTest extends IntegrationTestSupport {
     assertTrue(toolNames.contains("runCleanJavaHarness"));
     assertTrue(toolNames.contains("runJavaIntegrationHarness"));
     assertTrue(toolNames.contains("storeTaskEmbedding"));
+    assertTrue(toolNames.contains("recordMemory"));
     assertTrue(toolNames.contains("searchRelatedContexts"));
     assertTrue(toolNames.contains("searchPriorFixes"));
-    assertTrue(toolNames.contains("loadRelatedSemanticContext"));
+    assertFalse(toolNames.contains("loadRelatedSemanticContext"));
     assertTrue(toolNames.contains("attachSemanticContextToTask"));
 
     Set<String> resourceNames = mcpSyncServer.listResources().stream()
@@ -72,4 +74,3 @@ class McpCatalogTest extends IntegrationTestSupport {
     assertTrue(promptNames.contains("cleanupAgent"));
   }
 }
-

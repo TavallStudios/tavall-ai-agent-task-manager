@@ -11,6 +11,7 @@ import org.tavall.ai.app.mcp.DownstreamMcpToolClientService;
 import org.tavall.ai.app.mcp.DownstreamMcpToolResult;
 import org.tavall.ai.app.orchestration.HarnessMemoryService;
 import org.tavall.ai.app.orchestration.SharedTaskContextService;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -34,6 +35,7 @@ public class HarnessToolBundleService {
   private final HarnessStateService harnessStateService;
   private final RemoteHarnessToolBundleClientService remoteHarnessToolBundleClientService;
   private final SharedTaskContextService sharedTaskContextService;
+  private final SemanticMemoryService semanticMemoryService;
 
   public HarnessToolBundleService(
       DashboardSummaryService dashboardSummaryService,
@@ -43,7 +45,8 @@ public class HarnessToolBundleService {
       HarnessMemoryService harnessMemoryService,
       HarnessStateService harnessStateService,
       RemoteHarnessToolBundleClientService remoteHarnessToolBundleClientService,
-      SharedTaskContextService sharedTaskContextService
+      SharedTaskContextService sharedTaskContextService,
+      SemanticMemoryService semanticMemoryService
   ) {
     this.dashboardSummaryService = dashboardSummaryService;
     this.cleanJavaTaskContextService = cleanJavaTaskContextService;
@@ -53,6 +56,7 @@ public class HarnessToolBundleService {
     this.harnessStateService = harnessStateService;
     this.remoteHarnessToolBundleClientService = remoteHarnessToolBundleClientService;
     this.sharedTaskContextService = sharedTaskContextService;
+    this.semanticMemoryService = semanticMemoryService;
   }
 
   public HarnessToolBundleResult executeBundle(HarnessToolBundleRequest request) {
@@ -311,7 +315,7 @@ public class HarnessToolBundleService {
     if (projectKey == null || projectKey.isBlank()) {
       return List.of();
     }
-    return sharedTaskContextService.searchProjectRelatedContexts(projectKey, queryText, limit);
+    return semanticMemoryService.searchProject(projectKey, queryText, limit, Map.of());
   }
 
   private String readDoc(String fileName) {

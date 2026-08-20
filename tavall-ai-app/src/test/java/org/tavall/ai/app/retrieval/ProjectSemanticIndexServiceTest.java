@@ -3,7 +3,6 @@ package org.tavall.ai.app.retrieval;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.model.orchestration.RetrievedSemanticContext;
 import org.tavall.ai.app.support.IntegrationTestSupport;
 import java.io.IOException;
@@ -11,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +32,7 @@ class ProjectSemanticIndexServiceTest extends IntegrationTestSupport {
   private ProjectSemanticIndexService projectSemanticIndexService;
 
   @Autowired
-  private SharedTaskContextService sharedTaskContextService;
+  private SemanticMemoryService semanticMemoryService;
 
   @DynamicPropertySource
   static void registerProperties(DynamicPropertyRegistry registry) {
@@ -56,25 +56,28 @@ class ProjectSemanticIndexServiceTest extends IntegrationTestSupport {
     assertTrue(summary.repositories().get(0).indexedJavaSymbols() >= 1);
     String projectKey = summary.repositories().get(0).projectKey();
 
-    List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> docs = sharedTaskContextService.searchProjectRelatedContexts(
+    List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> docs = semanticMemoryService.searchProject(
         projectKey,
         "chunked retrieval",
-        10
+        10,
+        Map.of()
     );
     assertTrue(docs.stream().anyMatch(item -> "KNOWLEDGE_RULES".equals(item.payload().get("semanticDomain"))));
     assertTrue(docs.stream().anyMatch(item -> String.valueOf(item.payload().get("chunkText")).contains("chunked retrieval")));
 
-    List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> code = sharedTaskContextService.searchProjectRelatedContexts(
+    List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> code = semanticMemoryService.searchProject(
         projectKey,
         "find the code that returns ready",
-        10
+        10,
+        Map.of()
     );
     assertTrue(code.stream().anyMatch(item -> "CODE_REPO".equals(item.payload().get("semanticDomain"))));
 
-    List<RetrievedSemanticContext> javaSymbols = sharedTaskContextService.searchProjectRelatedContexts(
+    List<RetrievedSemanticContext> javaSymbols = semanticMemoryService.searchProject(
         projectKey,
         "Example class status method java signature",
-        10
+        10,
+        Map.of()
     );
     assertTrue(Boolean.parseBoolean(String.valueOf(javaSymbols.getFirst().payload().get("javaSymbol"))));
     assertEquals("example.Example", javaSymbols.getFirst().payload().get("className"));
@@ -115,5 +118,3 @@ class ProjectSemanticIndexServiceTest extends IntegrationTestSupport {
     }
   }
 }
-
-

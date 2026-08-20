@@ -9,11 +9,11 @@ import org.tavall.ai.app.mcp.McpToolSupport;
 import org.tavall.ai.app.model.PromptThreadMemoryLookupResult;
 import org.tavall.ai.app.model.PromptThreadSummary;
 import org.tavall.ai.app.model.orchestration.RetrievedSemanticContext;
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.retrieval.ProjectSemanticIndexService;
 import org.tavall.ai.app.retrieval.SemanticCollectionDomain;
 import org.tavall.ai.app.retrieval.SemanticContextClassifier;
 import org.tavall.ai.app.retrieval.SemanticContentType;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.service.PromptThreadMemoryService;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import java.util.List;
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class VectorMemoryToolHandler extends McpToolSupport implements McpToolProvider {
 
-  private final SharedTaskContextService sharedTaskContextService;
+  private final SemanticMemoryService semanticMemoryService;
   private final KnowledgeIndexService knowledgeIndexService;
   private final ProjectSemanticIndexService projectSemanticIndexService;
   private final PromptThreadMemoryService promptThreadMemoryService;
@@ -32,7 +32,7 @@ public class VectorMemoryToolHandler extends McpToolSupport implements McpToolPr
   private final McpToolPayloadMapper payloadMapper;
 
   public VectorMemoryToolHandler(
-      SharedTaskContextService sharedTaskContextService,
+      SemanticMemoryService semanticMemoryService,
       KnowledgeIndexService knowledgeIndexService,
       ProjectSemanticIndexService projectSemanticIndexService,
       PromptThreadMemoryService promptThreadMemoryService,
@@ -42,7 +42,7 @@ public class VectorMemoryToolHandler extends McpToolSupport implements McpToolPr
       McpToolPayloadMapper payloadMapper
   ) {
     super(schemaFactory);
-    this.sharedTaskContextService = sharedTaskContextService;
+    this.semanticMemoryService = semanticMemoryService;
     this.knowledgeIndexService = knowledgeIndexService;
     this.projectSemanticIndexService = projectSemanticIndexService;
     this.promptThreadMemoryService = promptThreadMemoryService;
@@ -143,15 +143,16 @@ public class VectorMemoryToolHandler extends McpToolSupport implements McpToolPr
 
   private List<RetrievedSemanticContext> search(Map<String, Object> arguments) {
     VectorMemorySemanticQueryRequest request = map(arguments, VectorMemorySemanticQueryRequest.class);
-    return sharedTaskContextService.searchProjectRelatedContexts(
+    return semanticMemoryService.searchProject(
         requireProjectKey(request.projectKey()),
         request.queryText(),
-        request.limit() == null ? 5 : request.limit()
+        request.limit() == null ? 5 : request.limit(),
+        Map.of()
     );
   }
 
   private String attachSemanticDocument(AttachVectorMemoryDocumentRequest request) {
-    return sharedTaskContextService.storeProjectSemanticDocument(
+    return semanticMemoryService.storeProjectDocument(
         requireProjectKey(request.projectKey()),
         request.taskId(),
         request.workerTaskId(),
@@ -173,7 +174,7 @@ public class VectorMemoryToolHandler extends McpToolSupport implements McpToolPr
       domain = classification.domain();
       contentType = classification.contentType();
     }
-    return sharedTaskContextService.storeProjectSemanticDocument(
+    return semanticMemoryService.storeProjectDocument(
         requireProjectKey(request.projectKey()),
         request.taskId(),
         request.workerTaskId(),
@@ -187,7 +188,7 @@ public class VectorMemoryToolHandler extends McpToolSupport implements McpToolPr
   }
 
   private Object purgeLegacyCollection() {
-    sharedTaskContextService.deleteLegacySemanticCollection();
+    semanticMemoryService.deleteLegacyCollection();
     return new VectorMemoryStatusResponse("deleted");
   }
 
@@ -286,4 +287,3 @@ record PromptThreadSearchResponse(List<PromptThreadSummary> items) {
 
 record PromptThreadMemoryResponse(PromptThreadMemoryLookupResult item) {
 }
-

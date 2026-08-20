@@ -52,6 +52,13 @@ public class DesktopOperationCatalogService {
             "Thread, semantic, and prior-fix memory operations.",
             List.of(
                 operation(
+                    "recordMemory",
+                    "Record Memory",
+                    "Persist one intentional distilled durable memory.",
+                    true,
+                    "backend"
+                ),
+                operation(
                     "searchRelatedContexts",
                     "Search Related Contexts",
                     "Load related semantic context chunks.",
@@ -62,13 +69,6 @@ public class DesktopOperationCatalogService {
                     "searchPriorFixes",
                     "Search Prior Fixes",
                     "Retrieve related fix history.",
-                    true,
-                    "backend"
-                ),
-                operation(
-                    "loadRelatedSemanticContext",
-                    "Load Semantic Context",
-                    "Hydrate task context from semantic memory.",
                     true,
                     "backend"
                 )
@@ -136,4 +136,3 @@ public class DesktopOperationCatalogService {
     return operation;
   }
 }
-

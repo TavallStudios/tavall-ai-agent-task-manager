@@ -34,9 +34,11 @@ def main():
     embedder = TextEmbedding(model_name=model_name)
     values = list(embedder.embed([read_text(payload)]))[0]
     vector = [float(value) for value in values]
-    if len(vector) < dimensions:
-        raise SystemExit("FastEmbed returned fewer dimensions than the Qdrant collection expects.")
-    vector = normalize(vector[:dimensions])
+    if len(vector) != dimensions:
+        raise SystemExit(
+            f"FastEmbed returned {len(vector)} dimensions but the Qdrant collection expects {dimensions}."
+        )
+    vector = normalize(vector)
     json.dump({"provider": "local", "model": model_name, "vector": vector}, sys.stdout)
 
 

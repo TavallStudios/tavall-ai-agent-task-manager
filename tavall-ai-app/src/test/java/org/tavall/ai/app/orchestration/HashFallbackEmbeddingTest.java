@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import org.tavall.ai.app.model.orchestration.RetrievedSemanticContext;
 import org.tavall.ai.app.retrieval.SemanticCollectionDomain;
 import org.tavall.ai.app.retrieval.SemanticContentType;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.support.IntegrationTestSupport;
 import java.util.List;
 import java.util.Map;
@@ -25,13 +26,13 @@ import org.springframework.test.context.TestPropertySource;
 class HashFallbackEmbeddingTest extends IntegrationTestSupport {
 
   @Autowired
-  private SharedTaskContextService sharedTaskContextService;
+  private SemanticMemoryService semanticMemoryService;
 
   @Test
   void shouldUseHashEmbeddingWhenTheLocalRunnerFails() {
     String suffix = UUID.randomUUID().toString();
-    sharedTaskContextService.deleteProjectSemanticContexts("hash-test", Map.of());
-    String storedId = sharedTaskContextService.storeProjectSemanticDocument(
+    semanticMemoryService.deleteProjectContexts("hash-test", Map.of());
+    String storedId = semanticMemoryService.storeProjectDocument(
         "hash-test",
         "task-" + suffix,
         "worker-" + suffix,
@@ -43,10 +44,11 @@ class HashFallbackEmbeddingTest extends IntegrationTestSupport {
         Map.of("scope", "integration")
     ).getFirst();
 
-    List<RetrievedSemanticContext> contexts = sharedTaskContextService.searchProjectRelatedContexts(
+    List<RetrievedSemanticContext> contexts = semanticMemoryService.searchProject(
         "hash-test",
         "Hash fallback integration text " + suffix,
-        5
+        5,
+        Map.of()
     );
 
     assertFalse(contexts.isEmpty());
@@ -60,4 +62,3 @@ class HashFallbackEmbeddingTest extends IntegrationTestSupport {
     assertEquals("CODE_REPO", match.payload().get("semanticDomain"));
   }
 }
-

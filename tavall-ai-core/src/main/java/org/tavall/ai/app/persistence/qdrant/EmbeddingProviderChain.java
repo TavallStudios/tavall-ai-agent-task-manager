@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -21,6 +22,9 @@ public class EmbeddingProviderChain {
       HashEmbeddingService hashEmbeddingService
   ) {
     this.dimensions = embeddingProperties.getDimensions();
+    if (dimensions <= 0) {
+      throw new IllegalArgumentException("Embedding dimensions must be positive.");
+    }
     this.orderedProviders = orderProviders(
         embeddingProperties,
         geminiEmbeddingProvider,
@@ -62,12 +66,12 @@ public class EmbeddingProviderChain {
         }
         throw new IllegalStateException("Embedding provider returned a vector with the wrong size.");
       } catch (RuntimeException exception) {
-        Log.warn("Embedding provider {} failed. Falling back to the next provider: {}", provider.providerId(), exception.getMessage());
+        Log.warn("Embedding provider {} failed. Falling back to the next configured provider: {}", provider.providerId(), exception.getMessage());
         Log.exception(exception);
         failures.add(provider.providerId() + ": " + exception.getMessage());
       }
     }
-    throw new IllegalStateException("No embedding provider succeeded. Failures: " + String.join(" | ", failures));
+    throw new IllegalStateException("No configured embedding provider succeeded. Failures: " + String.join(" | ", failures));
   }
 
   private List<EmbeddingProvider> orderProviders(
@@ -82,14 +86,17 @@ public class EmbeddingProviderChain {
     providers.put(hashEmbeddingService.providerId(), hashEmbeddingService);
 
     List<EmbeddingProvider> ordered = new ArrayList<>();
-    for (String providerId : embeddingProperties.getProviderOrder()) {
-      EmbeddingProvider provider = providers.get(providerId);
-      if (provider != null && !ordered.contains(provider)) {
+    for (String providerId : embeddingProperties.normalizedProviderOrder()) {
+      EmbeddingProvider provider = providers.get(providerId.toLowerCase(Locale.ROOT));
+      if (provider == null) {
+        throw new IllegalArgumentException("Unknown embedding provider: " + providerId);
+      }
+      if (!ordered.contains(provider)) {
         ordered.add(provider);
       }
     }
-    if (!ordered.contains(hashEmbeddingService)) {
-      ordered.add(hashEmbeddingService);
+    if (ordered.isEmpty()) {
+      throw new IllegalArgumentException("At least one embedding provider must be configured.");
     }
     return ordered;
   }
@@ -113,4 +120,3 @@ public class EmbeddingProviderChain {
     EmbeddingVectorResult run(EmbeddingProvider provider);
   }
 }
-

@@ -146,7 +146,7 @@ class LocalCodexWorkerTransportTest extends IntegrationTestSupport {
         .query(Long.class)
         .single();
 
-    assertTrue(transcriptLookup.summary().contains("Memory lookup completed."));
+    assertTrue(transcriptLookup.summary().contains("Memory pipeline retrieved"));
     assertNotNull(repoOutboxCount);
     assertTrue(repoOutboxCount >= 1);
     assertNotNull(tempArtifactOutboxCount);
@@ -281,4 +281,3 @@ class LocalCodexWorkerTransportTest extends IntegrationTestSupport {
     }
   }
 }
-

@@ -1,5 +1,11 @@
 package org.tavall.ai.app.mcp.tools.vectormemory;
 
+import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import org.springframework.stereotype.Component;
 import org.tavall.ai.app.mcp.McpJsonSchemaFactory;
 import org.tavall.ai.app.mcp.McpResultFactory;
 import org.tavall.ai.app.mcp.McpToolPayloadMapper;
@@ -11,23 +17,20 @@ import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.retrieval.SemanticCollectionDomain;
 import org.tavall.ai.app.retrieval.SemanticContentType;
 import org.tavall.ai.app.retrieval.SemanticContextClassifier;
-import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import org.springframework.stereotype.Component;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 
 @Component
 public class VectorMemoryCanonicalToolHandler extends McpToolSupport implements McpToolProvider {
 
   private final SharedTaskContextService sharedTaskContextService;
+  private final SemanticMemoryService semanticMemoryService;
   private final SemanticContextClassifier semanticContextClassifier;
   private final McpResultFactory resultFactory;
   private final McpToolPayloadMapper payloadMapper;
 
   public VectorMemoryCanonicalToolHandler(
       SharedTaskContextService sharedTaskContextService,
+      SemanticMemoryService semanticMemoryService,
       SemanticContextClassifier semanticContextClassifier,
       McpJsonSchemaFactory schemaFactory,
       McpResultFactory resultFactory,
@@ -35,6 +38,7 @@ public class VectorMemoryCanonicalToolHandler extends McpToolSupport implements 
   ) {
     super(schemaFactory);
     this.sharedTaskContextService = sharedTaskContextService;
+    this.semanticMemoryService = semanticMemoryService;
     this.semanticContextClassifier = semanticContextClassifier;
     this.resultFactory = resultFactory;
     this.payloadMapper = payloadMapper;
@@ -45,35 +49,28 @@ public class VectorMemoryCanonicalToolHandler extends McpToolSupport implements 
     return List.of(
         spec(
             "storeTaskEmbedding",
-            "Chunk content, embed the chunks, and store payload plus metadata in Qdrant.",
+            "Chunk content, embed the chunks, and store payload plus metadata in semantic memory.",
             semanticDocumentProperties(),
             List.of("projectKey", "taskId", "kind", "body"),
             arguments -> new VectorMemoryEmbeddingResponse(storeTaskEmbedding(arguments))
         ),
         spec(
             "searchRelatedContexts",
-            "Search chunked semantic context and return stored payload text/code, not vectors.",
-            semanticQueryProperties(),
-            List.of("projectKey", "queryText"),
-            arguments -> new VectorMemorySemanticContextResponse(searchRelatedContexts(arguments))
-        ),
-        spec(
-            "loadRelatedSemanticContext",
-            "Load chunked semantic context related to a query for the active project.",
+            "Search focused semantic context and return stored payload text/code, not vectors.",
             semanticQueryProperties(),
             List.of("projectKey", "queryText"),
             arguments -> new VectorMemorySemanticContextResponse(searchRelatedContexts(arguments))
         ),
         spec(
             "searchPriorFixes",
-            "Search prior fix and review history stored in semantic task history collections.",
+            "Search prior fix and review history stored in semantic task-history collections.",
             semanticQueryProperties(),
             List.of("projectKey", "queryText"),
             arguments -> new VectorMemorySemanticContextResponse(searchPriorFixes(arguments))
         ),
         spec(
             "attachSemanticContextToTask",
-            "Attach shared task context and index the same body through the chunk-first semantic pipeline.",
+            "Attach structured shared task context and explicitly index the supplied distilled body into semantic memory.",
             attachProperties(),
             List.of("projectKey", "taskId", "contextKey", "summary", "body"),
             arguments -> attachSemanticContextToTask(arguments)
@@ -92,7 +89,7 @@ public class VectorMemoryCanonicalToolHandler extends McpToolSupport implements 
         request.summary(),
         payload
     );
-    List<String> pointIds = sharedTaskContextService.storeProjectSemanticDocument(
+    List<String> pointIds = semanticMemoryService.storeProjectDocument(
         requireProjectKey(request.projectKey()),
         request.taskId(),
         request.workerTaskId(),
@@ -108,7 +105,7 @@ public class VectorMemoryCanonicalToolHandler extends McpToolSupport implements 
 
   private List<RetrievedSemanticContext> searchPriorFixes(Map<String, Object> arguments) {
     VectorMemorySemanticQueryRequest request = map(arguments, VectorMemorySemanticQueryRequest.class);
-    return sharedTaskContextService.searchProjectRelatedContexts(
+    return semanticMemoryService.searchProject(
         requireProjectKey(request.projectKey()),
         request.queryText(),
         normalizeLimit(request.limit()),
@@ -118,17 +115,18 @@ public class VectorMemoryCanonicalToolHandler extends McpToolSupport implements 
 
   private List<RetrievedSemanticContext> searchRelatedContexts(Map<String, Object> arguments) {
     VectorMemorySemanticQueryRequest request = map(arguments, VectorMemorySemanticQueryRequest.class);
-    return sharedTaskContextService.searchProjectRelatedContexts(
+    return semanticMemoryService.searchProject(
         requireProjectKey(request.projectKey()),
         request.queryText(),
-        normalizeLimit(request.limit())
+        normalizeLimit(request.limit()),
+        Map.of()
     );
   }
 
   private String storeTaskEmbedding(Map<String, Object> arguments) {
     VectorMemoryStoreTaskEmbeddingRequest request = map(arguments, VectorMemoryStoreTaskEmbeddingRequest.class);
     Map<String, Object> payload = request.payload() == null ? Map.of() : request.payload();
-    return sharedTaskContextService.storeProjectSemanticDocument(
+    return semanticMemoryService.storeProjectDocument(
         requireProjectKey(request.projectKey()),
         request.taskId(),
         request.workerTaskId(),
@@ -156,7 +154,7 @@ public class VectorMemoryCanonicalToolHandler extends McpToolSupport implements 
   }
 
   private int normalizeLimit(Integer limit) {
-    return limit == null ? 5 : limit;
+    return limit == null ? 5 : Math.max(1, Math.min(50, limit));
   }
 
   private String requireProjectKey(String projectKey) {
@@ -173,10 +171,10 @@ public class VectorMemoryCanonicalToolHandler extends McpToolSupport implements 
         "workerTaskId", stringProperty("Worker task id."),
         "kind", stringProperty("Context kind."),
         "title", stringProperty("Document title."),
-        "body", stringProperty("Raw text or code body."),
+        "body", stringProperty("Distilled text or code body to index."),
         "domain", stringProperty("Semantic domain override."),
         "contentType", stringProperty("Chunking content type override."),
-        "payload", Map.of("type", "object", "description", "Chunk metadata payload.")
+        "payload", Map.of("type", "object", "description", "Chunk metadata and provenance payload.")
     );
   }
 
@@ -195,12 +193,12 @@ public class VectorMemoryCanonicalToolHandler extends McpToolSupport implements 
     properties.put("workerTaskId", stringProperty("Worker task id."));
     properties.put("contextKey", stringProperty("Context key."));
     properties.put("visibility", stringProperty("Context visibility."));
-    properties.put("summary", stringProperty("Context summary."));
-    properties.put("body", stringProperty("Body to chunk and index."));
+    properties.put("summary", stringProperty("Structured task-context summary."));
+    properties.put("body", stringProperty("Distilled body to index explicitly."));
     properties.put("kind", stringProperty("Context kind override."));
     properties.put("domain", stringProperty("Semantic domain override."));
     properties.put("contentType", stringProperty("Chunking content type override."));
-    properties.put("payload", Map.of("type", "object", "description", "Chunk metadata payload."));
+    properties.put("payload", Map.of("type", "object", "description", "Chunk metadata and provenance payload."));
     return properties;
   }
 
@@ -234,4 +232,3 @@ public class VectorMemoryCanonicalToolHandler extends McpToolSupport implements 
     Object run(Map<String, Object> arguments);
   }
 }
-
