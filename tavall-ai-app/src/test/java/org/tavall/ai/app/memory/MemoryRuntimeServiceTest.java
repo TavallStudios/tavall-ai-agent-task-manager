@@ -11,8 +11,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.model.PromptRequestSummary;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
+import org.tavall.ai.app.retrieval.SemanticSyncService;
 import org.tavall.ai.app.service.PromptRequestService;
 import org.tavall.ai.app.support.IntegrationTestSupport;
 
@@ -37,10 +38,14 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
   private SemanticMemoryService semanticMemoryService;
 
   @Autowired
+  private SemanticSyncService semanticSyncService;
+
+  @Autowired
   private PromptRequestService promptRequestService;
 
   @BeforeEach
   void cleanup() {
+    jdbcClient.sql("DELETE FROM agent_task_manager.semantic_sync_outbox").update();
     jdbcClient.sql("DELETE FROM agent_task_manager.memory_mutations").update();
     jdbcClient.sql("DELETE FROM agent_task_manager.memory_runtime_events").update();
     jdbcClient.sql("DELETE FROM agent_task_manager.memory_continuity_snapshots").update();
@@ -143,6 +148,7 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
     assertEquals("issue://memory-project/42", loaded.getFirst().metadata().get("sourceReference"));
     assertEquals("explicit", loaded.getFirst().metadata().get("writeMode"));
 
+    drainSemanticOutbox();
     var semantic = semanticMemoryService.searchProject(
         "memory-project",
         "Use deterministic Java migrations",
@@ -212,6 +218,7 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
             .query(Long.class)
             .single()
     );
+    drainSemanticOutbox();
     assertEquals(1, semanticMemoryService.searchProject(
         "authority-project-a",
         "This record belongs to project A",
@@ -284,6 +291,7 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
             .query(String.class)
             .single()
     );
+    drainSemanticOutbox();
     assertTrue(semanticMemoryService.searchProject(
         "supersession-project",
         "The old runtime owns this memory",
@@ -335,6 +343,7 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
     ));
 
     assertEquals("global-semantic-project-a", original.metadata().get("semanticProjectId"));
+    drainSemanticOutbox();
     assertEquals(1, semanticMemoryService.searchProject(
         "global-semantic-project-a",
         "global fact first recorded",
@@ -351,6 +360,7 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
         original.memoryId()
     ));
 
+    drainSemanticOutbox();
     assertTrue(semanticMemoryService.searchProject(
         "global-semantic-project-a",
         "global fact first recorded",
@@ -364,6 +374,14 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
         10,
         Map.of("memoryId", replacement.memoryId())
     ).size());
+  }
+
+  private void drainSemanticOutbox() {
+    for (int pass = 0; pass < 10; pass++) {
+      if (semanticSyncService.processPendingOperations() <= 0) {
+        return;
+      }
+    }
   }
 
   private MemoryIdentity identity(String projectId, String threadKey, String sessionId) {
