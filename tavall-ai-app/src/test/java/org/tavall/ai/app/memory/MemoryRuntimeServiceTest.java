@@ -2,6 +2,7 @@ package org.tavall.ai.app.memory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -124,28 +125,15 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
 
   @Test
   void shouldPersistOnlyExplicitDistilledMemoryWithProvenance() {
-    MemoryIdentity identity = memoryRetrievalService.resolveIdentity(
-        "memory-project",
-        "shared-thread",
-        "session-1",
-        "tester",
-        "mcp-http",
-        "/srv/test",
-        Map.of("projectKey", "memory-project", "threadKey", "shared-thread")
-    );
+    MemoryIdentity identity = identity("memory-project", "shared-thread", "session-1");
 
-    MemoryRecord record = memoryRecordService.record(identity, new MemoryWriteRequest(
+    MemoryRecord record = memoryRecordService.record(identity, write(
         MemoryScope.PROJECT,
-        MemoryKind.PROJECT_STATE,
         "Java migration policy",
         "Use deterministic Java migrations for this project.",
-        List.of("Preserve the current harness path while migrating."),
-        90,
-        "internal",
         "explicit",
         "issue://memory-project/42",
-        null,
-        Map.of("reason", "verified-project-rule")
+        null
     ));
 
     List<MemoryRecord> loaded = memoryRetrievalService.loadExactState(identity);
@@ -167,42 +155,90 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
   }
 
   @Test
-  void shouldSupersedeExplicitMemoryAndRemoveItsSemanticRepresentation() {
-    MemoryIdentity identity = memoryRetrievalService.resolveIdentity(
-        "memory-project",
-        "shared-thread",
-        "session-1",
-        "tester",
-        "mcp-http",
-        "/srv/test",
-        Map.of("projectKey", "memory-project", "threadKey", "shared-thread")
-    );
-    MemoryRecord original = memoryRecordService.record(identity, new MemoryWriteRequest(
+  void shouldForceExplicitConsentOnExplicitWriter() {
+    MemoryIdentity identity = identity("memory-project", "shared-thread", "session-1");
+
+    MemoryRecord record = memoryRecordService.record(identity, write(
         MemoryScope.PROJECT,
-        MemoryKind.PROJECT_STATE,
-        "Runtime ownership",
-        "The old runtime owns this memory.",
-        List.of("Old ownership claim."),
-        80,
-        "internal",
-        "explicit",
-        "issue://memory-project/old",
-        null,
-        Map.of("reason", "initial-fact")
+        "Explicit write authority",
+        "Explicit recordMemory writes cannot relabel themselves as implicit.",
+        "implicit",
+        "issue://memory-project/authority",
+        null
     ));
 
-    MemoryRecord replacement = memoryRecordService.record(identity, new MemoryWriteRequest(
+    assertEquals("explicit", record.consentLevel());
+    assertEquals("explicit", record.metadata().get("writeMode"));
+    assertEquals(
+        0L,
+        jdbcClient.sql("SELECT count(*) FROM agent_task_manager.memory_records WHERE consent_level = 'implicit'")
+            .query(Long.class)
+            .single()
+    );
+  }
+
+  @Test
+  void shouldRejectSupersedingProjectMemoryOutsideCurrentAuthorityScope() {
+    MemoryIdentity projectA = identity("project-a", "thread-a", "session-a");
+    MemoryIdentity projectB = identity("project-b", "thread-b", "session-b");
+    MemoryRecord original = memoryRecordService.record(projectA, write(
         MemoryScope.PROJECT,
-        MemoryKind.PROJECT_STATE,
+        "Project A authority",
+        "This record belongs to project A.",
+        "explicit",
+        "issue://project-a/1",
+        null
+    ));
+
+    assertThrows(IllegalArgumentException.class, () -> memoryRecordService.record(projectB, write(
+        MemoryScope.PROJECT,
+        "Project B replacement",
+        "Project B must not supersede project A memory by id.",
+        "explicit",
+        "issue://project-b/1",
+        original.memoryId()
+    )));
+
+    assertEquals(
+        "active",
+        jdbcClient.sql("SELECT status FROM agent_task_manager.memory_records WHERE memory_id = :memoryId")
+            .param("memoryId", original.memoryId())
+            .query(String.class)
+            .single()
+    );
+    assertEquals(
+        1L,
+        jdbcClient.sql("SELECT count(*) FROM agent_task_manager.memory_records")
+            .query(Long.class)
+            .single()
+    );
+    assertEquals(1, semanticMemoryService.searchProject(
+        "project-a",
+        "This record belongs to project A",
+        10,
+        Map.of("memoryId", original.memoryId())
+    ).size());
+  }
+
+  @Test
+  void shouldSupersedeExplicitMemoryAndRemoveItsSemanticRepresentation() {
+    MemoryIdentity identity = identity("memory-project", "shared-thread", "session-1");
+    MemoryRecord original = memoryRecordService.record(identity, write(
+        MemoryScope.PROJECT,
+        "Runtime ownership",
+        "The old runtime owns this memory.",
+        "explicit",
+        "issue://memory-project/old",
+        null
+    ));
+
+    MemoryRecord replacement = memoryRecordService.record(identity, write(
+        MemoryScope.PROJECT,
         "Runtime ownership replacement",
         "The new runtime owns this memory.",
-        List.of("Replacement ownership claim."),
-        90,
-        "internal",
         "explicit",
         "issue://memory-project/new",
-        original.memoryId(),
-        Map.of("reason", "superseding-fact")
+        original.memoryId()
     ));
 
     assertEquals(
@@ -226,5 +262,85 @@ class MemoryRuntimeServiceTest extends IntegrationTestSupport {
     );
     assertEquals(1, replacementSemantic.size());
     assertEquals(replacement.memoryId(), replacementSemantic.getFirst().payload().get("memoryId"));
+  }
+
+  @Test
+  void shouldDeleteGlobalMemoryFromItsOriginalSemanticProjectWhenSupersededElsewhere() {
+    MemoryIdentity projectA = identity("project-a", "thread-a", "session-a");
+    MemoryIdentity projectB = identity("project-b", "thread-b", "session-b");
+    MemoryRecord original = memoryRecordService.record(projectA, write(
+        MemoryScope.GLOBAL,
+        "Global runtime fact",
+        "This global fact was first recorded while project A was active.",
+        "explicit",
+        "issue://global/old",
+        null
+    ));
+
+    assertEquals("project-a", original.metadata().get("semanticProjectId"));
+    assertEquals(1, semanticMemoryService.searchProject(
+        "project-a",
+        "global fact first recorded",
+        10,
+        Map.of("memoryId", original.memoryId())
+    ).size());
+
+    MemoryRecord replacement = memoryRecordService.record(projectB, write(
+        MemoryScope.GLOBAL,
+        "Global runtime fact replacement",
+        "The global fact was superseded while project B was active.",
+        "explicit",
+        "issue://global/new",
+        original.memoryId()
+    ));
+
+    assertTrue(semanticMemoryService.searchProject(
+        "project-a",
+        "global fact first recorded",
+        10,
+        Map.of("memoryId", original.memoryId())
+    ).isEmpty());
+    assertEquals("project-b", replacement.metadata().get("semanticProjectId"));
+    assertEquals(1, semanticMemoryService.searchProject(
+        "project-b",
+        "global fact superseded",
+        10,
+        Map.of("memoryId", replacement.memoryId())
+    ).size());
+  }
+
+  private MemoryIdentity identity(String projectId, String threadKey, String sessionId) {
+    return memoryRetrievalService.resolveIdentity(
+        projectId,
+        threadKey,
+        sessionId,
+        "tester",
+        "mcp-http",
+        "/srv/test",
+        Map.of("projectKey", projectId, "threadKey", threadKey)
+    );
+  }
+
+  private MemoryWriteRequest write(
+      MemoryScope scope,
+      String title,
+      String summary,
+      String consentLevel,
+      String sourceReference,
+      String supersedesMemoryId
+  ) {
+    return new MemoryWriteRequest(
+        scope,
+        MemoryKind.PROJECT_STATE,
+        title,
+        summary,
+        List.of(summary),
+        90,
+        "internal",
+        consentLevel,
+        sourceReference,
+        supersedesMemoryId,
+        Map.of("reason", "memory-runtime-regression")
+    );
   }
 }
