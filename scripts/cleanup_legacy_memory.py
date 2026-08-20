@@ -138,6 +138,10 @@ def normalized_kind(payload):
 def qdrant_reason(payload):
     if payload.get("writeMode") == "explicit":
         return ""
+    source_path = str(payload.get("sourcePath", ""))
+    title = str(payload.get("title", ""))
+    if source_path == ".idea" or source_path.startswith(".idea/") or title.startswith(".idea/"):
+        return "excluded-ide-metadata"
     kind = normalized_kind(payload)
     if kind in LEGACY_QDRANT_KINDS or kind.startswith(LEGACY_QDRANT_KIND_PREFIXES):
         return "legacy-raw-interaction"
@@ -150,12 +154,21 @@ def qdrant_reason(payload):
 
 def semantic_outbox_reason(entry):
     """Classify only pending non-explicit writes that would recreate legacy data."""
-    if entry.get("operationKind") not in ("project-upsert", "knowledge-upsert"):
+    operation_kind = entry.get("operationKind")
+    scope_key = str(entry.get("scopeKey", ""))
+    status = entry.get("status")
+    if operation_kind == "project-delete" and status == "in_progress" and scope_key.startswith("fixture-"):
+        return "orphaned-fixture-delete"
+    if operation_kind not in ("project-upsert", "knowledge-upsert"):
         return ""
     payload = entry.get("payload") or {}
     if payload.get("writeMode") == "explicit":
         return ""
-    if str(entry.get("scopeKey", "")).startswith("fixture-"):
+    title = str(entry.get("title", ""))
+    source_path = str(payload.get("sourcePath", ""))
+    if source_path == ".idea" or source_path.startswith(".idea/") or title.startswith(".idea/"):
+        return "excluded-ide-metadata"
+    if scope_key.startswith("fixture-"):
         return "fixture-pending-semantic-write"
     kind = str(entry.get("semanticKind", "")).split(" [chunk", 1)[0]
     document_id = str(entry.get("documentId", ""))

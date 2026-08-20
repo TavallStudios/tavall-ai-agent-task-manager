@@ -18,6 +18,21 @@ class CleanupLegacyMemoryTest(unittest.TestCase):
             MODULE.qdrant_reason({"kind": "mcp-tool-result [chunk 1]"}),
         )
 
+    def test_ide_metadata_is_candidate_for_cleanup(self):
+        self.assertEqual(
+            "excluded-ide-metadata",
+            MODULE.qdrant_reason({"sourcePath": ".idea/dataSources.xml", "kind": "project-reindex"}),
+        )
+        self.assertEqual(
+            "excluded-ide-metadata",
+            MODULE.semantic_outbox_reason({
+                "operationKind": "project-upsert",
+                "semanticKind": "project-reindex",
+                "title": ".idea/dataSources.xml",
+                "payload": {},
+            }),
+        )
+
     def test_legacy_memory_id_without_explicit_write_mode_is_candidate(self):
         self.assertEqual(
             "old-memory-without-explicit-write-mode",
@@ -76,6 +91,15 @@ class CleanupLegacyMemoryTest(unittest.TestCase):
                 "semanticKind": "memory-project_state",
                 "documentId": "mem_explicit",
                 "payload": {"writeMode": "explicit"},
+            }),
+        )
+        self.assertEqual(
+            "orphaned-fixture-delete",
+            MODULE.semantic_outbox_reason({
+                "operationKind": "project-delete",
+                "scopeKey": "fixture-repo-fa1378",
+                "status": "in_progress",
+                "payload": {},
             }),
         )
         self.assertEqual(
