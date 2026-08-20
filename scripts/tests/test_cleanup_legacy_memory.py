@@ -48,6 +48,68 @@ class CleanupLegacyMemoryTest(unittest.TestCase):
             }),
         )
 
+    def test_pending_legacy_semantic_outbox_write_is_candidate(self):
+        self.assertEqual(
+            "legacy-pending-semantic-write",
+            MODULE.semantic_outbox_reason({
+                "operationKind": "project-upsert",
+                "semanticKind": "prompt-thread-snapshot",
+                "documentId": "snapshot-1",
+                "payload": {},
+            }),
+        )
+        self.assertEqual(
+            "old-memory-pending-semantic-write",
+            MODULE.semantic_outbox_reason({
+                "operationKind": "project-upsert",
+                "semanticKind": "memory-preference",
+                "documentId": "memory-1",
+                "payload": {},
+            }),
+        )
+
+    def test_explicit_semantic_outbox_write_and_delete_are_retained(self):
+        self.assertEqual(
+            "",
+            MODULE.semantic_outbox_reason({
+                "operationKind": "project-upsert",
+                "semanticKind": "memory-project_state",
+                "documentId": "mem_explicit",
+                "payload": {"writeMode": "explicit"},
+            }),
+        )
+        self.assertEqual(
+            "",
+            MODULE.semantic_outbox_reason({
+                "operationKind": "project-delete",
+                "semanticKind": "prompt-thread-snapshot",
+                "documentId": "snapshot-1",
+                "payload": {},
+            }),
+        )
+        self.assertEqual(
+            "",
+            MODULE.semantic_outbox_reason({
+                "operationKind": "project-upsert",
+                "scopeKey": "fixture-repo-fa1378",
+                "semanticKind": "memory-project_state",
+                "documentId": "mem_explicit",
+                "payload": {"writeMode": "explicit"},
+            }),
+        )
+
+    def test_fixture_semantic_outbox_write_is_candidate(self):
+        self.assertEqual(
+            "fixture-pending-semantic-write",
+            MODULE.semantic_outbox_reason({
+                "operationKind": "project-upsert",
+                "scopeKey": "fixture-repo-fa1378",
+                "semanticKind": "project-reindex",
+                "documentId": "README.md",
+                "payload": {},
+            }),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

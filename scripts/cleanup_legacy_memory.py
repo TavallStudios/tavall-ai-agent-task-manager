@@ -4,9 +4,12 @@
 
 The script deliberately scopes Qdrant work to real BGE profile collections and
 never deletes fixture vectors. Postgres candidates must be implicit records
-with a linked legacy mutation; explicit records are retained. Redis cleanup
-only removes the exact-state working-memory namespace, because those values
-are derived caches and must be rebuilt from Postgres after the mutation.
+with a linked legacy mutation, or queued/in-progress semantic outbox writes
+that would recreate legacy raw interaction or non-explicit memory points.
+Explicit records and explicit semantic outbox writes are retained. Redis
+cleanup only removes the exact-state working-memory namespace, because those
+values are derived caches and must be rebuilt from Postgres after the
+mutation.
 """
 
 import argparse
@@ -142,6 +145,24 @@ def qdrant_reason(payload):
     document_id = str(payload.get("documentId", ""))
     if kind.startswith("memory-") or memory_id.startswith("mem_") or document_id.startswith("mem_"):
         return "old-memory-without-explicit-write-mode"
+    return ""
+
+
+def semantic_outbox_reason(entry):
+    """Classify only pending non-explicit writes that would recreate legacy data."""
+    if entry.get("operationKind") not in ("project-upsert", "knowledge-upsert"):
+        return ""
+    payload = entry.get("payload") or {}
+    if payload.get("writeMode") == "explicit":
+        return ""
+    if str(entry.get("scopeKey", "")).startswith("fixture-"):
+        return "fixture-pending-semantic-write"
+    kind = str(entry.get("semanticKind", "")).split(" [chunk", 1)[0]
+    document_id = str(entry.get("documentId", ""))
+    if kind in LEGACY_QDRANT_KINDS or kind.startswith(LEGACY_QDRANT_KIND_PREFIXES):
+        return "legacy-pending-semantic-write"
+    if kind.startswith("memory-") or document_id.startswith("mem_"):
+        return "old-memory-pending-semantic-write"
     return ""
 
 
@@ -307,27 +328,97 @@ ORDER BY memory.created_at, memory.memory_id
     }
 
 
-def apply_postgres(args):
+def inspect_semantic_outbox(args):
     sql = """
-BEGIN;
-CREATE TEMP TABLE legacy_memory_cleanup_candidates ON COMMIT DROP AS
-  SELECT memory.memory_id
-  FROM agent_task_manager.memory_records AS memory
-  WHERE memory.consent_level = 'implicit'
-    AND memory.metadata->>'writeMode' IS DISTINCT FROM 'explicit'
-    AND EXISTS (
-      SELECT 1
-      FROM agent_task_manager.memory_mutations AS linked
-      WHERE linked.memory_id = memory.memory_id
-        AND linked.action = ANY (ARRAY['CLOSE_TASK', 'SUPERSEDE_MEMORY', 'UPDATE_EXISTING_MEMORY', 'UPSERT_SEMANTIC_MEMORY'])
-    );
-DELETE FROM agent_task_manager.memory_mutations AS mutation
-WHERE mutation.memory_id IN (SELECT memory_id FROM legacy_memory_cleanup_candidates);
-DELETE FROM agent_task_manager.memory_records AS memory
-WHERE memory.memory_id IN (SELECT memory_id FROM legacy_memory_cleanup_candidates);
-COMMIT;
+SELECT COALESCE(
+  json_agg(
+    json_build_object(
+      'outboxId', outbox_id,
+      'operationKind', operation_kind,
+      'scopeKey', scope_key,
+      'documentId', document_id,
+      'semanticKind', semantic_kind,
+      'title', title,
+      'status', status,
+      'payload', payload
+    ) ORDER BY created_at, outbox_id
+  ),
+  '[]'::json
+)
+FROM agent_task_manager.semantic_sync_outbox
+WHERE status = ANY (ARRAY['queued', 'in_progress'])
 """
-    run_psql(args, sql)
+    raw = run_psql(args, sql).strip()
+    try:
+        entries = json.loads(raw or "[]")
+    except json.JSONDecodeError as exception:
+        raise RuntimeError(f"Unexpected semantic outbox JSON: {raw[:400]}") from exception
+    if not isinstance(entries, list):
+        raise RuntimeError("Semantic outbox query did not return a JSON array.")
+    candidates = []
+    by_reason = Counter()
+    by_kind = Counter()
+    for entry in entries:
+        reason = semantic_outbox_reason(entry)
+        if not reason:
+            continue
+        candidate = {
+            "outboxId": entry.get("outboxId", ""),
+            "operationKind": entry.get("operationKind", ""),
+            "scopeKey": entry.get("scopeKey", ""),
+            "documentId": entry.get("documentId", ""),
+            "semanticKind": entry.get("semanticKind", ""),
+            "status": entry.get("status", ""),
+            "reason": reason,
+        }
+        candidates.append(candidate)
+        by_reason[reason] += 1
+        by_kind[str(entry.get("semanticKind", ""))] += 1
+    return {
+        "pendingCount": len(entries),
+        "candidateCount": len(candidates),
+        "candidateByReason": by_reason,
+        "candidateByKind": by_kind,
+        "candidates": candidates,
+    }
+
+
+def sql_literals(values):
+    if not values:
+        return "NULL"
+    return ", ".join("'" + str(value).replace("'", "''") + "'" for value in values)
+
+
+def apply_postgres(args, memory_candidates, outbox_candidates):
+    memory_ids = sql_literals([candidate["memoryId"] for candidate in memory_candidates])
+    outbox_ids = sql_literals([candidate["outboxId"] for candidate in outbox_candidates])
+    sql = f"""
+WITH deleted_mutations AS (
+  DELETE FROM agent_task_manager.memory_mutations AS mutation
+  WHERE mutation.memory_id IN ({memory_ids})
+  RETURNING 1
+), deleted_memories AS (
+  DELETE FROM agent_task_manager.memory_records AS memory
+  WHERE memory.memory_id IN ({memory_ids})
+  RETURNING 1
+), deleted_outbox AS (
+  DELETE FROM agent_task_manager.semantic_sync_outbox AS outbox
+  WHERE outbox.outbox_id IN ({outbox_ids})
+  RETURNING 1
+)
+SELECT
+  (SELECT count(*) FROM deleted_mutations),
+  (SELECT count(*) FROM deleted_memories),
+  (SELECT count(*) FROM deleted_outbox);
+"""
+    fields = run_psql(args, sql).strip().split("|")
+    if len(fields) != 3:
+        raise RuntimeError(f"Unexpected Postgres cleanup counts: {fields}")
+    return {
+        "deletedMutationCount": int(fields[0]),
+        "deletedRecordCount": int(fields[1]),
+        "deletedOutboxCount": int(fields[2]),
+    }
 
 
 def redis_command(args):
@@ -407,6 +498,8 @@ def main():
     if not args.skip_postgres:
         postgres = inspect_postgres(args)
         report["postgres"] = summarized_report(postgres, "candidateRecords")
+        outbox = inspect_semantic_outbox(args)
+        report["semanticOutbox"] = summarized_report(outbox, "candidates")
     if not args.skip_redis:
         redis = inspect_redis(args)
         report["redis"] = redis
@@ -415,8 +508,14 @@ def main():
             apply_qdrant(qdrant, args.qdrant_url, args.qdrant_api_key)
         )
         if not args.skip_postgres:
-            apply_postgres(args)
+            applied = apply_postgres(
+                args,
+                postgres["candidateRecords"],
+                outbox["candidates"],
+            )
+            report["postgres"].update(applied)
             report["postgres"]["applied"] = True
+            report["semanticOutbox"]["applied"] = True
         if not args.skip_redis:
             report["redis"]["deletedKeyCount"] = apply_redis(args, report["redis"]["keys"])
             report["redis"]["remainingKeyCount"] = inspect_redis(args)["keyCount"]
