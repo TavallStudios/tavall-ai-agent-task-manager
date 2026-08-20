@@ -61,11 +61,35 @@ public class SemanticSyncService {
   }
 
   public void deleteProject(String projectKey, Map<String, Object> payloadFilter, String dedupeKey) {
-    applyDelete(outboxRepository.enqueueProjectDelete(projectKey, payloadFilter, dedupeKey));
+    deleteProject(projectKey, payloadFilter, dedupeKey, SemanticSyncMode.WRITE_THROUGH);
+  }
+
+  public void deleteProject(
+      String projectKey,
+      Map<String, Object> payloadFilter,
+      String dedupeKey,
+      SemanticSyncMode mode
+  ) {
+    SemanticSyncOutboxEntry entry = outboxRepository.enqueueProjectDelete(projectKey, payloadFilter, dedupeKey);
+    if (mode != SemanticSyncMode.BACKGROUND_ONLY) {
+      applyDelete(entry);
+    }
   }
 
   public void deleteKnowledge(String knowledgeBase, Map<String, Object> payloadFilter, String dedupeKey) {
-    applyDelete(outboxRepository.enqueueKnowledgeDelete(knowledgeBase, payloadFilter, dedupeKey));
+    deleteKnowledge(knowledgeBase, payloadFilter, dedupeKey, SemanticSyncMode.WRITE_THROUGH);
+  }
+
+  public void deleteKnowledge(
+      String knowledgeBase,
+      Map<String, Object> payloadFilter,
+      String dedupeKey,
+      SemanticSyncMode mode
+  ) {
+    SemanticSyncOutboxEntry entry = outboxRepository.enqueueKnowledgeDelete(knowledgeBase, payloadFilter, dedupeKey);
+    if (mode != SemanticSyncMode.BACKGROUND_ONLY) {
+      applyDelete(entry);
+    }
   }
 
   public int processPendingOperations() {
@@ -158,4 +182,3 @@ public class SemanticSyncService {
     return value == null ? "" : value;
   }
 }
-
