@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.tavall.ai.app.persistence.postgres.MemoryRecordRepository;
 import org.tavall.ai.app.retrieval.SemanticCollectionDomain;
 import org.tavall.ai.app.retrieval.SemanticContentType;
@@ -48,7 +50,7 @@ public class MemoryRecordService {
     if (superseded != null) {
       record = recordRepository.createMemory(identity, "", sourceEventId, plan);
       recordRepository.supersede(superseded.memoryId(), record.memoryId());
-      deleteSemanticRecord(superseded);
+      enqueueSemanticDelete(superseded);
     } else {
       Optional<MemoryRecord> existing = recordRepository.findStableRecord(identity, plan);
       if (existing.isPresent()) {
@@ -65,8 +67,8 @@ public class MemoryRecordService {
       }
     }
 
-    syncSemanticRecord(record, sourceReference);
-    retrievalService.refreshExactStateAfterWrite(identity, record.scope());
+    enqueueSemanticRecord(record, sourceReference);
+    refreshExactStateAfterCommit(identity, record.scope());
     return record;
   }
 
@@ -139,7 +141,7 @@ public class MemoryRecordService {
     return new IllegalArgumentException("memory is outside the current authority scope: " + memoryId);
   }
 
-  private void syncSemanticRecord(MemoryRecord record, String sourceReference) {
+  private void enqueueSemanticRecord(MemoryRecord record, String sourceReference) {
     String semanticProjectId = semanticProjectId(record);
     if (semanticProjectId.isBlank()) {
       return;
@@ -160,7 +162,7 @@ public class MemoryRecordService {
     if (!sourceReference.isBlank()) {
       payload.put("sourceReference", sourceReference);
     }
-    semanticMemoryService.storeProjectDocument(
+    semanticMemoryService.enqueueProjectDocumentStrict(
         semanticProjectId,
         new SemanticDocumentRequest(
             record.memoryId(),
@@ -177,15 +179,28 @@ public class MemoryRecordService {
     );
   }
 
-  private void deleteSemanticRecord(MemoryRecord record) {
+  private void enqueueSemanticDelete(MemoryRecord record) {
     String semanticProjectId = semanticProjectId(record);
     if (!semanticProjectId.isBlank()) {
-      semanticMemoryService.deleteProjectContexts(
+      semanticMemoryService.enqueueProjectDeleteStrict(
           semanticProjectId,
           Map.of("memoryId", record.memoryId()),
           "memory-delete:" + record.memoryId() + ":v" + record.version()
       );
     }
+  }
+
+  private void refreshExactStateAfterCommit(MemoryIdentity identity, MemoryScope scope) {
+    if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+      retrievalService.refreshExactStateAfterWrite(identity, scope);
+      return;
+    }
+    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+      @Override
+      public void afterCommit() {
+        retrievalService.refreshExactStateAfterWrite(identity, scope);
+      }
+    });
   }
 
   private String semanticProjectId(MemoryRecord record) {
