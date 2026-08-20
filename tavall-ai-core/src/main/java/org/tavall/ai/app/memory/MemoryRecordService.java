@@ -18,6 +18,8 @@ import org.tavall.ai.app.retrieval.SemanticMemoryService;
 @Service
 public class MemoryRecordService {
 
+  private static final String SEMANTIC_PROJECT_ID = "semanticProjectId";
+
   private final MemoryRecordRepository recordRepository;
   private final MemoryRetrievalService retrievalService;
   private final SemanticMemoryService semanticMemoryService;
@@ -34,16 +36,19 @@ public class MemoryRecordService {
 
   @Transactional
   public MemoryRecord record(MemoryIdentity identity, MemoryWriteRequest request) {
-    MemoryMutationPlan plan = plan(request);
+    MemoryMutationPlan plan = plan(identity, request);
     String sourceReference = blank(request.sourceReference());
     String sourceEventId = sourceReference.isBlank() ? "explicit-memory:" + plan.titleKey() : sourceReference;
+    String supersedesMemoryId = blank(request.supersedesMemoryId());
+    MemoryRecord superseded = supersedesMemoryId.isBlank()
+        ? null
+        : accessibleSupersessionTarget(identity, supersedesMemoryId);
 
     MemoryRecord record;
-    if (!blank(request.supersedesMemoryId()).isBlank()) {
+    if (superseded != null) {
       record = recordRepository.createMemory(identity, "", sourceEventId, plan);
-      MemoryRecord superseded = recordRepository.getById(request.supersedesMemoryId().strip());
       recordRepository.supersede(superseded.memoryId(), record.memoryId());
-      deleteSemanticRecord(identity, superseded);
+      deleteSemanticRecord(superseded);
     } else {
       Optional<MemoryRecord> existing = recordRepository.findStableRecord(identity, plan);
       if (existing.isPresent()) {
@@ -60,12 +65,12 @@ public class MemoryRecordService {
       }
     }
 
-    syncSemanticRecord(identity, record, sourceReference);
+    syncSemanticRecord(record, sourceReference);
     retrievalService.refreshExactState(identity);
     return record;
   }
 
-  private MemoryMutationPlan plan(MemoryWriteRequest request) {
+  private MemoryMutationPlan plan(MemoryIdentity identity, MemoryWriteRequest request) {
     if (request == null) {
       throw new IllegalArgumentException("memory write request is required");
     }
@@ -76,6 +81,9 @@ public class MemoryRecordService {
     int importance = request.importance() == null ? 75 : Math.max(0, Math.min(100, request.importance()));
     Map<String, Object> metadata = new LinkedHashMap<>(request.metadata() == null ? Map.of() : request.metadata());
     metadata.put("writeMode", "explicit");
+    if (!blank(identity.projectId()).isBlank()) {
+      metadata.put(SEMANTIC_PROJECT_ID, identity.projectId().strip());
+    }
     if (!blank(request.sourceReference()).isBlank()) {
       metadata.put("sourceReference", request.sourceReference().strip());
     }
@@ -92,32 +100,59 @@ public class MemoryRecordService {
             .toList(),
         importance,
         blank(request.sensitivity()).isBlank() ? "internal" : request.sensitivity().strip(),
-        blank(request.consentLevel()).isBlank() ? "explicit" : request.consentLevel().strip(),
+        "explicit",
         Map.copyOf(metadata)
     );
   }
 
-  private void syncSemanticRecord(MemoryIdentity identity, MemoryRecord record, String sourceReference) {
-    if (identity.projectId().isBlank()) {
+  private MemoryRecord accessibleSupersessionTarget(MemoryIdentity identity, String memoryId) {
+    MemoryRecord record = recordRepository.getById(memoryId.strip());
+    if (!same(record.userId(), identity.userId()) || !same(record.workspaceId(), identity.workspaceId())) {
+      throw inaccessible(memoryId);
+    }
+    if (!"active".equals(record.status()) || record.tombstoned() || !blank(record.supersededBy()).isBlank()) {
+      throw new IllegalArgumentException("superseded memory must be active: " + memoryId);
+    }
+    boolean accessible = switch (record.scope()) {
+      case GLOBAL -> true;
+      case PROJECT -> same(record.projectId(), identity.projectId());
+      case SESSION -> same(record.projectId(), identity.projectId())
+          && same(record.chatId(), identity.chatId())
+          && same(record.threadKey(), identity.threadKey());
+    };
+    if (!accessible) {
+      throw inaccessible(memoryId);
+    }
+    return record;
+  }
+
+  private IllegalArgumentException inaccessible(String memoryId) {
+    return new IllegalArgumentException("memory is outside the current authority scope: " + memoryId);
+  }
+
+  private void syncSemanticRecord(MemoryRecord record, String sourceReference) {
+    String semanticProjectId = semanticProjectId(record);
+    if (semanticProjectId.isBlank()) {
       return;
     }
     Map<String, Object> payload = new LinkedHashMap<>(record.metadata());
     payload.put("memoryId", record.memoryId());
-    payload.put("userId", identity.userId());
-    payload.put("workspaceId", identity.workspaceId());
-    payload.put("projectId", identity.projectId());
-    payload.put("threadKey", identity.threadKey());
+    payload.put("userId", record.userId());
+    payload.put("workspaceId", record.workspaceId());
+    payload.put("projectId", record.projectId());
+    payload.put("threadKey", record.threadKey());
     payload.put("scope", record.scope().name());
     payload.put("status", record.status());
     payload.put("tombstoned", record.tombstoned());
     payload.put("importance", record.importance());
     payload.put("updatedAt", record.updatedAt().toString());
     payload.put("writeMode", "explicit");
+    payload.put(SEMANTIC_PROJECT_ID, semanticProjectId);
     if (!sourceReference.isBlank()) {
       payload.put("sourceReference", sourceReference);
     }
     semanticMemoryService.storeProjectDocument(
-        identity.projectId(),
+        semanticProjectId,
         new SemanticDocumentRequest(
             record.memoryId(),
             "",
@@ -133,10 +168,24 @@ public class MemoryRecordService {
     );
   }
 
-  private void deleteSemanticRecord(MemoryIdentity identity, MemoryRecord record) {
-    if (!identity.projectId().isBlank()) {
-      semanticMemoryService.deleteProjectContexts(identity.projectId(), Map.of("memoryId", record.memoryId()));
+  private void deleteSemanticRecord(MemoryRecord record) {
+    String semanticProjectId = semanticProjectId(record);
+    if (!semanticProjectId.isBlank()) {
+      semanticMemoryService.deleteProjectContexts(
+          semanticProjectId,
+          Map.of("memoryId", record.memoryId()),
+          "memory-delete:" + record.memoryId() + ":v" + record.version()
+      );
     }
+  }
+
+  private String semanticProjectId(MemoryRecord record) {
+    Object value = record.metadata().get(SEMANTIC_PROJECT_ID);
+    String metadataProject = value == null ? "" : String.valueOf(value).strip();
+    if (!metadataProject.isBlank()) {
+      return metadataProject;
+    }
+    return blank(record.projectId());
   }
 
   private String semanticBody(MemoryRecord record) {
@@ -153,6 +202,10 @@ public class MemoryRecordService {
       throw new IllegalArgumentException(name + " is required for explicit memory writes");
     }
     return value.strip();
+  }
+
+  private boolean same(String first, String second) {
+    return blank(first).equals(blank(second));
   }
 
   private String blank(String value) {
