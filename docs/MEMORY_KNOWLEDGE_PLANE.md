@@ -101,6 +101,12 @@ export APP_MEMORY_RUNTIME_GRAPHITI_MCP_ENDPOINT=http://127.0.0.1:8000/mcp
 export APP_MEMORY_RUNTIME_GRAPHITI_GROUP_ID=tavall
 ```
 
+For the dev seed-backed memory plane, set
+`AGENT_TASK_MANAGER_MEMORY_SYNC_MANAGED_REPO_BACKFILL_ENABLED=false`. This
+keeps ordinary restarts from scanning every repository visible to the broad
+workspace catalog; explicit repository reindex/sync tools and Graphify remain
+available for selected workspaces.
+
 ## Seed data
 
 `seed/tavall-memory-dev` is the portable development seed. It stores payloads, not production vectors.
