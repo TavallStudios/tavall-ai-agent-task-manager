@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.tavall.ai.app.console.Log;
 import org.tavall.ai.app.persistence.postgres.MemoryRecordRepository;
 import org.tavall.ai.app.retrieval.SemanticCollectionDomain;
 import org.tavall.ai.app.retrieval.SemanticContentType;
@@ -42,9 +43,23 @@ public class MemoryRecordService {
     String sourceReference = blank(request.sourceReference());
     String sourceEventId = sourceReference.isBlank() ? "explicit-memory:" + plan.titleKey() : sourceReference;
     String supersedesMemoryId = blank(request.supersedesMemoryId());
-    MemoryRecord superseded = supersedesMemoryId.isBlank()
-        ? null
-        : accessibleSupersessionTarget(identity, plan.scope(), supersedesMemoryId);
+
+    MemoryRecord superseded = null;
+    if (supersedesMemoryId.isBlank()) {
+      recordRepository.lockStableRecordIdentity(identity, plan);
+    } else {
+      MemoryRecord candidate = accessibleSupersessionTarget(identity, plan.scope(), supersedesMemoryId);
+      recordRepository.lockStableRecordIdentities(identity, plan, candidate);
+      superseded = accessibleSupersessionTarget(identity, plan.scope(), supersedesMemoryId);
+      Optional<MemoryRecord> conflictingReplacement = recordRepository.findStableRecord(identity, plan);
+      if (conflictingReplacement.isPresent()
+          && !conflictingReplacement.get().memoryId().equals(superseded.memoryId())) {
+        throw new IllegalArgumentException(
+            "an active memory already owns the replacement stable identity: "
+                + conflictingReplacement.get().memoryId()
+        );
+      }
+    }
 
     MemoryRecord record;
     if (superseded != null) {
@@ -192,15 +207,28 @@ public class MemoryRecordService {
 
   private void refreshExactStateAfterCommit(MemoryIdentity identity, MemoryScope scope) {
     if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-      retrievalService.refreshExactStateAfterWrite(identity, scope);
+      safeRefreshExactState(identity, scope);
       return;
     }
     TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
       @Override
       public void afterCommit() {
-        retrievalService.refreshExactStateAfterWrite(identity, scope);
+        safeRefreshExactState(identity, scope);
       }
     });
+  }
+
+  private void safeRefreshExactState(MemoryIdentity identity, MemoryScope scope) {
+    try {
+      retrievalService.refreshExactStateAfterWrite(identity, scope);
+    } catch (RuntimeException exception) {
+      Log.warn(
+          "Committed memory write could not refresh exact-state cache for projectId={} scope={}: {}",
+          identity.projectId(),
+          scope,
+          exception.getMessage()
+      );
+    }
   }
 
   private String semanticProjectId(MemoryRecord record) {
