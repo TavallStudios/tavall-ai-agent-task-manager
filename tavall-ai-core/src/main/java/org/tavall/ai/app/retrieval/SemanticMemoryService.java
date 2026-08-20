@@ -74,10 +74,19 @@ public class SemanticMemoryService {
       String dedupeKey
   ) {
     try {
-      semanticSyncService.storeProjectDocument(projectKey, request, dedupeKey, SemanticSyncMode.BACKGROUND_ONLY);
+      enqueueProjectDocumentStrict(projectKey, request, dedupeKey);
     } catch (RuntimeException exception) {
       Log.warn("Semantic project enqueue failed for projectKey={}: {}", projectKey, exception.getMessage());
     }
+  }
+
+  /** Enqueues a project semantic mutation and propagates persistence failures to the owning transaction. */
+  public void enqueueProjectDocumentStrict(
+      String projectKey,
+      SemanticDocumentRequest request,
+      String dedupeKey
+  ) {
+    semanticSyncService.storeProjectDocument(projectKey, request, dedupeKey, SemanticSyncMode.BACKGROUND_ONLY);
   }
 
   public List<String> storeKnowledgeDocument(
@@ -144,6 +153,11 @@ public class SemanticMemoryService {
     } catch (RuntimeException exception) {
       Log.warn("Semantic project delete failed for projectKey={}: {}", projectKey, exception.getMessage());
     }
+  }
+
+  /** Enqueues a project semantic delete and propagates persistence failures to the owning transaction. */
+  public void enqueueProjectDeleteStrict(String projectKey, Map<String, Object> payloadFilter, String dedupeKey) {
+    semanticSyncService.deleteProject(projectKey, payloadFilter, dedupeKey, SemanticSyncMode.BACKGROUND_ONLY);
   }
 
   public void deleteKnowledgeContexts(String knowledgeBase, Map<String, Object> payloadFilter) {
