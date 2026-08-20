@@ -129,7 +129,8 @@ public class MemoryRetrievalService {
   }
 
   public List<MemoryRecord> loadExactState(MemoryIdentity identity) {
-    return hotStateStore.loadWorkingMemory(identity.cacheKey())
+    String cacheKey = exactStateCacheKey(identity);
+    return hotStateStore.loadWorkingMemory(cacheKey)
         .flatMap(serialized -> hotStateStore.readJson(serialized, new TypeReference<List<MemoryRecord>>() {
         }))
         .orElseGet(() -> refreshExactState(identity));
@@ -137,8 +138,15 @@ public class MemoryRetrievalService {
 
   public List<MemoryRecord> refreshExactState(MemoryIdentity identity) {
     List<MemoryRecord> records = memoryRecordRepository.loadExactState(identity, properties.getExactStateLimit());
-    hotStateStore.storeWorkingMemory(identity.cacheKey(), records, properties.getHotStateTtl());
+    hotStateStore.storeWorkingMemory(exactStateCacheKey(identity), records, properties.getHotStateTtl());
     return records;
+  }
+
+  public List<MemoryRecord> refreshExactStateAfterWrite(MemoryIdentity identity, MemoryScope scope) {
+    if (scope == MemoryScope.GLOBAL) {
+      hotStateStore.incrementWorkingMemoryRevision(authorityKey(identity));
+    }
+    return refreshExactState(identity);
   }
 
   public List<RetrievedSemanticContext> searchSemantic(MemoryIdentity identity, String queryText) {
@@ -187,6 +195,15 @@ public class MemoryRetrievalService {
         .sorted(Comparator.comparingDouble(this::compositeScore).reversed())
         .limit(properties.getSemanticCandidateLimit())
         .toList();
+  }
+
+  private String exactStateCacheKey(MemoryIdentity identity) {
+    long globalRevision = hotStateStore.workingMemoryRevision(authorityKey(identity));
+    return identity.cacheKey() + "|global-revision=" + globalRevision;
+  }
+
+  private String authorityKey(MemoryIdentity identity) {
+    return blank(identity.userId()) + "|" + blank(identity.workspaceId());
   }
 
   private String semanticIdentity(RetrievedSemanticContext context) {
