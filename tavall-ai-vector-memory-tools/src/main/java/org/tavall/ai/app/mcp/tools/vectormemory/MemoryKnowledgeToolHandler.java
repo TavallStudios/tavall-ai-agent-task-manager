@@ -232,9 +232,8 @@ public class MemoryKnowledgeToolHandler extends McpToolSupport implements McpToo
     properties.put("facts", Map.of("type", "array", "items", Map.of("type", "string"), "description", "Optional distilled supporting facts."));
     properties.put("importance", integerProperty("Importance from 0 to 100; defaults to 75."));
     properties.put("sensitivity", stringProperty("Sensitivity label; defaults to internal."));
-    properties.put("consentLevel", stringProperty("Write authority label; defaults to explicit."));
     properties.put("sourceReference", stringProperty("Evidence reference such as repo, PR, commit, issue, run, or session path."));
-    properties.put("supersedesMemoryId", stringProperty("Optional memory id explicitly superseded by this record."));
+    properties.put("supersedesMemoryId", stringProperty("Optional active memory id in the same authority and scope."));
     properties.put("metadata", objectProperty("Additional structured provenance metadata."));
     return properties;
   }
