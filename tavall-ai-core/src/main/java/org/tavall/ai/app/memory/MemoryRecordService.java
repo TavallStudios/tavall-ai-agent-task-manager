@@ -66,7 +66,7 @@ public class MemoryRecordService {
     }
 
     syncSemanticRecord(record, sourceReference);
-    retrievalService.refreshExactState(identity);
+    retrievalService.refreshExactStateAfterWrite(identity, record.scope());
     return record;
   }
 
