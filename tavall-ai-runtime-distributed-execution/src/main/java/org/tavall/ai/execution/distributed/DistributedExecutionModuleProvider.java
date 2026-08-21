@@ -2,10 +2,12 @@ package org.tavall.ai.execution.distributed;
 
 import org.tavall.ai.bootstrap.TavallAIModule;
 import org.tavall.ai.bootstrap.TavallAIModuleProvider;
+import org.tavall.dependency.annotations.DelegatesTo;
 
 import java.util.Set;
 
 /** Bootstrap descriptor for the Tavall AI distributed execution capability module. */
+@DelegatesTo
 public final class DistributedExecutionModuleProvider implements TavallAIModuleProvider {
     public static final String MODULE_ID = "distributed-execution";
 

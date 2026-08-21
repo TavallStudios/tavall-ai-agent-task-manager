@@ -5,10 +5,12 @@ import org.tavall.agent.TavallAgentCapability;
 import org.tavall.agent.TavallAgentInstructions;
 import org.tavall.agent.TavallAgentKind;
 import org.tavall.agent.TavallAgentProvider;
+import org.tavall.dependency.annotations.DelegatesTo;
 
 import java.util.Set;
 
 /** Independent exact-head repository and pull-request review agent. */
+@DelegatesTo
 public final class ReviewAgentProvider implements TavallAgentProvider {
     public static final String AGENT_ID = "review";
 

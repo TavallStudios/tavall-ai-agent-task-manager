@@ -5,10 +5,12 @@ import org.tavall.agent.TavallAgentCapability;
 import org.tavall.agent.TavallAgentInstructions;
 import org.tavall.agent.TavallAgentKind;
 import org.tavall.agent.TavallAgentProvider;
+import org.tavall.dependency.annotations.DelegatesTo;
 
 import java.util.Set;
 
 /** Broad structural migration agent with explicit architecture mutation requirements. */
+@DelegatesTo
 public final class ArchitectureAgentProvider implements TavallAgentProvider {
     public static final String AGENT_ID = "architecture";
 

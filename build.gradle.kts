@@ -9,8 +9,11 @@ apply(from = "gradle/git-version.gradle.kts")
 version = extra["gitVersion"] as String
 
 val junitVersion = "5.12.2"
-val agentProviderService = "org.tavall.agent.TavallAgentProvider"
-val moduleProviderService = "org.tavall.ai.bootstrap.TavallAIModuleProvider"
+val tavallPlatformVersion = "1.0.0"
+val agentProviderIndex = "META-INF/tavall/agent-provider"
+val moduleProviderIndex = "META-INF/tavall/runtime-module-provider"
+val legacyAgentProviderService = "META-INF/services/org.tavall.agent.TavallAgentProvider"
+val legacyModuleProviderService = "META-INF/services/org.tavall.ai.bootstrap.TavallAIModuleProvider"
 val agentProjects = listOf(
     "tavall-agent-scheduler",
     "tavall-agent-orchestration",
@@ -40,9 +43,27 @@ subprojects {
 
     repositories {
         mavenCentral()
+        val githubToken = providers.environmentVariable("GITHUB_TOKEN").orNull
+        if (!githubToken.isNullOrBlank()) {
+            listOf(
+                "tavall-di",
+                "tavall-registry",
+                "tavall-concurrency",
+                "tavall-logging",
+            ).forEach { repository ->
+                maven("https://maven.pkg.github.com/TavallStudios/$repository") {
+                    name = "github${repository.replace("-", "")}"
+                    credentials {
+                        username = providers.environmentVariable("GITHUB_ACTOR").orElse("github").get()
+                        password = githubToken
+                    }
+                }
+            }
+        }
     }
 
     dependencies {
+        "implementation"("org.tavall:tavall-di:$tavallPlatformVersion")
         "testImplementation"(platform("org.junit:junit-bom:$junitVersion"))
         "testImplementation"("org.junit.jupiter:junit-jupiter")
         "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
@@ -88,6 +109,19 @@ subprojects {
     }
 }
 
+project(":tavall-ai-bootstrap") {
+    dependencies {
+        "api"("org.tavall:tavall-registry:$tavallPlatformVersion")
+    }
+}
+
+project(":tavall-ai-runtime") {
+    dependencies {
+        "implementation"("org.tavall:tavall-concurrency:$tavallPlatformVersion")
+        "implementation"("org.tavall:tavall-logging:$tavallPlatformVersion")
+    }
+}
+
 configure(agentProjects.map(::project)) {
     dependencies {
         "api"(project(":tavall-ai-bootstrap"))
@@ -95,18 +129,22 @@ configure(agentProjects.map(::project)) {
 
     val verifyAgentDescriptor = tasks.register("verifyAgentDescriptor") {
         group = "verification"
-        description = "Verifies this Tavall agent publishes one provider and one canonical ROLE.md."
+        description = "Verifies this Tavall agent publishes one DI provider index, no first-party ServiceLoader descriptor, and one canonical ROLE.md."
         doLast {
-            val serviceFile = file("src/main/resources/META-INF/services/$agentProviderService")
-            check(serviceFile.isFile) {
-                "Missing Tavall agent ServiceLoader registration for $path: $serviceFile"
+            val providerFile = file("src/main/resources/$agentProviderIndex")
+            check(providerFile.isFile) {
+                "Missing Tavall agent provider index for $path: $providerFile"
             }
-            val providers = serviceFile.readLines()
+            val providers = providerFile.readLines()
                 .map(String::trim)
                 .filter(String::isNotBlank)
                 .filterNot { it.startsWith("#") }
             check(providers.size == 1) {
                 "Expected exactly one Tavall agent provider for $path, found ${providers.size}"
+            }
+            val legacyServiceFile = file("src/main/resources/$legacyAgentProviderService")
+            check(!legacyServiceFile.exists()) {
+                "First-party ServiceLoader agent composition is forbidden: $legacyServiceFile"
             }
 
             val roleDocuments = fileTree("src/main/resources") {
@@ -129,18 +167,22 @@ configure(agentProjects.map(::project)) {
 configure(runtimeModuleProjects.map(::project)) {
     val verifyRuntimeModuleDescriptor = tasks.register("verifyRuntimeModuleDescriptor") {
         group = "verification"
-        description = "Verifies this Tavall AI runtime capability module publishes exactly one module provider."
+        description = "Verifies this runtime module publishes one DI provider index and no first-party ServiceLoader descriptor."
         doLast {
-            val serviceFile = file("src/main/resources/META-INF/services/$moduleProviderService")
-            check(serviceFile.isFile) {
-                "Missing Tavall AI runtime-module ServiceLoader registration for $path: $serviceFile"
+            val providerFile = file("src/main/resources/$moduleProviderIndex")
+            check(providerFile.isFile) {
+                "Missing Tavall AI runtime-module provider index for $path: $providerFile"
             }
-            val providers = serviceFile.readLines()
+            val providers = providerFile.readLines()
                 .map(String::trim)
                 .filter(String::isNotBlank)
                 .filterNot { it.startsWith("#") }
             check(providers.size == 1) {
                 "Expected exactly one Tavall AI runtime module provider for $path, found ${providers.size}"
+            }
+            val legacyServiceFile = file("src/main/resources/$legacyModuleProviderService")
+            check(!legacyServiceFile.exists()) {
+                "First-party ServiceLoader runtime-module composition is forbidden: $legacyServiceFile"
             }
         }
     }

@@ -5,10 +5,12 @@ import org.tavall.agent.TavallAgentCapability;
 import org.tavall.agent.TavallAgentInstructions;
 import org.tavall.agent.TavallAgentKind;
 import org.tavall.agent.TavallAgentProvider;
+import org.tavall.dependency.annotations.DelegatesTo;
 
 import java.util.Set;
 
 /** Builder domain agent. The model/runtime is supplied by the parent Tavall AI runtime. */
+@DelegatesTo
 public final class BuilderAgentProvider implements TavallAgentProvider {
     public static final String AGENT_ID = "builder";
 

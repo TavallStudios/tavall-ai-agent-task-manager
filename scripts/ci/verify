@@ -6,6 +6,14 @@ cd "$ROOT"
 
 MAX_WORKERS="${TAVALL_CI_MAX_WORKERS:-2}"
 
+if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+  cat >&2 <<'EOF'
+ERROR: GITHUB_TOKEN is required for Tavall AI verification because the build resolves required Tavall Java Tools packages from the canonical TavallStudios GitHub Packages repositories.
+Set a local GitHub Packages token with package read access, then rerun scripts/ci/verify. GitHub-hosted Actions are not required or used by this verifier.
+EOF
+  exit 2
+fi
+
 # This is the canonical Tavall AI verification entrypoint. Remote CI wrappers must not
 # duplicate build logic; Tavall development execution surfaces invoke this script locally.
 exec ./gradlew \
