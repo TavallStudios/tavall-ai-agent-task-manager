@@ -172,6 +172,13 @@ service runs the staged Gradle distribution from the rollback-friendly
 `/etc/agenttaskmanager-memory-plane.env` fragment. The application accepts the
 existing `DB_URL`, `DB_USER`, and `DB_PASS` names as datasource aliases.
 
+When the OpenAI ChatGPT tunnel is enabled, also install
+`deploy/agenttaskmanager-chatgpt-mcp.env.example` as the separate
+`/etc/agenttaskmanager-chatgpt-mcp.env` fragment and keep the existing Tavall
+Cloud ChatGPT environment file available to the service template. This starts
+the private Cloud-only MCP socket in this same AgentTaskManager process; it
+does not start a second JVM or attach the memory-plane sidecars to ChatGPT.
+
 After staging a release, copy the distribution, `docs/`, `mcp-servers/`,
 `scripts/fastembed_embed.py`, and the seed tooling under a versioned release
 directory, advance `current`, run `systemctl daemon-reload`, and restart

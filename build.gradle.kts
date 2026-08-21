@@ -13,7 +13,7 @@ apply(from = "gradle/git-version.gradle.kts")
 version = extra["gitVersion"] as String
 
 val springBootVersion = "4.0.5"
-val mcpSdkVersion = "1.0.0"
+val mcpSdkVersion = "2.0.1"
 val mongodbDriverVersion = "5.6.4"
 val archunitVersion = "1.4.1"
 val spoonVersion = "11.3.0"
@@ -223,6 +223,8 @@ project(":tavall-ai-app") {
         "implementation"(project(":tavall-ai-spring-webview"))
         "implementation"(project(":tavall-ai-clean-java-mcp"))
         "implementation"(project(":tavall-ai-clean-java-harness"))
+        "implementation"("org.tavall.cloud:tavall-cloud:1.0.0-SNAPSHOT")
+        "implementation"("org.tavall.cloud:tavall-cloud-chatgpt-web:1.0.0-SNAPSHOT")
         coreDependentProjects
             .filterNot { it in setOf("tavall-ai-clean-java-mcp", "tavall-ai-clean-java-harness", "tavall-ai-spring-webview") }
             .forEach { "implementation"(project(":$it")) }

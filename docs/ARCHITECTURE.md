@@ -123,3 +123,20 @@ The default runtime path starts embedded Tomcat directly from the app module and
 ## Remote Path
 
 The standalone app runtime exposes the MCP servlet endpoint remotely by default. Local stdio and remote HTTP modes share the same tool catalog and internal service boundaries, while the compatibility Spring adapter remains available for phased migration and test coverage.
+
+### ChatGPT Cloud gateway
+
+The optional ChatGPT gateway is a private Unix-socket ingress in the existing
+AgentTaskManager process. It is not another AgentTaskManager JVM and it does
+not route through the central harness `McpCatalog`, `BackendProxyToolProvider`,
+or any repository-execution fallback. For each socket connection it first
+proves the Tavall Cloud CONTROL channel, then builds the typed Cloud catalog
+directly with the official Java MCP SDK transport. CONTROL loss closes that
+connection fail-closed.
+
+The external tunnel may hold one active socket session. A replacement session
+closes the previous one so process-local MCP state cannot drift across tunnel
+reconnects. This ingress is disabled by default and is enabled only by the
+deployment profile that supplies its socket path, group, and Cloud CONTROL
+identity paths. It advertises a distinct server name/version to make external
+catalog-discovery evidence unambiguous.

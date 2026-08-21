@@ -3,6 +3,7 @@ package org.tavall.ai.app;
 import org.tavall.ai.app.config.CodexBridgeProperties;
 import org.tavall.ai.app.config.CodexClientPlatformProperties;
 import org.tavall.ai.app.config.CodexExecutionProperties;
+import org.tavall.ai.app.config.ChatGPTMcpGatewayProperties;
 import org.tavall.ai.app.config.ComputerUseProperties;
 import org.tavall.ai.app.config.EmbeddingProperties;
 import org.tavall.ai.app.config.KnowledgeIndexProperties;
@@ -49,6 +50,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     MemoryRuntimeProperties.class,
     OrchestrationProperties.class,
     McpServerProperties.class,
+    ChatGPTMcpGatewayProperties.class,
     ToolPolicyProperties.class
 })
 public class AgentTaskManagerApplication {
@@ -57,4 +59,3 @@ public class AgentTaskManagerApplication {
     SpringApplication.run(AgentTaskManagerApplication.class, args);
   }
 }
-
