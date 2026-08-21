@@ -1,7 +1,7 @@
 {
   "name": "tavall-ai",
-  "version": "0.1.0",
-  "description": "Own the local AgentTaskManager MCP runtime, startup helpers, and bundled harness skill for Codex.",
+  "version": "0.2.0",
+  "description": "Own the local AgentTaskManager MCP runtime, startup helpers, harness workflows, and Tavall exact-head local CI completion behavior.",
   "author": {
     "name": "TJ",
     "url": "https://docs.tavall.org/tavall-ai"
@@ -13,14 +13,16 @@
     "mcp",
     "harness",
     "codex",
-    "git-workflow"
+    "git-workflow",
+    "local-ci",
+    "github-checks"
   ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Agent Task Manager",
-    "shortDescription": "Own the ATM MCP runtime and harness workflow",
-    "longDescription": "Use the AgentTaskManager plugin to register the local ATM MCP server, bootstrap the optional operator surface, and load the bundled cross-repo harness skill. The harness owns memory lookup and repo sync, repo-context and worker-context include memory, and changed files are synced automatically.",
+    "shortDescription": "Own ATM workflows and Tavall local CI",
+    "longDescription": "Use the AgentTaskManager plugin to register the local ATM MCP server, bootstrap the optional operator surface, load the bundled cross-repo harness skill, and require durable exact-head Tavall local CI evidence before completing diff-producing Tavall engineering runs.",
     "developerName": "TJ",
     "category": "Coding",
     "capabilities": [
@@ -35,9 +37,9 @@
       "Expect harness transcript messages for memory lookup, Java symbol preload, semantic sync, tool policy, tool calls, and git workflow outcome",
       "Start the local ATM MCP runtime for this repo",
       "Bring up the ATM operator surface if local HTTP control is needed",
-      "Treat repo-context and worker-context as the memory-bearing entry points, rely on automatic changed-file and Java-symbol sync, and collapse each diff-producing prompt into one git workflow commit"
+      "Treat repo-context and worker-context as the memory-bearing entry points, rely on automatic changed-file and Java-symbol sync, and collapse each diff-producing prompt into one git workflow commit",
+      "Before completing any diff-producing Tavall engineering run, use the bundled tavall-local-ci skill to submit durable profile=all validation for the exact final HEAD"
     ],
     "brandColor": "#0F766E"
   }
 }
-
