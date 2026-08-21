@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,9 +26,52 @@ class FileTavallProductIntelligenceStoreTest {
         new FileTavallProductIntelligenceStore(root).record(entry);
 
         FileTavallProductIntelligenceStore reopened = new FileTavallProductIntelligenceStore(root);
-        assertEquals(java.util.List.of(entry), reopened.load("project/novus web", "web"));
-        assertEquals(java.util.List.of(), reopened.load("tavall-pvp", "web"));
+        assertEquals(List.of(entry), reopened.load("project/novus web", "web"));
+        assertEquals(List.of(), reopened.load("tavall-pvp", "web"));
         assertFalse(Files.exists(root.resolve("project/novus web")), "product ids must never become raw paths");
+    }
+
+    @Test
+    void persistsAtomicBatchAcrossStoreInstances(@TempDir Path root) throws Exception {
+        TavallProductIntelligenceEntry accepted = entry(
+                "accepted-home",
+                "project-novus",
+                "web",
+                TavallProductIntelligenceDisposition.ACCEPTED
+        );
+        TavallProductIntelligenceEntry rejected = entry(
+                "rejected-home",
+                "project-novus",
+                "web",
+                TavallProductIntelligenceDisposition.REJECTED
+        );
+        FileTavallProductIntelligenceStore store = new FileTavallProductIntelligenceStore(root);
+
+        store.recordAll(List.of(accepted, rejected));
+
+        assertEquals(List.of(accepted, rejected), new FileTavallProductIntelligenceStore(root)
+                .load("project-novus", "web"));
+    }
+
+    @Test
+    void invalidAtomicBatchLeavesNoEarlierEntryVisible(@TempDir Path root) throws Exception {
+        TavallProductIntelligenceEntry valid = entry(
+                "accepted-home",
+                "project-novus",
+                "web",
+                TavallProductIntelligenceDisposition.ACCEPTED
+        );
+        TavallProductIntelligenceEntry invalid = entry(
+                "rejected-home",
+                "project-novus",
+                "..",
+                TavallProductIntelligenceDisposition.REJECTED
+        );
+        FileTavallProductIntelligenceStore store = new FileTavallProductIntelligenceStore(root);
+
+        assertThrows(IllegalArgumentException.class, () -> store.recordAll(List.of(valid, invalid)));
+
+        assertEquals(List.of(), store.load("project-novus", "web"));
     }
 
     @Test
@@ -42,7 +86,7 @@ class FileTavallProductIntelligenceStoreTest {
 
         store.record(entry);
 
-        assertEquals(java.util.List.of(entry), store.load("project-novus", "web"));
+        assertEquals(List.of(entry), store.load("project-novus", "web"));
     }
 
     @Test
