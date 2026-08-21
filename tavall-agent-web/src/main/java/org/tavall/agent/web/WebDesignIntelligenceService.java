@@ -63,7 +63,7 @@ public final class WebDesignIntelligenceService {
                     + "\nDecision rationale: " + decision.rationale();
 
             recordKnowledge(
-                    comparison.comparisonId() + "." + candidate.id(),
+                    WebDesignDecisionEntryId.from(comparison.comparisonId(), candidate.id()).value(),
                     comparison.productId(),
                     WebDesignIntelligenceCategory.DESIGN_DECISION,
                     comparison.comparisonId() + "/" + candidate.id(),
