@@ -187,6 +187,9 @@ public final class FileTavallProductIntelligenceStore implements TavallProductIn
         if (!PATH_IDENTIFIER.matcher(identifier).matches()) {
             throw new IllegalArgumentException(fieldName + " must match " + PATH_IDENTIFIER.pattern());
         }
+        if (identifier.equals(".") || identifier.equals("..")) {
+            throw new IllegalArgumentException(fieldName + " must not be a dot path component");
+        }
         return identifier;
     }
 
