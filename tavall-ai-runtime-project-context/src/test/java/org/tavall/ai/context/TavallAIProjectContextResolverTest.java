@@ -70,7 +70,7 @@ class TavallAIProjectContextResolverTest {
                 sourceType,
                 projectId,
                 "current architecture",
-                Set.of(TavallAIContextKind.DOCUMENT),
+                Set.of(TavallAIContextKind.FILE),
                 8,
                 4_096
         );
