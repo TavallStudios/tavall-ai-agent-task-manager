@@ -2,6 +2,7 @@ package org.tavall.ai.context.chatgpt;
 
 import org.tavall.ai.context.TavallAIContextItem;
 import org.tavall.ai.context.TavallAIProjectContextBundle;
+import org.tavall.ai.context.TavallAIProjectContextProjection;
 import org.tavall.ai.context.TavallAIProjectContextRequest;
 import org.tavall.ai.context.TavallAIProjectContextSource;
 
@@ -56,22 +57,72 @@ public final class ChatGPTProjectContextSource implements TavallAIProjectContext
         }
 
         List<TavallAIContextItem> bounded = new ArrayList<>();
-        int remainingCharacters = safeRequest.maxCharacters();
         for (TavallAIContextItem item : deduplicated.values()) {
-            if (bounded.size() >= safeRequest.maxItems() || remainingCharacters <= 0) break;
-            String content = item.content();
-            if (content.length() > remainingCharacters) {
-                content = content.substring(0, remainingCharacters);
-            }
-            bounded.add(item.withContent(content));
-            remainingCharacters -= content.length();
+            if (bounded.size() >= safeRequest.maxItems()) break;
+            TavallAIContextItem boundedItem = fitItem(
+                    snapshot.sourceVersion(),
+                    safeRequest,
+                    bounded,
+                    item
+            );
+            if (boundedItem != null) bounded.add(boundedItem);
         }
 
+        return bundle(snapshot.sourceVersion(), safeRequest.projectId(), bounded);
+    }
+
+    private TavallAIContextItem fitItem(
+            String sourceVersion,
+            TavallAIProjectContextRequest request,
+            List<TavallAIContextItem> accepted,
+            TavallAIContextItem item
+    ) {
+        if (fits(sourceVersion, request.projectId(), accepted, item, request.maxCharacters())) return item;
+
+        TavallAIContextItem emptyContent = item.withContent("");
+        if (!fits(sourceVersion, request.projectId(), accepted, emptyContent, request.maxCharacters())) return null;
+
+        int low = 0;
+        int high = item.content().length();
+        int best = 0;
+        while (low <= high) {
+            int midpoint = low + (high - low) / 2;
+            TavallAIContextItem candidate = item.withContent(item.content().substring(0, midpoint));
+            if (fits(sourceVersion, request.projectId(), accepted, candidate, request.maxCharacters())) {
+                best = midpoint;
+                low = midpoint + 1;
+            } else {
+                high = midpoint - 1;
+            }
+        }
+        return item.withContent(item.content().substring(0, best));
+    }
+
+    private boolean fits(
+            String sourceVersion,
+            String projectId,
+            List<TavallAIContextItem> accepted,
+            TavallAIContextItem candidate,
+            int maxCharacters
+    ) {
+        List<TavallAIContextItem> projectedItems = new ArrayList<>(accepted.size() + 1);
+        projectedItems.addAll(accepted);
+        projectedItems.add(candidate);
+        return TavallAIProjectContextProjection.projectedCharacters(
+                bundle(sourceVersion, projectId, projectedItems)
+        ) <= maxCharacters;
+    }
+
+    private TavallAIProjectContextBundle bundle(
+            String sourceVersion,
+            String projectId,
+            List<TavallAIContextItem> items
+    ) {
         return new TavallAIProjectContextBundle(
                 SOURCE_TYPE,
-                safeRequest.projectId(),
-                snapshot.sourceVersion(),
-                List.copyOf(bounded)
+                projectId,
+                sourceVersion,
+                List.copyOf(items)
         );
     }
 }
