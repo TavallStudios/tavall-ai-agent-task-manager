@@ -27,7 +27,17 @@ public final class TavallAIProjectContextResolver {
         if (source == null) {
             throw new IllegalArgumentException("No Tavall AI project context source registered for: " + safeRequest.sourceType());
         }
-        return Objects.requireNonNull(source.resolve(safeRequest), "project context source result");
+
+        TavallAIProjectContextBundle bundle = Objects.requireNonNull(
+                source.resolve(safeRequest),
+                "project context source result");
+        if (!safeRequest.sourceType().equals(bundle.sourceType())) {
+            throw new IllegalStateException("Project context source returned a bundle for another source type");
+        }
+        if (!safeRequest.projectId().equals(bundle.projectId())) {
+            throw new IllegalStateException("Project context source returned a bundle for another project");
+        }
+        return bundle;
     }
 
     private static String requireText(String value, String fieldName) {
