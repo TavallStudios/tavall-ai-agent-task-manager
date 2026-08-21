@@ -76,6 +76,32 @@ class FileTavallProductIntelligenceStoreTest {
         assertThrows(IllegalArgumentException.class, () -> store.load("project-novus", "../web"));
     }
 
+    @Test
+    void rejectsDotOnlyEntryAndAgentIdentifiers(@TempDir Path root) {
+        FileTavallProductIntelligenceStore store = new FileTavallProductIntelligenceStore(root);
+
+        assertThrows(IllegalArgumentException.class, () -> store.record(entry(
+                ".",
+                "project-novus",
+                "web",
+                TavallProductIntelligenceDisposition.REFERENCE
+        )));
+        assertThrows(IllegalArgumentException.class, () -> store.record(entry(
+                "safe-entry",
+                "project-novus",
+                ".",
+                TavallProductIntelligenceDisposition.REFERENCE
+        )));
+        assertThrows(IllegalArgumentException.class, () -> store.record(entry(
+                "safe-entry",
+                "project-novus",
+                "..",
+                TavallProductIntelligenceDisposition.REFERENCE
+        )));
+        assertThrows(IllegalArgumentException.class, () -> store.load("project-novus", "."));
+        assertThrows(IllegalArgumentException.class, () -> store.load("project-novus", ".."));
+    }
+
     private TavallProductIntelligenceEntry entry(
             String entryId,
             String productId,
