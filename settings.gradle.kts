@@ -11,6 +11,7 @@ include(
     "tavall-agent-architecture",
     "tavall-agent-documentation",
     "tavall-agent-builder",
+    "tavall-ai-runtime-project-context",
     "tavall-ai-runtime-model-execution",
     "tavall-ai-runtime-codex",
     "tavall-ai-runtime-distributed-execution",

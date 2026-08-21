@@ -2,6 +2,7 @@ package org.tavall.ai.execution.model.codex;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.tavall.ai.context.TavallAIProjectContextProjection;
 import org.tavall.ai.execution.model.TavallAIModelExecutionRequest;
 import org.tavall.ai.execution.model.TavallAIModelExecutionResult;
 import org.tavall.ai.execution.model.TavallAIModelExecutionStatus;
@@ -159,15 +160,18 @@ public final class CodexModelProvider implements TavallAIModelProvider {
         }
     }
 
-    private String buildPrompt(TavallAIModelExecutionRequest request) {
+    String buildPrompt(TavallAIModelExecutionRequest request) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("You are a delegated Tavall development-workspace implementation worker.\n")
                 .append("Operate only inside the current authorized workspace.\n")
                 .append("Do not attempt to reach Tavall production/control infrastructure directly.\n")
                 .append("The parent Tavall AI runtime owns typed Function Catalog operations and approvals.\n\n")
                 .append("Agent: ").append(request.definition().agent().id()).append('\n')
-                .append("Agent instructions:\n").append(request.definition().agent().instructions()).append("\n\n")
-                .append("Task:\n").append(request.job().task()).append("\n");
+                .append("Agent instructions:\n").append(request.definition().agent().instructions()).append("\n\n");
+
+        appendProjectContext(prompt, request);
+
+        prompt.append("Task:\n").append(request.job().task()).append("\n");
         if (!request.job().attributes().isEmpty()) {
             prompt.append("\nJob metadata:\n");
             request.job().attributes().entrySet().stream()
@@ -175,6 +179,12 @@ public final class CodexModelProvider implements TavallAIModelProvider {
                     .forEach(entry -> prompt.append(entry.getKey()).append(" = ").append(entry.getValue()).append('\n'));
         }
         return prompt.toString();
+    }
+
+    private void appendProjectContext(StringBuilder prompt, TavallAIModelExecutionRequest request) {
+        String projection = TavallAIProjectContextProjection.project(request.projectContext());
+        if (projection.isEmpty()) return;
+        prompt.append(projection).append('\n');
     }
 
     static Map<String, String> sanitizedEnvironment(Map<String, String> source) {
