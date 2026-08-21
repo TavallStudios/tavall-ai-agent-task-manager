@@ -15,7 +15,7 @@ public record TavallAIProjectContextRequest(
         sourceType = requireText(sourceType, "sourceType");
         projectId = requireText(projectId, "projectId");
         query = query == null ? "" : query.strip();
-        kinds = Set.copyOf(kinds == null || kinds.isEmpty() ? Set.of(TavallAIContextKind.values()) : kinds);
+        kinds = Set.copyOf(kinds == null ? Set.of(TavallAIContextKind.values()) : kinds);
         if (maxItems <= 0) throw new IllegalArgumentException("maxItems must be > 0");
         if (maxCharacters <= 0) throw new IllegalArgumentException("maxCharacters must be > 0");
     }
