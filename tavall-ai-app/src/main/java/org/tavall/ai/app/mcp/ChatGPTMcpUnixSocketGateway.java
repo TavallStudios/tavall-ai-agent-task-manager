@@ -110,7 +110,6 @@ public class ChatGPTMcpUnixSocketGateway implements SmartLifecycle, AutoCloseabl
     while (running.get()) {
       try {
         SocketChannel client = serverSocketChannel.accept();
-        connections.forEach(McpGatewayConnection::close);
         Thread.ofVirtual().name("agent-task-manager-chatgpt-mcp-session").start(() -> serve(client));
       } catch (IOException exception) {
         if (running.get()) {

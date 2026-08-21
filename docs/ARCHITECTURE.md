@@ -134,9 +134,9 @@ proves the Tavall Cloud CONTROL channel, then builds the typed Cloud catalog
 directly with the official Java MCP SDK transport. CONTROL loss closes that
 connection fail-closed.
 
-The external tunnel may hold one active socket session. A replacement session
-closes the previous one so process-local MCP state cannot drift across tunnel
-reconnects. This ingress is disabled by default and is enabled only by the
-deployment profile that supplies its socket path, group, and Cloud CONTROL
-identity paths. It advertises a distinct server name/version to make external
-catalog-discovery evidence unambiguous.
+Each socket session owns an isolated Cloud catalog and CONTROL guard, so the
+external tunnel and a bounded local readiness check can coexist without either
+session displacing the other. This ingress is disabled by default and is
+enabled only by the deployment profile that supplies its socket path, group,
+and Cloud CONTROL identity paths. It advertises a distinct server name/version
+to make external catalog-discovery evidence unambiguous.

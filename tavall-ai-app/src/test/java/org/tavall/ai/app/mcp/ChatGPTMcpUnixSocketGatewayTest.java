@@ -24,7 +24,7 @@ import org.junit.jupiter.api.io.TempDir;
 class ChatGPTMcpUnixSocketGatewayTest {
 
   @Test
-  void shouldServeOneModernMcpCatalogOverTheUnixSocket(@TempDir Path tempDir) {
+  void shouldServeConcurrentModernMcpCatalogSessionsOverTheUnixSocket(@TempDir Path tempDir) {
     Path socketPath = tempDir.resolve("chatgpt-mcp.sock");
     AtomicInteger openedSessions = new AtomicInteger();
     AtomicInteger closedSessions = new AtomicInteger();
@@ -36,25 +36,35 @@ class ChatGPTMcpUnixSocketGatewayTest {
     );
 
     gateway.start();
-    try (McpSyncClient client = newClient(socketPath)) {
-      McpSchema.InitializeResult initialization = client.initialize();
+    try (McpSyncClient firstClient = newClient(socketPath); McpSyncClient secondClient = newClient(socketPath)) {
+      McpSchema.InitializeResult initialization = firstClient.initialize();
 
       assertEquals("2025-11-25", initialization.protocolVersion());
       assertEquals("Tavall Cloud ChatGPT Gateway", initialization.serverInfo().name());
       assertTrue(initialization.capabilities().tools().listChanged());
-      assertTrue(client.listTools().tools().stream().anyMatch(tool -> "cloud_fixture_status".equals(tool.name())));
+      assertTrue(firstClient.listTools().tools().stream().anyMatch(tool -> "cloud_fixture_status".equals(tool.name())));
 
-      McpSchema.CallToolResult result = client.callTool(
+      McpSchema.InitializeResult secondInitialization = secondClient.initialize();
+      assertEquals("2025-11-25", secondInitialization.protocolVersion());
+      assertTrue(secondClient.listTools().tools().stream().anyMatch(tool -> "cloud_fixture_status".equals(tool.name())));
+
+      McpSchema.CallToolResult result = firstClient.callTool(
           new McpSchema.CallToolRequest("cloud_fixture_status", Map.of())
       );
       assertEquals(false, result.isError());
       assertEquals("ready", ((Map<?, ?>) result.structuredContent()).get("status"));
+
+      McpSchema.CallToolResult secondResult = secondClient.callTool(
+          new McpSchema.CallToolRequest("cloud_fixture_status", Map.of())
+      );
+      assertEquals(false, secondResult.isError());
+      assertEquals("ready", ((Map<?, ?>) secondResult.structuredContent()).get("status"));
     } finally {
       gateway.close();
     }
 
-    assertEquals(1, openedSessions.get());
-    assertEquals(1, closedSessions.get());
+    assertEquals(2, openedSessions.get());
+    assertEquals(2, closedSessions.get());
     assertTrue(Files.notExists(socketPath));
   }
 
