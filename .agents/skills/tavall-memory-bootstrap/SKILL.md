@@ -7,6 +7,17 @@ description: Use at the start or continuation of substantive Tavall engineering,
 
 Use Tavall's memory plane as the default context substrate for substantive Tavall work. Do not treat chat history, model memory, or semantic similarity as canonical truth when the memory plane can resolve the task.
 
+## Tavall Cloud v2 execution plane
+
+When `@Tavall Cloud v2` is available, use it as the default execution and current-evidence plane for substantive Tavall work. Memory answers what Tavall knows; Cloud establishes what is actually checked out, running, deployed, logged, and validated now.
+
+- Bootstrap Cloud with `cloud_dev_session_bootstrap` when current repository/runtime/deployment evidence is needed.
+- Use CONTROL-owned workspaces, leases, bounded reads/diffs, sandbox/jobs, and typed Git/GitHub operations instead of raw host paths or unscoped shell access.
+- Use Cloud node/service inspection, logs, consoles, and registered lifecycle controls for runtime/deployment evidence.
+- If a needed Cloud capability is absent from the frozen direct-tool snapshot, use `cloud_catalog_search` / `cloud_catalog_describe` and `cloud_catalog_invoke`.
+- Tavall Cloud is not a memory authority; the existing Postgres/Redis/Qdrant/Graphify/Graphiti and Tavall AI tool boundaries remain unchanged.
+- If required evidence is not reachable through a CONTROL-authorized Cloud path, report that as an operational gap rather than bypassing CONTROL.
+
 ## Required first pass
 
 For a substantive Tavall task, call `memoryContext` once early with the narrowest useful scope:

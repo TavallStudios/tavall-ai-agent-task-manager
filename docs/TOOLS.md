@@ -144,6 +144,8 @@ Sources: `MemoryKnowledgeToolHandler`, `VectorMemoryCanonicalToolHandler`, and `
 
 Use the repository skills under `.agents/skills/` for workflow guidance. `memoryContext` is the default compiled retrieval path; the lower-level semantic/provider tools are for focused follow-up rather than mandatory fan-out on every task.
 
+When `@Tavall Cloud v2` is available, use its CONTROL-owned workspaces/sandboxes/jobs and service/node/log surfaces for current repository/runtime/deployment evidence around these memory calls. Memory tools remain owned by Tavall AI; Cloud is the execution and verification substrate, not another memory authority.
+
 | Tool | What it does |
 | --- | --- |
 | `memoryContext` | Compiles exact Postgres memory, Qdrant semantic recall, Graphify structural context, Graphiti temporal context, and configured knowledge into one provider-neutral hydration for a task. |

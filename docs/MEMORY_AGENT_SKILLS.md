@@ -2,6 +2,8 @@
 
 The Tavall AI memory plane ships repository-scoped Agent Skills under `.agents/skills/`. They are checked into the repository so Codex and other Agent Skills-compatible runtimes can discover the same memory workflow instead of relying on per-chat prompting.
 
+When `@Tavall Cloud v2` is available, these skills use it as the execution/current-evidence plane for workspace, Git/GitHub, sandbox/job, node/service, log, console, and deployment operations. Tavall AI remains the memory-tool boundary; Cloud is the CONTROL-authorized substrate used to verify current state.
+
 ## Skill map
 
 | Skill | Use it for |
@@ -37,4 +39,4 @@ The skills deliberately distinguish **retrieval**, **investigation**, **promotio
 
 ## Portability
 
-The skill folders follow the Agent Skills `SKILL.md` convention and can be reused by compatible agent surfaces. Repository-local installation is the canonical source; packaging them into a Tavall ChatGPT/Codex plugin can reuse these directories without maintaining a second instruction set.
+The skill folders follow the Agent Skills `SKILL.md` convention and can be reused by compatible agent surfaces. The unified ChatGPT-facing wrapper lives at `plugins/tavall-ai/skills/tavall-memory-plane/SKILL.md`; it must preserve the same authority and Tavall Cloud v2 execution rules rather than becoming a second independent instruction set.
