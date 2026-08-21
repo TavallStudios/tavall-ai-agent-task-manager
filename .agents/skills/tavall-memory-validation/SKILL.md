@@ -7,6 +7,17 @@ description: Use when validating Tavall AI memory-plane changes, deployments, mi
 
 Validate the memory plane as a distributed knowledge system, not as a collection of individually green services.
 
+## Tavall Cloud v2 execution plane
+
+When `@Tavall Cloud v2` is available, use it as the default execution and current-evidence plane for substantive Tavall work. Memory answers what Tavall knows; Cloud establishes what is actually checked out, running, deployed, logged, and validated now.
+
+- Bootstrap Cloud with `cloud_dev_session_bootstrap` when current repository/runtime/deployment evidence is needed.
+- Use CONTROL-owned workspaces, leases, bounded reads/diffs, sandbox/jobs, and typed Git/GitHub operations instead of raw host paths or unscoped shell access.
+- Use Cloud node/service inspection, logs, consoles, and registered lifecycle controls for runtime/deployment evidence.
+- If a needed Cloud capability is absent from the frozen direct-tool snapshot, use `cloud_catalog_search` / `cloud_catalog_describe` and `cloud_catalog_invoke`.
+- Tavall Cloud is not a memory authority; the existing Postgres/Redis/Qdrant/Graphify/Graphiti and Tavall AI tool boundaries remain unchanged.
+- If required evidence is not reachable through a CONTROL-authorized Cloud path, report that as an operational gap rather than bypassing CONTROL.
+
 ## Exact-head rule
 
 All acceptance evidence belongs to one exact commit SHA.
@@ -29,7 +40,7 @@ Run the repository's current quality process and applicable validation suite. Fo
 - Python seed/cleanup tests and compile checks;
 - `git diff --check`.
 
-Do not use GitHub-hosted execution when Tavall policy requires local/Tavall infrastructure.
+Run repository/runtime validation through `@Tavall Cloud v2` CONTROL-owned workspaces, sandboxes, jobs, and registered service controls. Do not use GitHub-hosted execution when Tavall policy requires local/Tavall infrastructure, and do not bypass CONTROL with raw host execution.
 
 ### 2. Explicit write invariants
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tavall Memory Plane"
+  short_description: "Memory workflow with Tavall Cloud v2 execution"
+  default_prompt: "Hydrate Tavall memory once, escalate only as needed, verify current repo/runtime state through Tavall Cloud v2, and promote only verified reusable conclusions."

@@ -9,6 +9,17 @@ Write less memory, but make what survives trustworthy.
 
 `recordMemory` is an intentional promotion boundary, not a transcript logger. Ordinary prompts, tool calls, search results, source files, and agent narration must not become durable memory merely because they occurred.
 
+## Tavall Cloud v2 execution plane
+
+When `@Tavall Cloud v2` is available, use it as the default execution and current-evidence plane for substantive Tavall work. Memory answers what Tavall knows; Cloud establishes what is actually checked out, running, deployed, logged, and validated now.
+
+- Bootstrap Cloud with `cloud_dev_session_bootstrap` when current repository/runtime/deployment evidence is needed.
+- Use CONTROL-owned workspaces, leases, bounded reads/diffs, sandbox/jobs, and typed Git/GitHub operations instead of raw host paths or unscoped shell access.
+- Use Cloud node/service inspection, logs, consoles, and registered lifecycle controls for runtime/deployment evidence.
+- If a needed Cloud capability is absent from the frozen direct-tool snapshot, use `cloud_catalog_search` / `cloud_catalog_describe` and `cloud_catalog_invoke`.
+- Tavall Cloud is not a memory authority; the existing Postgres/Redis/Qdrant/Graphify/Graphiti and Tavall AI tool boundaries remain unchanged.
+- If required evidence is not reachable through a CONTROL-authorized Cloud path, report that as an operational gap rather than bypassing CONTROL.
+
 ## Write only when all are true
 
 A durable write should be:
