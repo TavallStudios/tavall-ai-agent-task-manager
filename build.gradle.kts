@@ -270,6 +270,13 @@ val stageDistribution = tasks.register<Sync>("stageDistribution") {
             from(cleanJava.configurations.getByName("runtimeClasspath"))
         }
     }
+    doLast {
+        val unreadableFiles = fileTree(destinationDir).files
+            .filter { it.isFile && !it.setReadable(true, false) }
+        check(unreadableFiles.isEmpty()) {
+            "Unable to make staged runtime files readable: ${unreadableFiles.joinToString()}"
+        }
+    }
 }
 
 tasks.named("assemble") {
