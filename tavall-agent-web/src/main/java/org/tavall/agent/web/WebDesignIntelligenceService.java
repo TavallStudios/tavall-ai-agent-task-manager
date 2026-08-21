@@ -6,6 +6,7 @@ import org.tavall.agent.intelligence.TavallProductIntelligenceStore;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -31,15 +32,14 @@ public final class WebDesignIntelligenceService {
             Set<String> evidenceReferences,
             Instant recordedAt
     ) throws IOException {
-        store.record(new TavallProductIntelligenceEntry(
+        store.record(entry(
                 entryId,
                 productId,
-                AGENT_ID,
-                Objects.requireNonNull(category, "category").storageKey(),
+                category,
                 key,
                 value,
                 rationale,
-                Objects.requireNonNull(disposition, "disposition"),
+                disposition,
                 evidenceReferences,
                 recordedAt
         ));
@@ -53,6 +53,7 @@ public final class WebDesignIntelligenceService {
         Objects.requireNonNull(comparison, "comparison");
         Objects.requireNonNull(decision, "decision");
         WebDesignCandidate selected = comparison.requireSelectedCandidate(decision);
+        List<TavallProductIntelligenceEntry> decisionEntries = new ArrayList<>(comparison.candidates().size());
 
         for (WebDesignCandidate candidate : comparison.candidates()) {
             TavallProductIntelligenceDisposition disposition = candidate.id().equals(selected.id())
@@ -62,7 +63,7 @@ public final class WebDesignIntelligenceService {
                     + "\nCandidate rationale: " + candidate.rationale()
                     + "\nDecision rationale: " + decision.rationale();
 
-            recordKnowledge(
+            decisionEntries.add(entry(
                     WebDesignDecisionEntryId.from(comparison.comparisonId(), candidate.id()).value(),
                     comparison.productId(),
                     WebDesignIntelligenceCategory.DESIGN_DECISION,
@@ -72,7 +73,34 @@ public final class WebDesignIntelligenceService {
                     disposition,
                     candidate.evidenceReferences(),
                     decision.decidedAt()
-            );
+            ));
         }
+
+        store.recordAll(decisionEntries);
+    }
+
+    private static TavallProductIntelligenceEntry entry(
+            String entryId,
+            String productId,
+            WebDesignIntelligenceCategory category,
+            String key,
+            String value,
+            String rationale,
+            TavallProductIntelligenceDisposition disposition,
+            Set<String> evidenceReferences,
+            Instant recordedAt
+    ) {
+        return new TavallProductIntelligenceEntry(
+                entryId,
+                productId,
+                AGENT_ID,
+                Objects.requireNonNull(category, "category").storageKey(),
+                key,
+                value,
+                rationale,
+                Objects.requireNonNull(disposition, "disposition"),
+                evidenceReferences,
+                recordedAt
+        );
     }
 }
