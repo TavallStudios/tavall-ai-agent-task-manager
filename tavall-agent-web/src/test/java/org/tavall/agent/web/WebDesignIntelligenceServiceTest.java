@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -99,11 +100,20 @@ class WebDesignIntelligenceServiceTest {
                 .findFirst()
                 .orElseThrow();
 
-        assertTrue(accepted.entryId().endsWith(".dense"));
+        assertEquals(WebDesignDecisionEntryId.from(comparison.comparisonId(), "dense").value(), accepted.entryId());
         assertEquals("Dense product-first", accepted.value());
         assertTrue(accepted.rationale().contains(decision.rationale()));
-        assertTrue(rejected.entryId().endsWith(".cinematic"));
+        assertEquals(WebDesignDecisionEntryId.from(comparison.comparisonId(), "cinematic").value(), rejected.entryId());
         assertEquals("Cinematic marketing", rejected.value());
+    }
+
+    @Test
+    void dottedComparisonAndCandidateIdsCannotAliasTheSameDecisionEntry() {
+        WebDesignDecisionEntryId first = WebDesignDecisionEntryId.from("a.b", "c");
+        WebDesignDecisionEntryId second = WebDesignDecisionEntryId.from("a", "b.c");
+
+        assertNotEquals(first, second);
+        assertNotEquals(first.value(), second.value());
     }
 
     private WebDesignComparison comparison(String productId) {
