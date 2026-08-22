@@ -19,8 +19,17 @@ public final class ReviewAgentProvider implements TavallAgentProvider {
                 "Independently reviews an exact head for correctness, regressions, architecture, and evidence gaps.",
                 TavallAgentKind.WORK,
                 TavallAgentInstructions.load(ReviewAgentProvider.class, "ROLE.md"),
-                Set.of("repo_read", "repo_search", "git_diff", "github_inspect_pr", "ci_verify"),
-                Set.of("github_review_pr", "github_list_review_threads"),
+                Set.of(
+                        "repo_read", "repo_search", "git_diff", "github_inspect_pr", "ci_verify",
+                        "repository_staging_discover", "repository_staging_inspect_graph", "repository_staging_validate",
+                        "cloud_dev_lane_list", "cloud_dev_lane_inspect", "cloud_dev_environment_list",
+                        "cloud_dev_environment_inspect", "cloud_dev_environment_components",
+                        "cloud_dev_environment_validations"
+                ),
+                Set.of(
+                        "github_review_pr", "github_list_review_threads",
+                        "repository_staging_resolve_base", "repository_staging_prepare_promotion"
+                ),
                 Set.of(
                         TavallAgentCapability.FUNCTION_DISCOVERY,
                         TavallAgentCapability.REPOSITORY_READ,

@@ -19,8 +19,19 @@ public final class OrchestrationAgentProvider implements TavallAgentProvider {
                 "Coordinates specialized Tavall agents and subagents inside one owning model session.",
                 TavallAgentKind.CONTROL,
                 TavallAgentInstructions.load(OrchestrationAgentProvider.class, "ROLE.md"),
-                Set.of("ai_spawn_subagent", "ai_inspect_subagent", "ai_join_subagent"),
-                Set.of("ai_request_distributed_job", "ai_inspect_job", "ci_verify", "github_inspect_pr"),
+                Set.of(
+                        "ai_spawn_subagent", "ai_inspect_subagent", "ai_join_subagent",
+                        "repository_staging_discover", "repository_staging_inspect_graph",
+                        "repository_staging_resolve_base", "repository_staging_validate",
+                        "cloud_dev_lane_list", "cloud_dev_lane_inspect", "cloud_dev_environment_list",
+                        "cloud_dev_environment_inspect", "cloud_dev_environment_components",
+                        "cloud_dev_environment_validations"
+                ),
+                Set.of(
+                        "ai_request_distributed_job", "ai_inspect_job", "ci_verify", "github_inspect_pr",
+                        "repository_staging_ensure", "repository_staging_attach",
+                        "cloud_dev_environment_resolve"
+                ),
                 Set.of(
                         TavallAgentCapability.FUNCTION_DISCOVERY,
                         TavallAgentCapability.REPOSITORY_READ,
