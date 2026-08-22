@@ -22,7 +22,10 @@ public final class DocumentationAgentProvider implements TavallAgentProvider {
                 Set.of(
                         "repo_read", "repo_search", "repo_write", "git_status", "git_diff",
                         "git_commit_checkpoint", "git_push",
-                        "repository_staging_discover", "repository_staging_inspect_graph", "repository_staging_validate"
+                        "repository_staging_discover", "repository_staging_inspect_graph", "repository_staging_validate",
+                        "cloud_dev_lane_list", "cloud_dev_lane_inspect", "cloud_dev_environment_list",
+                        "cloud_dev_environment_inspect", "cloud_dev_environment_components",
+                        "cloud_dev_environment_validations"
                 ),
                 Set.of("ci_verify", "github_inspect_pr", "github_update_pr"),
                 Set.of(

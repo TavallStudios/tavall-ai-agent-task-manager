@@ -23,7 +23,10 @@ public final class ArchitectureAgentProvider implements TavallAgentProvider {
                         "repo_read", "repo_search", "repo_write", "git_status", "git_diff",
                         "git_commit_checkpoint", "git_push", "ci_verify",
                         "repository_staging_discover", "repository_staging_inspect_graph",
-                        "repository_staging_resolve_base", "repository_staging_validate"
+                        "repository_staging_resolve_base", "repository_staging_validate",
+                        "cloud_dev_lane_list", "cloud_dev_lane_inspect", "cloud_dev_environment_list",
+                        "cloud_dev_environment_inspect", "cloud_dev_environment_components",
+                        "cloud_dev_environment_validations"
                 ),
                 Set.of("github_list_prs", "github_inspect_pr", "github_update_pr"),
                 Set.of(

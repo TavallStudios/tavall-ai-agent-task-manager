@@ -21,7 +21,10 @@ public final class E2EAgentProvider implements TavallAgentProvider {
                 TavallAgentInstructions.load(E2EAgentProvider.class, "ROLE.md"),
                 Set.of(
                         "ci_verify", "cloud_deploy_development", "cloud_service_logs", "e2e_run",
-                        "repository_staging_discover", "repository_staging_inspect_graph", "repository_staging_validate"
+                        "repository_staging_discover", "repository_staging_inspect_graph", "repository_staging_validate",
+                        "cloud_dev_lane_list", "cloud_dev_lane_inspect", "cloud_dev_environment_list",
+                        "cloud_dev_environment_inspect", "cloud_dev_environment_components",
+                        "cloud_dev_environment_operations", "cloud_dev_environment_validations"
                 ),
                 Set.of("repo_read", "github_inspect_pr", "cloud_inspect_service", "cloud_service_console"),
                 Set.of(

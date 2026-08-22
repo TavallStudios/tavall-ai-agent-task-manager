@@ -22,7 +22,10 @@ public final class SchedulerAgentProvider implements TavallAgentProvider {
                 Set.of(
                         "ai_list_workers", "ai_list_jobs", "ai_inspect_job", "ai_dispatch_job",
                         "github_list_prs", "github_inspect_pr",
-                        "repository_staging_discover", "repository_staging_inspect_graph"
+                        "repository_staging_discover", "repository_staging_inspect_graph",
+                        "cloud_dev_lane_list", "cloud_dev_lane_inspect", "cloud_dev_environment_list",
+                        "cloud_dev_environment_inspect", "cloud_dev_environment_components",
+                        "cloud_dev_environment_validations"
                 ),
                 Set.of("ai_cancel_job", "ai_recover_job", "ai_list_sessions", "ai_inspect_session"),
                 Set.of(

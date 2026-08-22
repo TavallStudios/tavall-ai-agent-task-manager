@@ -25,6 +25,14 @@ class TavallAgentStagingContractTest {
             "repository_staging_set_state"
     );
     private static final String STAGING_PROMOTION = "repository_staging_prepare_promotion";
+    private static final Set<String> ENVIRONMENT_CONTEXT_READ = Set.of(
+            "cloud_dev_lane_list",
+            "cloud_dev_lane_inspect",
+            "cloud_dev_environment_list",
+            "cloud_dev_environment_inspect",
+            "cloud_dev_environment_components",
+            "cloud_dev_environment_validations"
+    );
 
     @Test
     void reconciliationOwnsTopologyMutationWhileReadOnlyAgentsDoNot() {
@@ -70,6 +78,27 @@ class TavallAgentStagingContractTest {
     }
 
     @Test
+    void stagingAwareRolesBindGraphEvidenceToCloudLaneAndEnvironmentContext() {
+        TavallAgentRegistry registry = TavallAgentRegistry.load(Thread.currentThread().getContextClassLoader());
+
+        for (String agentId : Set.of(
+                "architecture", "documentation", "e2e", "implementation", "orchestration",
+                "reconciliation", "review", "scheduler"
+        )) {
+            TavallAgent agent = registry.require(agentId);
+            assertTrue(agent.requestedFunctionNames().containsAll(ENVIRONMENT_CONTEXT_READ),
+                    () -> agentId + " must bind staging work to lane/environment evidence");
+        }
+
+        TavallAgent builder = registry.require("builder");
+        assertTrue(builder.optionalFunctionNames().containsAll(ENVIRONMENT_CONTEXT_READ));
+        assertTrue(registry.require("reconciliation").requiredFunctionNames()
+                .contains("cloud_dev_environment_resolve"));
+        assertTrue(registry.require("orchestration").optionalFunctionNames()
+                .contains("cloud_dev_environment_resolve"));
+    }
+
+    @Test
     void sharedStagingSkillsAreCanonicalAndDoNotDuplicateTheGitWorkflowEverywhere() throws Exception {
         Path root = locateRepositoryRoot();
         Path workflow = root.resolve("plugins/tavall-ai/skills/tavall-staging-pr-workflow/SKILL.md");
@@ -85,6 +114,9 @@ class TavallAgentStagingContractTest {
         String promotionText = Files.readString(promotion);
 
         for (String functionName : STAGING_READ) {
+            assertTrue(workflowText.contains(functionName));
+        }
+        for (String functionName : ENVIRONMENT_CONTEXT_READ) {
             assertTrue(workflowText.contains(functionName));
         }
         for (String functionName : STAGING_MUTATION) {

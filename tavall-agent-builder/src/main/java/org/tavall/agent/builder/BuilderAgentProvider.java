@@ -22,7 +22,10 @@ public final class BuilderAgentProvider implements TavallAgentProvider {
                 Set.of(),
                 Set.of(
                         "repository_staging_discover", "repository_staging_inspect_graph",
-                        "repository_staging_resolve_base", "repository_staging_validate"
+                        "repository_staging_resolve_base", "repository_staging_validate",
+                        "cloud_dev_lane_list", "cloud_dev_lane_inspect", "cloud_dev_environment_list",
+                        "cloud_dev_environment_inspect", "cloud_dev_environment_components",
+                        "cloud_dev_environment_validations"
                 ),
                 Set.of("distributed-execution"),
                 Set.of(

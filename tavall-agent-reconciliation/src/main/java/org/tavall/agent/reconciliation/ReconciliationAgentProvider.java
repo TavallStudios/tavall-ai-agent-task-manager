@@ -24,7 +24,11 @@ public final class ReconciliationAgentProvider implements TavallAgentProvider {
                         "git_commit_checkpoint", "git_push", "github_update_pr", "ci_verify",
                         "repository_staging_discover", "repository_staging_inspect_graph", "repository_staging_resolve_base",
                         "repository_staging_validate", "repository_staging_ensure", "repository_staging_attach",
-                        "repository_staging_set_state"
+                        "repository_staging_set_state",
+                        "cloud_dev_lane_list", "cloud_dev_lane_inspect", "cloud_dev_environment_list",
+                        "cloud_dev_environment_inspect", "cloud_dev_environment_resolve",
+                        "cloud_dev_environment_components", "cloud_dev_environment_operations",
+                        "cloud_dev_environment_validations"
                 ),
                 Set.of(
                         "git_compare", "git_rebase", "github_close_pr",
