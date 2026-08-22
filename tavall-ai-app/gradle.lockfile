@@ -236,6 +236,7 @@ org.springframework:spring-webmvc:7.0.6=compileClasspath,runtimeClasspath,testCo
 org.tavall.cloud:tavall-cloud-chatgpt-web:1.0.0-SNAPSHOT=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.tavall.cloud:tavall-cloud-mcp:1.0.0-SNAPSHOT=runtimeClasspath,testRuntimeClasspath
 org.tavall.cloud:tavall-cloud:1.0.0-SNAPSHOT=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.tavall:repository-staging:0.0.0-working_repository-staging-environment-context-20260822-SNAPSHOT=runtimeClasspath,testRuntimeClasspath
 org.tavall:abstract-cache-system:1.0.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.tavall:ai-core:1.0.2=runtimeClasspath,testRuntimeClasspath
 org.tavall:gemini-api:0.0.1-SNAPSHOT=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
