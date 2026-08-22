@@ -6,6 +6,7 @@ import org.tavall.cloud.chatgpt.control.ChatGPTWebControlChannelGuard;
 import org.tavall.cloud.chatgpt.control.ChatGPTWebControlGateway;
 import org.tavall.cloud.chatgpt.control.ChatGPTWebControlPreflight;
 import org.tavall.cloud.chatgpt.function.ChatGPTWebCloudFunctions;
+import org.tavall.cloud.chatgpt.function.ChatGPTWebEnvironmentFunctions;
 import org.tavall.cloud.command.CloudCommandJsonCodec;
 import org.tavall.cloud.command.CloudLocalCommandClient;
 import org.tavall.cloud.control.local.CloudLocalControlClient;
@@ -28,7 +29,7 @@ public class ChatGPTCloudCatalogSessionFactory implements McpGatewayCatalogSessi
   private static final Duration PREFLIGHT_TIMEOUT = Duration.ofSeconds(45);
   private static final Duration PREFLIGHT_RETRY_DELAY = Duration.ofMillis(250);
   private static final String SERVER_NAME = "Tavall Cloud AgentTaskManager MCP";
-  private static final String SERVER_VERSION_BASE = "1.1.3-agent-gateway-59";
+  private static final String SERVER_VERSION_BASE = "1.1.4-agent-gateway-";
   private final ChatGPTMcpGatewayProperties properties;
 
   public ChatGPTCloudCatalogSessionFactory(ChatGPTMcpGatewayProperties properties) {
@@ -58,13 +59,16 @@ public class ChatGPTCloudCatalogSessionFactory implements McpGatewayCatalogSessi
           PREFLIGHT_RETRY_DELAY
       );
       controlPreflight.connectWithRetry(controlClient::connect);
-      ChatGPTWebMcpCatalog catalog = new ChatGPTWebMcpCatalog(new ChatGPTWebCloudFunctions(controlGateway));
+      ChatGPTWebMcpCatalog catalog = new ChatGPTWebMcpCatalog(
+          new ChatGPTWebCloudFunctions(controlGateway),
+          new ChatGPTWebEnvironmentFunctions(controlGateway)
+      );
       controlPreflight.verifyWithRetry();
       AtomicBoolean closed = new AtomicBoolean();
       AtomicReference<ChatGPTWebControlChannelGuard> controlChannelGuard = new AtomicReference<>();
       return new McpGatewayCatalogSession(
           SERVER_NAME,
-          SERVER_VERSION_BASE + "+" + catalog.generation(),
+          gatewayVersion(catalog),
           catalog.instructions(),
           catalog.toolSpecifications(),
           List.of(catalog.resourceSpecification()),
@@ -92,6 +96,11 @@ public class ChatGPTCloudCatalogSessionFactory implements McpGatewayCatalogSessi
       controlClient.close();
       throw exception;
     }
+  }
+
+  static String gatewayVersion(ChatGPTWebMcpCatalog catalog) {
+    Objects.requireNonNull(catalog, "catalog");
+    return SERVER_VERSION_BASE + catalog.toolSpecifications().size() + "+" + catalog.generation();
   }
 
   private static byte[] readControlSecret(Path controlSecretPath) {
