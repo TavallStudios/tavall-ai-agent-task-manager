@@ -1,6 +1,6 @@
 {
   "name": "tavall-ai",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Load Tavall AI role skills for Function Catalog-backed Codex orchestration and distributed Tavall work.",
   "author": {
     "name": "TJ",
@@ -19,7 +19,7 @@
   "interface": {
     "displayName": "Tavall AI",
     "shortDescription": "Tavall role skills and distributed Codex orchestration",
-    "longDescription": "Use Tavall AI role skills to coordinate one Codex session with specialized role agents and to escalate through the Tavall scheduler only when a separate worker/session is justified. Function tools come from the authorized Function Catalog surface; Tavall Cloud remains the placement, workspace, process-isolation, resource, and local-CI authority.",
+    "longDescription": "Use Tavall AI role skills to coordinate one Codex session with specialized role agents and to escalate through the Tavall scheduler only when a separate worker/session is justified. Function tools come from the authorized dynamic Function Catalog surface; Tavall Cloud remains the placement, workspace, process-isolation, resource, and local-CI authority.",
     "developerName": "TJ",
     "category": "Coding",
     "capabilities": [
@@ -31,6 +31,8 @@
     "termsOfServiceURL": "https://docs.tavall.org/tavall-ai",
     "defaultPrompt": [
       "Use the Tavall AI orchestration skill for substantive Tavall repository work",
+      "Use tavall-agent-web for substantive Tavall web/UI design and load durable product intelligence before meaningful visual decisions",
+      "Discover the live Function Catalog at execution time rather than assuming a static ChatGPT action snapshot is complete",
       "Prefer multiple specialized Tavall agents inside the current Codex session when they can safely share the owning workspace",
       "Use the scheduler role only for distributed worker/top-level-session placement and never for implementation itself",
       "Treat Function Catalog functions as the callable capability surface and Tavall Cloud as machine/workspace/process/local-CI authority",
