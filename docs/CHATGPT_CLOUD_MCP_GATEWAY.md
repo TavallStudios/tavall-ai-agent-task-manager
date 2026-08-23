@@ -22,8 +22,9 @@ The gateway is opt-in. A deployment must set all of these values together:
 Each accepted tunnel connection creates its own CONTROL client, performs the
 normal Cloud preflight, and then publishes only the authenticated typed Tavall
 Cloud catalog. The session reports `tools.listChanged=true` and an identifiable
-`1.1.3-agent-gateway-59+<generation>` version. Losing CONTROL closes the MCP
-connection; connecting a replacement tunnel session closes the old one.
+`1.<major>.<minor>-agent-gateway-<tool-count>+<64-hex-generation>` version.
+Losing CONTROL closes the MCP connection; connecting a replacement tunnel
+session closes the old one.
 
 The gateway intentionally does not expose AgentTaskManager's normal harness
 catalog. It is a Cloud ingress profile, not a merger of unrelated MCP tools.
