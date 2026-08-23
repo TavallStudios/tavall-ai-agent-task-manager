@@ -5,7 +5,12 @@ import org.tavall.agent.intelligence.TavallProductIntelligenceEntry;
 import org.tavall.agent.intelligence.TavallProductIntelligenceStore;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -53,6 +58,7 @@ public final class WebDesignIntelligenceService {
         Objects.requireNonNull(comparison, "comparison");
         Objects.requireNonNull(decision, "decision");
         WebDesignCandidate selected = comparison.requireSelectedCandidate(decision);
+        List<TavallProductIntelligenceEntry> entries = new ArrayList<>(comparison.candidates().size());
 
         for (WebDesignCandidate candidate : comparison.candidates()) {
             TavallProductIntelligenceDisposition disposition = candidate.id().equals(selected.id())
@@ -62,17 +68,32 @@ public final class WebDesignIntelligenceService {
                     + "\nCandidate rationale: " + candidate.rationale()
                     + "\nDecision rationale: " + decision.rationale();
 
-            recordKnowledge(
-                    comparison.comparisonId() + "." + candidate.id(),
+            entries.add(new TavallProductIntelligenceEntry(
+                    decisionEntryId(comparison.comparisonId(), candidate.id()),
                     comparison.productId(),
-                    WebDesignIntelligenceCategory.DESIGN_DECISION,
+                    AGENT_ID,
+                    WebDesignIntelligenceCategory.DESIGN_DECISION.storageKey(),
                     comparison.comparisonId() + "/" + candidate.id(),
                     candidate.label(),
                     rationale,
                     disposition,
                     candidate.evidenceReferences(),
                     decision.decidedAt()
-            );
+            ));
+        }
+
+        store.recordBatch(entries);
+    }
+
+    private static String decisionEntryId(String comparisonId, String candidateId) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(comparisonId.getBytes(StandardCharsets.UTF_8));
+            digest.update((byte) 0);
+            digest.update(candidateId.getBytes(StandardCharsets.UTF_8));
+            return "decision-" + HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 must be available", exception);
         }
     }
 }
