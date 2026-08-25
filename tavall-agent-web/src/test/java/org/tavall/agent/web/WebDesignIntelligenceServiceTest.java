@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WebDesignIntelligenceServiceTest {
     @Test
-    void comparisonRequiresAtLeastTwoDistinctCandidates() {
+    void comparisonRequiresAtLeastThreeDistinctCandidates() {
         WebDesignCandidate candidate = candidate("dense", "Dense product-first");
 
         assertThrows(IllegalArgumentException.class, () -> new WebDesignComparison(
@@ -33,7 +33,13 @@ class WebDesignIntelligenceServiceTest {
                 "home-direction",
                 "project-novus",
                 "Choose the home-page information density.",
-                List.of(candidate, candidate("dense", "Duplicate id"))
+                List.of(candidate, candidate("cinematic", "Cinematic marketing"))
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new WebDesignComparison(
+                "home-direction",
+                "project-novus",
+                "Choose the home-page information density.",
+                List.of(candidate, candidate("dense", "Duplicate id"), candidate("third", "Third direction"))
         ));
     }
 
@@ -72,7 +78,7 @@ class WebDesignIntelligenceServiceTest {
     }
 
     @Test
-    void abDecisionPersistsWinnerAndRejectedAlternatives(@TempDir Path root) throws Exception {
+    void abcDecisionPersistsWinnerAndRejectedAlternatives(@TempDir Path root) throws Exception {
         WebDesignIntelligenceService service = new WebDesignIntelligenceService(new FileTavallProductIntelligenceStore(root));
         WebDesignComparison comparison = comparison("project-novus");
         WebDesignDecision decision = new WebDesignDecision(
@@ -87,7 +93,7 @@ class WebDesignIntelligenceServiceTest {
         List<TavallProductIntelligenceEntry> entries = new WebDesignIntelligenceService(
                 new FileTavallProductIntelligenceStore(root)
         ).loadContext("project-novus");
-        assertEquals(2, entries.size());
+        assertEquals(3, entries.size());
 
         TavallProductIntelligenceEntry accepted = entries.stream()
                 .filter(entry -> entry.disposition() == TavallProductIntelligenceDisposition.ACCEPTED)
@@ -114,13 +120,13 @@ class WebDesignIntelligenceServiceTest {
                 "a.b",
                 "project-novus",
                 "First dotted identity.",
-                List.of(candidate("c", "First winner"), candidate("other", "First alternate"))
+                List.of(candidate("c", "First winner"), candidate("other", "First alternate"), candidate("third", "First third"))
         );
         WebDesignComparison second = new WebDesignComparison(
                 "a",
                 "project-novus",
                 "Second dotted identity.",
-                List.of(candidate("b.c", "Second winner"), candidate("other", "Second alternate"))
+                List.of(candidate("b.c", "Second winner"), candidate("other", "Second alternate"), candidate("third", "Second third"))
         );
 
         service.recordDecision(first, new WebDesignDecision("a.b", "c", "first", Instant.parse("2026-08-14T20:15:00Z")));
@@ -129,7 +135,7 @@ class WebDesignIntelligenceServiceTest {
         List<TavallProductIntelligenceEntry> entries = service.loadContext("project-novus");
         TavallProductIntelligenceEntry firstWinner = entries.stream().filter(entry -> entry.key().equals("a.b/c")).findFirst().orElseThrow();
         TavallProductIntelligenceEntry secondWinner = entries.stream().filter(entry -> entry.key().equals("a/b.c")).findFirst().orElseThrow();
-        assertEquals(4, entries.size());
+        assertEquals(6, entries.size());
         assertNotEquals(firstWinner.entryId(), secondWinner.entryId());
     }
 
@@ -163,7 +169,7 @@ class WebDesignIntelligenceServiceTest {
         ));
 
         assertEquals(1, store.batchCalls);
-        assertEquals(2, store.captured.size());
+        assertEquals(3, store.captured.size());
     }
 
     private WebDesignComparison comparison(String productId) {
@@ -173,7 +179,8 @@ class WebDesignIntelligenceServiceTest {
                 "Choose the home-page information density.",
                 List.of(
                         candidate("dense", "Dense product-first"),
-                        candidate("cinematic", "Cinematic marketing")
+                        candidate("cinematic", "Cinematic marketing"),
+                        candidate("editorial", "Editorial product narrative")
                 )
         );
     }
