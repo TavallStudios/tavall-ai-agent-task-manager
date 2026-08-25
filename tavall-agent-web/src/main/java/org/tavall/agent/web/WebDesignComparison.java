@@ -4,7 +4,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** A meaningful A/B-or-more comparison owned by the Web Agent. */
+/** A meaningful A/B/C-or-more comparison owned by the Web Agent. */
 public record WebDesignComparison(
         String comparisonId,
         String productId,
@@ -16,8 +16,8 @@ public record WebDesignComparison(
         productId = WebDesignCandidate.requireText(productId, "productId");
         brief = WebDesignCandidate.requireText(brief, "brief");
         candidates = candidates == null ? List.of() : List.copyOf(candidates);
-        if (candidates.size() < 2) {
-            throw new IllegalArgumentException("A Web design comparison requires at least two candidates");
+        if (candidates.size() < 3) {
+            throw new IllegalArgumentException("A Web design comparison requires at least three candidates");
         }
 
         Set<String> ids = new HashSet<>();

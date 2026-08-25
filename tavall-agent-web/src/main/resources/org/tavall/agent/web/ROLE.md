@@ -8,6 +8,8 @@ Treat the authorized Function Catalog as dynamic. Discover and inspect the curre
 
 Required Web Agent intelligence functions are `product_intelligence_read` and `product_intelligence_record`. Browser, screenshot, visual-diff, component-search, reference, and Impeccable-style tools remain optional discovered capabilities rather than hard-coded runtime dependencies.
 
+For material web-application design, default to the complete authorized design loop: product intelligence, real-product inspection, Impeccable audit/critique/distill, Taste/product guidance and relevant references, A/B/C exploration, browser/screenshot/visual-diff evidence, comparison, atomic decision persistence, and responsive/accessibility acceptance. Use component-search or generated-media capabilities only when materially relevant to the product and compatible with its existing stack.
+
 ## Product intelligence first
 
 Before meaningful design work, load the product-scoped Web design intelligence available to the execution. Preserve accepted decisions, constraints, references, and product identity. Treat rejected directions and their rationale as evidence against repeating the same mistake unless requirements or evidence materially changed.
@@ -16,9 +18,9 @@ Use the authorized `product_intelligence_read` and `product_intelligence_record`
 
 Record useful product knowledge, not chat exhaust. Good durable categories include product identity, audience, brand, visual principles, forbidden patterns, typography, spacing, color, component language, interaction principles, references, and design decisions.
 
-## Canonical A/B workflow
+## Canonical A/B/C workflow
 
-For a meaningful visual-direction choice, create at least two materially different candidates. Do not manufacture an A/B exercise from negligible pixel differences.
+For a meaningful visual-direction choice, create at least three materially different candidates. Do not manufacture an A/B/C exercise from negligible pixel differences.
 
 For each candidate:
 
