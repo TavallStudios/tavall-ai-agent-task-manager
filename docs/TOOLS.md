@@ -17,7 +17,7 @@ Scope:
 
 ## CLI Commands
 
-Source: [CliCommandService.java](/F:/workspace/AgentTaskManager/tavall-ai-core/src/main/java/com/agenttaskmanager/app/cli/CliCommandService.java), [AgentTaskManagerLauncher.java](/F:/workspace/AgentTaskManager/tavall-ai-app/src/main/java/com/agenttaskmanager/app/AgentTaskManagerLauncher.java)
+Source: `CliCommandService.java`, `AgentTaskManagerLauncher.java`
 
 | Command | What it does |
 | --- | --- |
@@ -46,8 +46,6 @@ These are the first-party tools registered into the main `tavall-ai` MCP catalog
 
 ### Artifact Tools
 
-Source: [ArtifactToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-artifact-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/artifact/ArtifactToolHandler.java)
-
 | Tool | What it does |
 | --- | --- |
 | `readArtifact` | Reads an artifact body by artifact id. |
@@ -59,8 +57,6 @@ Source: [ArtifactToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-arti
 
 ### Cache Tools
 
-Source: [CacheToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-cache-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/cache/CacheToolHandler.java)
-
 | Tool | What it does |
 | --- | --- |
 | `cacheTaskContext` | Warms task context cache for a task. |
@@ -71,8 +67,6 @@ Source: [CacheToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-cache-t
 | `warmDashboardCache` | Warms dashboard cache state. |
 
 ### Context Tools
-
-Source: [ContextToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-context-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/context/ContextToolHandler.java)
 
 | Tool | What it does |
 | --- | --- |
@@ -89,8 +83,6 @@ Source: [ContextToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-conte
 | `loadSharedTaskContext` | Loads shared task context entries for a task. |
 
 ### Orchestration Tools
-
-Source: [DecisionToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-orchestration-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/orchestration/DecisionToolHandler.java), [TaskPoolToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-orchestration-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/orchestration/TaskPoolToolHandler.java), [WorkerAgentToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-orchestration-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/orchestration/WorkerAgentToolHandler.java)
 
 | Tool | What it does |
 | --- | --- |
@@ -127,18 +119,14 @@ Source: [DecisionToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-orch
 
 ### Repo Workflow Tools
 
-Source: [GitWorkflowToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-repo-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/repo/GitWorkflowToolHandler.java), [SharedRepoSnapshotToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-repo-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/repo/SharedRepoSnapshotToolHandler.java)
-
 | Tool | What it does |
 | --- | --- |
 | `planGitCommit` | Renders the deterministic branch name, verbose commit subject/body, and grouping recommendation for the current concern without mutating git state. |
-| `prepareGitBranch` | Creates or switches to the deterministic `domain-system-user-vN` branch for the current concern. |
+| `prepareGitBranch` | Creates or switches to the deterministic branch for the current concern. |
 | `createGitCommit` | Stages and commits the current concern through the first-party git workflow with a verbose body. |
 | `stageSharedRepoSnapshot` | Decodes an uploaded repository archive and stages it into a local temporary workspace. |
 
 ### Validation Tools
-
-Source: [ValidationToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-validation-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/validation/ValidationToolHandler.java)
 
 | Tool | What it does |
 | --- | --- |
@@ -150,29 +138,45 @@ Source: [ValidationToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-va
 | `storeValidationReport` | Runs validation and stores the report. |
 | `runCleanupDiffReview` | Runs cleanup diff review for a cleanup review id. |
 
-### Vector Memory Tools
+### Tavall Memory Plane Tools
 
-Source: [VectorMemoryToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-vector-memory-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/vectormemory/VectorMemoryToolHandler.java), [VectorMemoryCanonicalToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-vector-memory-tools/src/main/java/com/agenttaskmanager/app/mcp/tools/vectormemory/VectorMemoryCanonicalToolHandler.java)
+Sources: `MemoryKnowledgeToolHandler`, `VectorMemoryCanonicalToolHandler`, and `VectorMemoryToolHandler` in `tavall-ai-vector-memory-tools`.
+
+Use the repository skills under `.agents/skills/` for workflow guidance. `memoryContext` is the default compiled retrieval path; the lower-level semantic/provider tools are for focused follow-up rather than mandatory fan-out on every task.
 
 | Tool | What it does |
 | --- | --- |
-| `storeSemanticDocument` | Chunks, embeds, and stores semantic payloads for a task. |
-| `searchSemanticChunks` | Searches semantic chunks and returns stored payload text or code. |
-| `searchSemanticHistory` | Searches semantic task history chunks. |
+| `memoryContext` | Compiles exact Postgres memory, Qdrant semantic recall, Graphify structural context, Graphiti temporal context, and configured knowledge into one provider-neutral hydration for a task. |
+| `recordMemory` | Persists one intentional distilled durable memory with provenance. Ordinary turns are not a durable write path. |
+| `memoryRelated` | Queries the configured Graphify provider for current structural/code relationships. |
+| `codeImpact` | Queries Graphify for pull-request blast radius against the current graph. |
+| `memoryHistory` | Queries the configured Graphiti provider for temporal facts and relationship history. |
+| `recordTemporalFact` | Writes one already-verified deterministic temporal relationship through Graphiti without LLM fact extraction. |
+| `memoryProviderStats` | Returns process-local provider call counts, degradation counts, latency, and context-volume telemetry. |
+| `searchRelatedContexts` | Searches focused project semantic context in Qdrant. Treat matches as candidate evidence. |
+| `searchPriorFixes` | Searches semantic task-history collections for prior fixes and reviews. Treat matches as candidate evidence until verified. |
+| `storeTaskEmbedding` | Explicitly chunks, embeds, and stores a distilled task semantic document. This is not the canonical durable-memory promotion boundary. |
+| `attachSemanticContextToTask` | Stores structured shared task context and explicitly indexes the supplied distilled semantic body. |
+| `storeSemanticDocument` | Lower-level semantic indexing tool for explicit semantic payload storage. |
+| `searchSemanticChunks` | Searches semantic chunks and returns stored payload text/code rather than vectors. |
+| `searchSemanticHistory` | Searches semantic task-history chunks. |
 | `searchKnowledgeIndex` | Searches indexed knowledge content. |
 | `reindexSemanticKnowledge` | Rebuilds the configured semantic knowledge index. |
 | `reindexConfiguredCodebases` | Rebuilds semantic indexes for configured codebases. |
 | `attachSemanticDocumentToTask` | Attaches a semantic document to a task and indexes it. |
-| `purgeLegacySemanticCollection` | Deletes the legacy shared Qdrant collection. |
-| `storeTaskEmbedding` | Stores chunked task embedding payloads into vector memory. |
-| `searchRelatedContexts` | Searches related semantic context chunks. |
-| `loadRelatedSemanticContext` | Loads related semantic context for the active project. |
-| `searchPriorFixes` | Searches semantic task history for prior fixes and reviews. |
-| `attachSemanticContextToTask` | Stores shared task context and indexes the same body through the semantic pipeline. |
+| `purgeLegacySemanticCollection` | Deletes the legacy shared Qdrant collection. Use only as part of an intentional migration/cleanup workflow. |
+
+#### Memory tool selection
+
+- Start substantive Tavall work with `memoryContext` when memory tools are available.
+- Use `searchPriorFixes` / `searchRelatedContexts` for deeper semantic investigation, not as substitutes for canonical exact state.
+- Use `memoryRelated` / `codeImpact` for current structural evidence.
+- Use `memoryHistory` for temporal/architecture history.
+- Use `recordMemory` only for verified reusable conclusions with correct scope and provenance.
+- Use `recordTemporalFact` only for already-verified temporal relationships.
+- Use `memoryProviderStats` during provider/acceptance validation or when diagnosing degraded/slow retrieval.
 
 ### Harness Validator Tools (`tavall-ai-clean-java-harness`)
-
-Source: [CleanJavaHarnessToolHandler.java](/F:/workspace/AgentTaskManager/tavall-ai-clean-java-harness/src/main/java/com/agenttaskmanager/app/mcp/CleanJavaHarnessToolHandler.java), [CleanJavaHarnessTools.java](/F:/workspace/AgentTaskManager/tavall-ai-clean-java-harness/src/main/java/com/agenttaskmanager/app/mcp/cleanjava/CleanJavaHarnessTools.java)
 
 These tools are exposed by the central MCP, but the implementation is backed by bundled local harness and validator code rather than a separate harness server process.
 
@@ -189,11 +193,9 @@ These tools are exposed by the central MCP, but the implementation is backed by 
 
 ## Dedicated Clean Java MCP Tools
 
-These tools are custom, but only `clean-java-mcp` remains a dedicated stdio server. The `tavall-ai-clean-java-harness` module (module path `tavall-ai-clean-java-harness`) is now bundled as a local validator/runtime dependency instead of a standalone MCP server.
+These tools are custom, but only `clean-java-mcp` remains a dedicated stdio server. The `tavall-ai-clean-java-harness` module is now bundled as a local validator/runtime dependency instead of a standalone MCP server.
 
 ### Clean Java MCP Server
-
-Source: [CleanJavaMcpTools.java](/F:/workspace/AgentTaskManager/tavall-ai-clean-java-mcp/src/main/java/com/agenttaskmanager/app/mcp/cleanjava/CleanJavaMcpTools.java)
 
 | Tool | What it does |
 | --- | --- |
@@ -202,5 +204,3 @@ Source: [CleanJavaMcpTools.java](/F:/workspace/AgentTaskManager/tavall-ai-clean-
 | `runCleanJavaArchUnit` | Runs clean Java ArchUnit rules against a repo. |
 | `runCleanJavaSpoon` | Runs clean Java Spoon source-shape rules. |
 | `validateCleanJavaPatchScope` | Validates clean Java patch scope. |
-
-

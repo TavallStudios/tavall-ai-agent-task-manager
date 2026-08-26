@@ -8,6 +8,7 @@ import org.tavall.ai.app.model.orchestration.WorkerTransportKind;
 import org.tavall.ai.app.model.orchestration.WorkerType;
 import org.tavall.ai.app.retrieval.SemanticCollectionDomain;
 import org.tavall.ai.app.retrieval.SemanticContentType;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.support.IntegrationTestSupport;
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -24,7 +25,7 @@ import org.springframework.test.context.TestPropertySource;
 class WorkerPromptFactoryTest extends IntegrationTestSupport {
 
   @Autowired
-  private SharedTaskContextService sharedTaskContextService;
+  private SemanticMemoryService semanticMemoryService;
 
   @Autowired
   private WorkerPromptFactory workerPromptFactory;
@@ -32,8 +33,8 @@ class WorkerPromptFactoryTest extends IntegrationTestSupport {
   @Test
   void shouldInjectRetrievedMemoryIntoWorkerPrompts() {
     String suffix = UUID.randomUUID().toString();
-    sharedTaskContextService.deleteProjectSemanticContexts("worker-test", Map.of());
-    sharedTaskContextService.storeProjectSemanticDocument(
+    semanticMemoryService.deleteProjectContexts("worker-test", Map.of());
+    semanticMemoryService.storeProjectDocument(
         "worker-test",
         "task-" + suffix,
         "worker-" + suffix,

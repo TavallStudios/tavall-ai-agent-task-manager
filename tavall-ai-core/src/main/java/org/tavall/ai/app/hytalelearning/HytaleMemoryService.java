@@ -8,13 +8,13 @@ import org.tavall.ai.app.model.hytalelearning.HytalePromotionRequest;
 import org.tavall.ai.app.model.hytalelearning.HytaleRetrievedMemory;
 import org.tavall.ai.app.model.hytalelearning.HytaleVisualAnchor;
 import org.tavall.ai.app.model.orchestration.RetrievedSemanticContext;
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.persistence.postgres.HytaleLearningSessionRepository;
 import org.tavall.ai.app.persistence.postgres.HytalePlaybookRepository;
 import org.tavall.ai.app.persistence.postgres.HytalePromotionDecisionRepository;
 import org.tavall.ai.app.persistence.postgres.HytaleVisualAnchorRepository;
 import org.tavall.ai.app.retrieval.SemanticCollectionDomain;
 import org.tavall.ai.app.retrieval.SemanticContentType;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,7 +30,7 @@ public class HytaleMemoryService {
   private final HytalePlaybookRepository playbookRepository;
   private final HytalePromotionDecisionRepository promotionDecisionRepository;
   private final HytaleVisualAnchorRepository visualAnchorRepository;
-  private final SharedTaskContextService sharedTaskContextService;
+  private final SemanticMemoryService semanticMemoryService;
 
   public HytaleMemoryService(
       HytaleLearningProjectKeyFactory projectKeyFactory,
@@ -38,14 +38,14 @@ public class HytaleMemoryService {
       HytalePlaybookRepository playbookRepository,
       HytalePromotionDecisionRepository promotionDecisionRepository,
       HytaleVisualAnchorRepository visualAnchorRepository,
-      SharedTaskContextService sharedTaskContextService
+      SemanticMemoryService semanticMemoryService
   ) {
     this.projectKeyFactory = projectKeyFactory;
     this.learningSessionRepository = learningSessionRepository;
     this.playbookRepository = playbookRepository;
     this.promotionDecisionRepository = promotionDecisionRepository;
     this.visualAnchorRepository = visualAnchorRepository;
-    this.sharedTaskContextService = sharedTaskContextService;
+    this.semanticMemoryService = semanticMemoryService;
   }
 
   public HytalePromotionDecision promote(HytalePromotionRequest request) {
@@ -60,7 +60,7 @@ public class HytaleMemoryService {
     payload.put("decisionStatus", evaluation.decisionStatus());
     payload.putAll(request.metadata() == null ? Map.of() : request.metadata());
     List<String> pointIds = evaluation.promotable()
-        ? sharedTaskContextService.storeProjectSemanticDocument(
+        ? semanticMemoryService.storeProjectDocument(
             evaluation.projectKey(),
             session == null ? null : session.sessionId(),
             null,
@@ -122,19 +122,19 @@ public class HytaleMemoryService {
     String queryText = query.queryText() == null || query.queryText().isBlank()
         ? fallbackQuery(query)
         : query.queryText();
-    List<RetrievedSemanticContext> recoveryNotes = sharedTaskContextService.searchProjectRelatedContexts(
+    List<RetrievedSemanticContext> recoveryNotes = semanticMemoryService.searchProject(
         projectKey,
         queryText,
         10,
         semanticFilter(scopeFilter, "hytale-recovery-note")
     );
-    List<RetrievedSemanticContext> scenarioSummaries = sharedTaskContextService.searchProjectRelatedContexts(
+    List<RetrievedSemanticContext> scenarioSummaries = semanticMemoryService.searchProject(
         projectKey,
         queryText,
         10,
         semanticFilter(scopeFilter, "hytale-scenario-summary")
     );
-    List<RetrievedSemanticContext> generalNotes = sharedTaskContextService.searchProjectRelatedContexts(
+    List<RetrievedSemanticContext> generalNotes = semanticMemoryService.searchProject(
         projectKey,
         queryText,
         10,
@@ -289,4 +289,3 @@ public class HytaleMemoryService {
   ) {
   }
 }
-

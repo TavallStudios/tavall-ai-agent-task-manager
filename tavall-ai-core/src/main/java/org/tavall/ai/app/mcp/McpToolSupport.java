@@ -1,6 +1,5 @@
 package org.tavall.ai.app.mcp;
 
-import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.JsonSchema;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 import java.util.List;
@@ -30,4 +29,3 @@ public class McpToolSupport {
         .build();
   }
 }
-

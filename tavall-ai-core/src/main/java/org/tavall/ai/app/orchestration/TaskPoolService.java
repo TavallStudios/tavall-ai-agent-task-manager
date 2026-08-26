@@ -17,7 +17,6 @@ import org.tavall.ai.app.persistence.postgres.WorkerTaskRepository;
 import org.tavall.ai.app.persistence.redis.OrchestrationHotStateStore;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
@@ -203,4 +202,3 @@ public class TaskPoolService {
     return workerTaskRepository.listWorkerTasks(taskId);
   }
 }
-

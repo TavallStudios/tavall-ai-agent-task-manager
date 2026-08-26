@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "name": "tavall-memory-dev",
+  "generatedFrom": "TavallStudios organization repositories and repository-owned architecture guidance",
+  "embeddingProfile": "local_baai_bge_small_en_v1_5_384",
+  "embeddingModel": "BAAI/bge-small-en-v1.5",
+  "embeddingDimensions": 384,
+  "qdrantDocuments": "qdrant/documents.ndjson",
+  "graphitiFacts": "graphiti/facts.ndjson",
+  "graphifyRepositories": "graphify/repositories.json",
+  "notes": [
+    "Payloads are importable source material; vectors are generated during import.",
+    "Mock vectors use a separate fixture profile and must never share a real BGE collection.",
+    "Graphify graphs are derived from current workspaces and are rebuilt rather than shipped as canonical data."
+  ]
+}

@@ -12,7 +12,7 @@ import cache.JavaContractDeltaCache;
 import cache.JavaSymbolNeighborhoodCache;
 import cache.JavaSymbolProfileCache;
 import org.tavall.ai.app.persistence.mongo.JavaSymbolDocumentStore;
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.retrieval.SemanticSyncService;
 import org.tavall.ai.app.support.IntegrationTestSupport;
 import java.io.IOException;
@@ -54,7 +54,7 @@ class JavaSymbolHarnessServiceTest extends IntegrationTestSupport {
   private SemanticSyncService semanticSyncService;
 
   @Autowired
-  private SharedTaskContextService sharedTaskContextService;
+  private SemanticMemoryService semanticMemoryService;
 
   @BeforeEach
   void cleanupSemanticSyncQueue() {
@@ -232,16 +232,18 @@ class JavaSymbolHarnessServiceTest extends IntegrationTestSupport {
         List.of(FIXTURE_PATH),
         List.of(FIXTURE_PATH)
     );
-    List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> before = sharedTaskContextService.searchProjectRelatedContexts(
+    List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> before = semanticMemoryService.searchProject(
         projectKey,
         "FixtureApp greet method java contract",
-        5
+        5,
+        java.util.Map.of()
     );
     int processed = semanticSyncService.processPendingOperations();
-    List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> after = sharedTaskContextService.searchProjectRelatedContexts(
+    List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> after = semanticMemoryService.searchProject(
         projectKey,
         "FixtureApp greet method java contract",
-        5
+        5,
+        java.util.Map.of()
     );
 
     assertTrue(baseline.javaRepository());

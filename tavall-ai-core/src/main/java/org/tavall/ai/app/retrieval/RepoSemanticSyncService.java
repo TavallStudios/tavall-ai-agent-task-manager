@@ -6,7 +6,6 @@ import org.tavall.ai.app.harness.cleanjava.symbol.JavaSourceFileDiscoveryService
 import org.tavall.ai.app.harness.cleanjava.symbol.JavaSymbolSemanticIndexingService;
 import org.tavall.ai.app.model.KnownRepo;
 import org.tavall.ai.app.orchestration.GitWorktreeManager;
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.persistence.postgres.RepoSemanticSyncState;
 import org.tavall.ai.app.persistence.postgres.RepoSemanticSyncStateRepository;
 import org.tavall.ai.app.service.RepoCatalogService;
@@ -18,7 +17,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Locale;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 
@@ -33,8 +31,7 @@ public class RepoSemanticSyncService {
   private final RepoSemanticFileSupport repoSemanticFileSupport;
   private final RepoSemanticSyncStateRepository repoSemanticSyncStateRepository;
   private final SemanticIndexProperties semanticIndexProperties;
-  private final SemanticSyncService semanticSyncService;
-  private final SharedTaskContextService sharedTaskContextService;
+  private final SemanticMemoryService semanticMemoryService;
 
   public RepoSemanticSyncService(
       GitWorktreeManager gitWorktreeManager,
@@ -45,8 +42,7 @@ public class RepoSemanticSyncService {
       RepoSemanticFileSupport repoSemanticFileSupport,
       RepoSemanticSyncStateRepository repoSemanticSyncStateRepository,
       SemanticIndexProperties semanticIndexProperties,
-      SemanticSyncService semanticSyncService,
-      SharedTaskContextService sharedTaskContextService
+      SemanticMemoryService semanticMemoryService
   ) {
     this.gitWorktreeManager = gitWorktreeManager;
     this.javaSourceFileDiscoveryService = javaSourceFileDiscoveryService;
@@ -56,8 +52,7 @@ public class RepoSemanticSyncService {
     this.repoSemanticFileSupport = repoSemanticFileSupport;
     this.repoSemanticSyncStateRepository = repoSemanticSyncStateRepository;
     this.semanticIndexProperties = semanticIndexProperties;
-    this.semanticSyncService = semanticSyncService;
-    this.sharedTaskContextService = sharedTaskContextService;
+    this.semanticMemoryService = semanticMemoryService;
   }
 
   public int syncManagedRepos() {
@@ -106,7 +101,7 @@ public class RepoSemanticSyncService {
         continue;
       }
       if (change.changeType() == GitWorktreeManager.WorkspaceFileChangeType.DELETE) {
-        semanticSyncService.deleteProject(
+        semanticMemoryService.deleteProjectContexts(
             repo.projectKey(),
             Map.of("sourcePath", relativePath),
             repoSemanticFileSupport.deleteDedupeKey(repo, relativePath)
@@ -120,7 +115,7 @@ public class RepoSemanticSyncService {
         continue;
       }
       try {
-        sharedTaskContextService.storeProjectSemanticDocument(
+        semanticMemoryService.storeProjectDocument(
             repo.projectKey(),
             repoSemanticFileSupport.buildRequest(repo, workspacePath, target),
             repoSemanticFileSupport.upsertDedupeKey(repo, relativePath)
@@ -159,7 +154,7 @@ public class RepoSemanticSyncService {
   public Map<String, Object> loadStatus(String projectKey) {
     Optional<RepoSemanticSyncState> state = repoSemanticSyncStateRepository.find(projectKey);
     Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("pendingSyncOperations", semanticSyncService.pendingCount());
+    payload.put("pendingSyncOperations", semanticMemoryService.pendingCount());
     state.ifPresent(value -> {
       payload.put("repoPath", value.repoPath());
       payload.put("lastSyncedHead", value.lastSyncedHead());
@@ -169,7 +164,7 @@ public class RepoSemanticSyncService {
       payload.put("lastError", value.lastError());
     });
     if (payload.isEmpty()) {
-      payload.put("pendingSyncOperations", semanticSyncService.pendingCount());
+      payload.put("pendingSyncOperations", semanticMemoryService.pendingCount());
     }
     return payload;
   }
@@ -190,12 +185,12 @@ public class RepoSemanticSyncService {
     Path repoPath = Path.of(repo.repoPath());
     repoSemanticSyncStateRepository.markScanStarted(repo.projectKey(), repo.repoPath());
     try {
-      semanticSyncService.deleteProject(
+      semanticMemoryService.deleteProjectContexts(
           repo.projectKey(),
           Map.of("semanticDomain", SemanticCollectionDomain.CODE_REPO.name()),
           repoSemanticFileSupport.domainDeleteDedupeKey(repo.projectKey(), SemanticCollectionDomain.CODE_REPO)
       );
-      semanticSyncService.deleteProject(
+      semanticMemoryService.deleteProjectContexts(
           repo.projectKey(),
           Map.of("semanticDomain", SemanticCollectionDomain.KNOWLEDGE_RULES.name()),
           repoSemanticFileSupport.domainDeleteDedupeKey(repo.projectKey(), SemanticCollectionDomain.KNOWLEDGE_RULES)
@@ -207,7 +202,7 @@ public class RepoSemanticSyncService {
             .toList();
         for (Path file : files) {
           String relativePath = repoSemanticFileSupport.relativePath(repoPath, file);
-          sharedTaskContextService.storeProjectSemanticDocument(
+          semanticMemoryService.storeProjectDocument(
               repo.projectKey(),
               repoSemanticFileSupport.buildRequest(repo, repoPath, file),
             repoSemanticFileSupport.upsertDedupeKey(repo, relativePath)
@@ -264,7 +259,7 @@ public class RepoSemanticSyncService {
     if (!isJavaSourcePath(sourcePath)) {
       return;
     }
-    sharedTaskContextService.deleteProjectSemanticContexts(
+    semanticMemoryService.deleteProjectContexts(
         projectKey,
         Map.of("javaSymbol", true, "sourcePath", sourcePath)
     );
@@ -278,4 +273,3 @@ public class RepoSemanticSyncService {
     return relativePath == null ? "" : relativePath.strip().replace('\\', '/');
   }
 }
-

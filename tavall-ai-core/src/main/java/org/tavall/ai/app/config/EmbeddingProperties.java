@@ -3,13 +3,14 @@ package org.tavall.ai.app.config;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "app.embedding")
 public class EmbeddingProperties {
 
-  private List<String> providerOrder = new ArrayList<>(List.of("gemini", "local", "hash"));
-  private int dimensions = 1536;
+  private List<String> providerOrder = new ArrayList<>(List.of("local"));
+  private int dimensions = 384;
   private String geminiApiKey = "";
   private String geminiModel = "gemini-embedding-2-preview";
   private String localCommand = defaultLocalCommand();
@@ -21,7 +22,7 @@ public class EmbeddingProperties {
   }
 
   public void setProviderOrder(List<String> providerOrder) {
-    this.providerOrder = providerOrder;
+    this.providerOrder = providerOrder == null ? new ArrayList<>() : new ArrayList<>(providerOrder);
   }
 
   public int getDimensions() {
@@ -29,6 +30,9 @@ public class EmbeddingProperties {
   }
 
   public void setDimensions(int dimensions) {
+    if (dimensions <= 0) {
+      throw new IllegalArgumentException("Embedding dimensions must be positive.");
+    }
     this.dimensions = dimensions;
   }
 
@@ -72,10 +76,43 @@ public class EmbeddingProperties {
     this.localTimeoutSeconds = localTimeoutSeconds;
   }
 
+  public String collectionProfile() {
+    String provider = primaryProvider();
+    String model = switch (provider) {
+      case "local" -> localModel;
+      case "gemini" -> geminiModel;
+      case "hash" -> "hash";
+      default -> provider;
+    };
+    return sanitizeProfile(provider + "_" + model + "_" + dimensions);
+  }
+
+  private String primaryProvider() {
+    return normalizedProviderOrder().getFirst();
+  }
+
+  public List<String> normalizedProviderOrder() {
+    if (providerOrder == null || providerOrder.isEmpty()) {
+      return List.of("local");
+    }
+    List<String> normalized = providerOrder.stream()
+        .filter(value -> value != null && !value.isBlank())
+        .map(value -> value.strip().toLowerCase(Locale.ROOT))
+        .distinct()
+        .toList();
+    return normalized.isEmpty() ? List.of("local") : normalized;
+  }
+
+  private static String sanitizeProfile(String rawValue) {
+    String normalized = rawValue == null ? "" : rawValue.strip().toLowerCase(Locale.ROOT);
+    normalized = normalized.replaceAll("[^a-z0-9]+", "_");
+    normalized = normalized.replaceAll("^_+|_+$", "");
+    return normalized.isEmpty() ? "default" : normalized;
+  }
+
   private static String defaultLocalCommand() {
     String pythonCommand = System.getProperty("os.name", "").toLowerCase().contains("win") ? "python" : "python3";
     Path scriptPath = Path.of(System.getProperty("user.dir", "."), "scripts", "fastembed_embed.py");
     return pythonCommand + " \"" + scriptPath + "\"";
   }
 }
-

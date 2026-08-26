@@ -2,7 +2,6 @@ package org.tavall.ai.app.service;
 
 import org.tavall.ai.app.model.PromptRequestDetail;
 import org.tavall.ai.app.model.PromptRequestSummary;
-import org.tavall.ai.app.orchestration.PromptMemoryCaptureService;
 import org.tavall.ai.app.persistence.postgres.PromptRequestRepository;
 import java.util.List;
 import java.util.Map;
@@ -15,16 +14,13 @@ public class PromptRequestService {
   private static final List<String> EXECUTION_MODES = List.of("read-only", "edit", "run-tests");
 
   private final PromptRequestRepository promptRequestRepository;
-  private final PromptMemoryCaptureService promptMemoryCaptureService;
   private final PromptThreadMemoryService promptThreadMemoryService;
 
   public PromptRequestService(
       PromptRequestRepository promptRequestRepository,
-      PromptMemoryCaptureService promptMemoryCaptureService,
       PromptThreadMemoryService promptThreadMemoryService
   ) {
     this.promptRequestRepository = promptRequestRepository;
-    this.promptMemoryCaptureService = promptMemoryCaptureService;
     this.promptThreadMemoryService = promptThreadMemoryService;
   }
 
@@ -60,32 +56,7 @@ public class PromptRequestService {
         requestedBy,
         requestedFrom
     );
-    promptMemoryCaptureService.captureProjectMemory(
-        projectKey,
-        summary.requestId(),
-        null,
-        "prompt-request",
-        promptText,
-        Map.of(
-            "requestId", summary.requestId(),
-            "repoPath", repoPath,
-            "bridgeTarget", bridgeTarget,
-            "threadKey", summary.threadKey(),
-            "requestedBy", requestedBy,
-            "requestedFrom", requestedFrom == null ? "" : requestedFrom
-        )
-    );
     promptThreadMemoryService.lookup(summary.projectKey(), summary.threadKey(), promptText);
-    promptThreadMemoryService.capturePromptThreadMessage(
-        summary,
-        "prompt-thread-message",
-        promptText,
-        Map.of(
-            "sender", requestedBy,
-            "messageKind", "prompt"
-        )
-    );
-    promptThreadMemoryService.capturePromptThreadSnapshot(summary.projectKey(), summary.threadKey());
     return summary;
   }
 
@@ -111,36 +82,7 @@ public class PromptRequestService {
             "workerTaskId", workerTaskId == null ? "" : workerTaskId
         )
     );
-    promptMemoryCaptureService.captureProjectMemory(
-        projectKey,
-        summary.requestId(),
-        workerTaskId,
-        "worker-prompt-request",
-        promptText,
-        Map.of(
-            "requestId", summary.requestId(),
-            "repoPath", repoPath,
-            "bridgeTarget", summary.bridgeTarget(),
-            "threadKey", summary.threadKey(),
-            "requestedBy", requestedBy,
-            "requestedFrom", requestedFrom == null ? "" : requestedFrom,
-            "taskId", taskId == null ? "" : taskId,
-            "workerTaskId", workerTaskId == null ? "" : workerTaskId
-        )
-    );
     promptThreadMemoryService.lookup(summary.projectKey(), summary.threadKey(), promptText);
-    promptThreadMemoryService.capturePromptThreadMessage(
-        summary,
-        "worker-thread-message",
-        promptText,
-        Map.of(
-            "sender", requestedBy,
-            "messageKind", "worker-prompt",
-            "taskId", taskId == null ? "" : taskId,
-            "workerTaskId", workerTaskId == null ? "" : workerTaskId
-        )
-    );
-    promptThreadMemoryService.capturePromptThreadSnapshot(summary.projectKey(), summary.threadKey());
     return summary;
   }
 
@@ -168,4 +110,3 @@ public class PromptRequestService {
     return normalized;
   }
 }
-

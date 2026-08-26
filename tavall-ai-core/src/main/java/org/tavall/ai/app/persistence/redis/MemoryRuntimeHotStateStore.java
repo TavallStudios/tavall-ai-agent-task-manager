@@ -58,6 +58,25 @@ public class MemoryRuntimeHotStateStore {
     store(ROOT + ":working:" + key, value, ttl);
   }
 
+  public long workingMemoryRevision(String authorityKey) {
+    String fullKey = ROOT + ":working-revision:" + authorityKey;
+    return load(fullKey).map(this::readLong).orElse(0L);
+  }
+
+  public long incrementWorkingMemoryRevision(String authorityKey) {
+    String fullKey = ROOT + ":working-revision:" + authorityKey;
+    if (shouldUseFallback()) {
+      return incrementFallback(fullKey);
+    }
+    try {
+      Long revision = redisTemplate.opsForValue().increment(fullKey);
+      return revision == null ? 0L : revision;
+    } catch (RuntimeException exception) {
+      activateFallback(exception);
+      return incrementFallback(fullKey);
+    }
+  }
+
   public Optional<String> loadContinuitySnapshot(String key) {
     return load(ROOT + ":continuity:" + key);
   }
@@ -69,14 +88,14 @@ public class MemoryRuntimeHotStateStore {
   public void incrementCounter(String counterName) {
     String fullKey = ROOT + ":counter:" + counterName;
     if (shouldUseFallback()) {
-      fallbackValues.merge(fullKey, "1", (current, ignored) -> Integer.toString(Integer.parseInt(current) + 1));
+      incrementFallback(fullKey);
       return;
     }
     try {
       redisTemplate.opsForValue().increment(fullKey);
     } catch (RuntimeException exception) {
       activateFallback(exception);
-      fallbackValues.merge(fullKey, "1", (current, ignored) -> Integer.toString(Integer.parseInt(current) + 1));
+      incrementFallback(fullKey);
     }
   }
 
@@ -127,6 +146,23 @@ public class MemoryRuntimeHotStateStore {
     }
   }
 
+  private long incrementFallback(String key) {
+    String value = fallbackValues.merge(
+        key,
+        "1",
+        (current, ignored) -> Long.toString(readLong(current) + 1L)
+    );
+    return readLong(value);
+  }
+
+  private long readLong(String value) {
+    try {
+      return Long.parseLong(value);
+    } catch (RuntimeException exception) {
+      return 0L;
+    }
+  }
+
   private String writeJson(Object value) {
     try {
       return objectMapper.writeValueAsString(value == null ? Map.of() : value);
@@ -145,5 +181,3 @@ public class MemoryRuntimeHotStateStore {
     }
   }
 }
-
-

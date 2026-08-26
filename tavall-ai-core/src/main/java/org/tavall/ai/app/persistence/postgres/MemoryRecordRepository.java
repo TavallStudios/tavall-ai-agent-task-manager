@@ -81,6 +81,26 @@ public class MemoryRecordRepository {
         .list();
   }
 
+  /**
+   * Serializes canonical writers for one stable memory identity for the life of the current
+   * PostgreSQL transaction. Postgres owns this lock because Postgres owns durable memory state.
+   */
+  public void lockStableRecordIdentity(MemoryIdentity identity, MemoryMutationPlan plan) {
+    lockStableRecordKeys(List.of(stableRecordKey(identity, plan)));
+  }
+
+  /**
+   * Acquires replacement and superseded stable-memory locks in deterministic order to avoid
+   * cross-supersession lock inversion between concurrent agent writes.
+   */
+  public void lockStableRecordIdentities(
+      MemoryIdentity identity,
+      MemoryMutationPlan replacement,
+      MemoryRecord superseded
+  ) {
+    lockStableRecordKeys(List.of(stableRecordKey(identity, replacement), stableRecordKey(superseded)));
+  }
+
   public Optional<MemoryRecord> findStableRecord(MemoryIdentity identity, MemoryMutationPlan plan) {
     return jdbcClient.sql("""
             SELECT *
@@ -311,6 +331,55 @@ public class MemoryRecordRepository {
         .single();
   }
 
+  private void lockStableRecordKeys(List<String> keys) {
+    keys.stream()
+        .distinct()
+        .sorted()
+        .forEach(key -> jdbcClient.sql("SELECT pg_advisory_xact_lock(hashtextextended(:lockKey, 0))")
+            .param("lockKey", key)
+            .query((rs, rowNum) -> Boolean.TRUE)
+            .single());
+  }
+
+  private String stableRecordKey(MemoryIdentity identity, MemoryMutationPlan plan) {
+    return stableRecordKey(
+        blank(identity.userId()),
+        blank(identity.workspaceId()),
+        blank(projectId(identity, plan.scope())),
+        blank(chatId(identity, plan.scope())),
+        blank(threadKey(identity, plan.scope())),
+        plan.scope().name(),
+        plan.kind().name(),
+        plan.titleKey()
+    );
+  }
+
+  private String stableRecordKey(MemoryRecord record) {
+    return stableRecordKey(
+        blank(record.userId()),
+        blank(record.workspaceId()),
+        blank(record.projectId()),
+        blank(record.chatId()),
+        blank(record.threadKey()),
+        record.scope().name(),
+        record.kind().name(),
+        record.titleKey()
+    );
+  }
+
+  private String stableRecordKey(
+      String userId,
+      String workspaceId,
+      String projectId,
+      String chatId,
+      String threadKey,
+      String scope,
+      String kind,
+      String titleKey
+  ) {
+    return String.join("\u001f", userId, workspaceId, projectId, chatId, threadKey, scope, kind, titleKey);
+  }
+
   private MemoryRecord mapRecord(
       String memoryId,
       String userId,
@@ -409,4 +478,3 @@ public class MemoryRecordRepository {
     return value == null ? "" : value.strip();
   }
 }
-

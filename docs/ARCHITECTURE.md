@@ -15,9 +15,12 @@ Build modules:
 - `tavall-ai-app`
   The final app module that assembles the shared runtime, the standalone embedded MCP HTTP runtime, and both clean Java modules into one executable.
 
+Core package responsibilities:
+
 - `mcp`
-  MCP prompts, resources, tools, and server bootstrap.
-  Clean Java validation and harness tool implementations live under a dedicated `mcp.cleanjava` subpackage while preserving the existing MCP handler surface.
+  MCP prompts, resources, tools, and server bootstrap. Clean Java validation and harness tool implementations live under a dedicated `mcp.cleanjava` subpackage while preserving the existing MCP handler surface.
+- `memory`
+  Canonical Tavall memory identity, policy, continuity, hydration, provider orchestration, and provider-neutral context compilation. External knowledge providers terminate here rather than leaking vendor contracts into agent code.
 - `orchestration`
   Canonical Codex delegation-run flow, legacy task-pool compatibility adapters, worker lifecycle, cleanup review, artifacts, shared context, and Codex worker transport.
 - `harness`
@@ -62,11 +65,11 @@ Build modules:
 ## Prompt Thread Memory Flow
 
 1. Incoming MCP interactions can carry an explicit `threadKey`; otherwise the runtime derives one from the MCP session id plus project or repo scope.
-2. Before a tool, prompt, or resource handler dispatches, the runtime performs one authoritative exact-thread lookup plus thread-scoped semantic search using that key.
+2. Before a tool, prompt, or resource handler dispatches, the runtime performs one authoritative exact-thread Postgres lookup using that key, then compiles the broader configured semantic, structural, temporal, and knowledge sources once.
 3. The interaction envelope receives thread memory first, then broader project memory, then optional indexed knowledge.
 4. The accepted interaction is persisted immediately as a `prompt-thread-message` and linked to a durable interaction row.
-5. Memory lookup summaries, final results or failures, and compact thread snapshots are persisted after execution so remote recall stays current.
-6. Old chats can be searched through Postgres by key or preview text and through Qdrant by thread-scoped semantic recall.
+5. Prompt requests and messages, including lookup summaries and final results or failures, remain persisted in Postgres for exact-thread history; raw prompt messages and snapshots are not written to Qdrant.
+6. Durable memory should prefer distilled findings, compact snapshots, provenance, and source references over duplicating complete provider transcripts. Provider-native Codex/session files remain raw evidence that can be fetched when verbatim history is necessary.
 
 ## Hytale Learning Flow
 
@@ -79,13 +82,30 @@ Build modules:
 
 ## Semantic Retrieval
 
-- New semantic storage is chunk-first. The runtime splits docs, chats, code, diffs, and run summaries before embedding, then stores the vector together with the original chunk payload and metadata in Qdrant.
-- `app.qdrant.collection` is migration-only for old data cleanup, while new runtime writes go to `app.qdrant.project-collection-prefix` collections and knowledge vectors go to `app.qdrant.knowledge-collection-prefix` collections.
-- `EmbeddingProviderChain` keeps one Qdrant vector size across providers.
-- `GeminiEmbeddingProvider` is the primary path with `gemini-embedding-2-preview`.
-- `LocalCommandEmbeddingProvider` is the remote-safe fallback and defaults to the bundled FastEmbed runner.
-- `HashEmbeddingService` remains the final fail-safe so retrieval tools do not hard-fail when the external providers are unavailable.
+- Semantic storage is chunk-first. The runtime splits docs, chats, code, diffs, and run summaries before embedding, then stores the vector together with the original chunk payload and metadata in Qdrant.
+- `app.qdrant.collection` is migration-only for old data cleanup, while new runtime writes go to profile-isolated project and knowledge collections.
+- The default embedding provider is local FastEmbed/ONNX using `BAAI/bge-small-en-v1.5` at 384 dimensions.
+- Gemini and hash embeddings remain explicit operator-selected providers. They are not silently appended as fallback providers to the default local semantic space.
+- A configured Qdrant failure does not silently become process-local in-memory persistence. In-memory Qdrant behavior is reserved for intentionally unconfigured local/test runtimes.
+- Collection names include the embedding provider/model/dimension profile so incompatible vector spaces cannot be mixed.
 - Query routing uses retrieval-purpose-specific embeddings: `RETRIEVAL_DOCUMENT` for stored chunks, `RETRIEVAL_QUERY` for general search, and `CODE_RETRIEVAL_QUERY` for natural-language code lookup.
+- Semantic reranking combines vector score with lexical overlap, Java-symbol relevance, payload filters, recency, domain priority, and content type. Native sparse/BM25 collections require their own migration/profile validation before being enabled as a production default.
+
+## Memory Knowledge Retrieval
+
+The memory owner compiles several deliberately different retrieval geometries instead of making one store pretend to know everything:
+
+- Postgres and Redis-backed exact memory provide durable/current state and hot continuity.
+- Qdrant provides associative semantic recall and prior-fix/context candidates; it is supplemental retrieval, not canonical truth.
+- Graphify is a replaceable structural provider over rebuildable workspace code graphs. It answers current topology, dependency, file/line, and pull-request blast-radius questions.
+- Graphiti is a replaceable temporal provider for curated evolving facts, supersession, incidents, architecture decisions, and historical relationships. Already-verified structured relationships use direct triplet writes rather than paying for fact extraction from prose.
+- Git, pull requests, Codex/provider session files, runtime logs, and similar artifacts remain raw evidence sources fetched by reference when required instead of being copied wholesale into the memory plane.
+
+`MemoryRetrievalService` remains the canonical hydration path. It resolves identity, loads exact memory, retrieves semantic candidates, and asks `MemoryContextAugmentationService` for configured structural and temporal context. External provider failures remain visible as degraded context instead of being silently represented as an empty successful lookup.
+
+Provider telemetry records calls, degradation, latency, and returned context volume so Graphify/Graphiti adoption remains measurable and reversible.
+
+See `docs/MEMORY_KNOWLEDGE_PLANE.md` and `seed/tavall-memory-dev/README.md` for deployment and seed details.
 
 ## MCP Surfaces
 
@@ -94,14 +114,12 @@ Build modules:
 - resources for docs
 - prompts for overseer, worker, and cleanup roles
 - tool groups for canonical delegation-run orchestration, compatibility task pooling, worker state, shared context, validation, artifacts, retrieval, cache, and decisions
-- the dedicated `tavall-ai-clean-java-harness` group (with `clean-java-harness` compatibility alias) now exposes a single harness surface for intake, routing, state, brokered tool bundles, approval, and deterministic clean-code validation
-- deterministic Java work now follows one staged loop: build clean-Java task context, draft the patch, run Spoon source-shape checks, run ArchUnit architecture and cycle checks, then pass cleanup review and approval gates
+- memory knowledge tools: `memoryContext`, `memoryRelated`, `codeImpact`, `memoryHistory`, `recordTemporalFact`, and `memoryProviderStats`
+- the dedicated `tavall-ai-clean-java-harness` group (with `clean-java-harness` compatibility alias) exposes a single harness surface for intake, routing, state, brokered tool bundles, approval, and deterministic clean-code validation
+- deterministic Java work follows one staged loop: build clean-Java task context, draft the patch, run Spoon source-shape checks, run ArchUnit architecture and cycle checks, then pass cleanup review and approval gates
 
 The default runtime path starts embedded Tomcat directly from the app module and registers the official MCP Java SDK servlet without Spring MVC in the request path. A Spring-hosted MCP adapter remains in the repo as a compatibility layer for existing integration tests and migration safety.
 
 ## Remote Path
 
 The standalone app runtime exposes the MCP servlet endpoint remotely by default. Local stdio and remote HTTP modes share the same tool catalog and internal service boundaries, while the compatibility Spring adapter remains available for phased migration and test coverage.
-
-
-

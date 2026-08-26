@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import org.tavall.ai.app.model.orchestration.RetrievedSemanticContext;
 import org.tavall.ai.app.retrieval.SemanticCollectionDomain;
 import org.tavall.ai.app.retrieval.SemanticContentType;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.support.IntegrationTestSupport;
 import org.tavall.ai.app.support.TestWorkspacePaths;
 import java.util.List;
@@ -36,13 +37,13 @@ class LocalFallbackEmbeddingTest extends IntegrationTestSupport {
   }
 
   @Autowired
-  private SharedTaskContextService sharedTaskContextService;
+  private SemanticMemoryService semanticMemoryService;
 
   @Test
   void shouldUseLocalEmbeddingRunnerWhenGeminiIsUnavailable() {
     String suffix = UUID.randomUUID().toString();
-    sharedTaskContextService.deleteProjectSemanticContexts("local-test", Map.of());
-    String storedId = sharedTaskContextService.storeProjectSemanticDocument(
+    semanticMemoryService.deleteProjectContexts("local-test", Map.of());
+    String storedId = semanticMemoryService.storeProjectDocument(
         "local-test",
         "task-" + suffix,
         "worker-" + suffix,
@@ -54,10 +55,11 @@ class LocalFallbackEmbeddingTest extends IntegrationTestSupport {
         Map.of("scope", "integration")
     ).getFirst();
 
-    List<RetrievedSemanticContext> contexts = sharedTaskContextService.searchProjectRelatedContexts(
+    List<RetrievedSemanticContext> contexts = semanticMemoryService.searchProject(
         "local-test",
         "Gemini fallback integration text " + suffix,
-        5
+        5,
+        Map.of()
     );
 
     assertFalse(contexts.isEmpty());
@@ -72,4 +74,3 @@ class LocalFallbackEmbeddingTest extends IntegrationTestSupport {
     assertEquals("KNOWLEDGE_RULES", match.payload().get("semanticDomain"));
   }
 }
-

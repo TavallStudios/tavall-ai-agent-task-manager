@@ -14,6 +14,7 @@ import org.tavall.ai.app.persistence.postgres.WorkerTaskRepository;
 import org.tavall.ai.app.persistence.redis.OrchestrationHotStateStore;
 import org.tavall.ai.app.orchestration.ArtifactService;
 import org.tavall.ai.app.orchestration.SharedTaskContextService;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,7 @@ public class HarnessStateService {
   private final OrchestrationHotStateStore orchestrationHotStateStore;
   private final PatchDecisionRepository patchDecisionRepository;
   private final SharedTaskContextService sharedTaskContextService;
+  private final SemanticMemoryService semanticMemoryService;
   private final TaskBatchRepository taskBatchRepository;
   private final ValidationReportRepository validationReportRepository;
   private final ValidationPipelineService validationPipelineService;
@@ -47,6 +49,7 @@ public class HarnessStateService {
       OrchestrationHotStateStore orchestrationHotStateStore,
       PatchDecisionRepository patchDecisionRepository,
       SharedTaskContextService sharedTaskContextService,
+      SemanticMemoryService semanticMemoryService,
       TaskBatchRepository taskBatchRepository,
       ValidationReportRepository validationReportRepository,
       ValidationPipelineService validationPipelineService,
@@ -61,6 +64,7 @@ public class HarnessStateService {
     this.orchestrationHotStateStore = orchestrationHotStateStore;
     this.patchDecisionRepository = patchDecisionRepository;
     this.sharedTaskContextService = sharedTaskContextService;
+    this.semanticMemoryService = semanticMemoryService;
     this.taskBatchRepository = taskBatchRepository;
     this.validationReportRepository = validationReportRepository;
     this.validationPipelineService = validationPipelineService;
@@ -107,10 +111,11 @@ public class HarnessStateService {
         orchestrationHotStateStore.workerQueueDepth(taskId),
         sharedTaskContextService.loadTaskContext(taskId),
         cachedValidationSummaries,
-        sharedTaskContextService.searchProjectRelatedContexts(
+        semanticMemoryService.searchProject(
             taskSchema.batch().projectKey(),
             taskSchema.batch().title(),
-            5
+            5,
+            Map.of()
         ),
         storeCounts(taskSchema, agentSchema)
     );
@@ -144,4 +149,3 @@ public class HarnessStateService {
     return status == TaskLifecycleStatus.DEAD || status == TaskLifecycleStatus.DEAD_LETTER;
   }
 }
-

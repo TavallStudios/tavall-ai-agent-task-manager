@@ -1,38 +1,29 @@
 package org.tavall.ai.app.orchestration;
 
-import org.tavall.ai.app.config.KnowledgeIndexProperties;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.springframework.stereotype.Service;
 import org.tavall.ai.app.memory.MemoryHydration;
 import org.tavall.ai.app.memory.MemoryRetrievalService;
 import org.tavall.ai.app.model.PromptThreadDetail;
 import org.tavall.ai.app.model.PromptThreadMemoryLookupResult;
 import org.tavall.ai.app.model.orchestration.RetrievedSemanticContext;
 import org.tavall.ai.app.persistence.postgres.PromptThreadRepository;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import org.springframework.stereotype.Service;
 
 @Service
 public class PromptMemoryLookupService {
 
-  private final KnowledgeIndexProperties knowledgeIndexProperties;
   private final MemoryRetrievalService memoryRetrievalService;
   private final PromptThreadRepository promptThreadRepository;
-  private final SharedTaskContextService sharedTaskContextService;
 
   public PromptMemoryLookupService(
-      KnowledgeIndexProperties knowledgeIndexProperties,
       MemoryRetrievalService memoryRetrievalService,
-      PromptThreadRepository promptThreadRepository,
-      SharedTaskContextService sharedTaskContextService
+      PromptThreadRepository promptThreadRepository
   ) {
-    this.knowledgeIndexProperties = knowledgeIndexProperties;
     this.memoryRetrievalService = memoryRetrievalService;
     this.promptThreadRepository = promptThreadRepository;
-    this.sharedTaskContextService = sharedTaskContextService;
   }
 
   public PromptMemorySnapshot lookup(String projectKey, String queryText) {
@@ -70,31 +61,17 @@ public class PromptMemoryLookupService {
           queryText.strip(),
           Map.of("projectKey", blank(projectKey), "threadKey", blank(threadKey))
       );
-      ThreadMemory threadMemory = mergeContexts(threadKey, hydration.semanticCandidates(), queryText.strip());
-      List<RetrievedSemanticContext> merged = new ArrayList<>();
-      merged.addAll(threadMemory.threadContexts());
-      merged.addAll(threadMemory.projectContexts());
-      merged.addAll(threadMemory.knowledgeContexts());
-      PromptMemorySnapshot snapshot;
-      if (merged.isEmpty() && hydration.exactRecords().isEmpty()) {
-        snapshot = new PromptMemorySnapshot(
-            "Memory lookup completed: no related entries found.",
-            "No directly related memory entries were retrieved."
-        );
-      } else {
-        snapshot = new PromptMemorySnapshot(
-            buildSummary(exactThread.orElse(null), hydration, merged),
-            buildSection(exactThread.orElse(null), hydration, merged)
-        );
-      }
+      ThreadMemory views = partition(threadKey, hydration.semanticCandidates());
+      String summary = prependThreadSummary(exactThread.orElse(null), hydration.summary());
+      String section = prependThreadSection(exactThread.orElse(null), hydration.section());
       return new PromptThreadMemoryLookupResult(
           blank(threadKey),
           exactThread.map(PromptThreadDetail::thread).orElse(null),
-          snapshot.summary(),
-          snapshot.section(),
-          threadMemory.threadContexts(),
-          threadMemory.projectContexts(),
-          threadMemory.knowledgeContexts()
+          summary,
+          section,
+          views.threadContexts(),
+          views.projectContexts(),
+          views.knowledgeContexts()
       );
     } catch (RuntimeException exception) {
       String message = exception.getMessage() == null
@@ -105,150 +82,48 @@ public class PromptMemoryLookupService {
     }
   }
 
-  private ThreadMemory mergeContexts(String threadKey, List<RetrievedSemanticContext> semanticCandidates, String queryText) {
+  private ThreadMemory partition(String threadKey, List<RetrievedSemanticContext> semanticCandidates) {
     List<RetrievedSemanticContext> threadContexts = new ArrayList<>();
-    List<RetrievedSemanticContext> projectContexts = new ArrayList<>(semanticCandidates);
+    List<RetrievedSemanticContext> projectContexts = new ArrayList<>();
     List<RetrievedSemanticContext> knowledgeContexts = new ArrayList<>();
-    if (threadKey != null && !threadKey.isBlank()) {
-      threadContexts.addAll(semanticCandidates.stream()
-          .filter(context -> threadKey.equals(readPayloadValue(context.payload(), "threadKey")))
-          .toList());
-      projectContexts = semanticCandidates.stream()
-          .filter(context -> !threadKey.equals(readPayloadValue(context.payload(), "threadKey")))
-          .toList();
+    for (RetrievedSemanticContext context : semanticCandidates) {
+      if (!readPayloadValue(context.payload(), "knowledgeBase").isBlank()) {
+        knowledgeContexts.add(context);
+      } else if (threadKey != null
+          && !threadKey.isBlank()
+          && threadKey.equals(readPayloadValue(context.payload(), "threadKey"))) {
+        threadContexts.add(context);
+      } else {
+        projectContexts.add(context);
+      }
     }
-    if (knowledgeIndexProperties.isEnabled()) {
-      knowledgeContexts.addAll(sharedTaskContextService.searchKnowledgeContexts(
-          knowledgeIndexProperties.getKnowledgeBase(),
-          queryText,
-          knowledgeIndexProperties.getPromptResultLimit()
-      ));
-    }
-    List<RetrievedSemanticContext> combined = new ArrayList<>();
-    combined.addAll(threadContexts);
-    combined.addAll(projectContexts);
-    combined.addAll(knowledgeContexts);
-    Map<String, RetrievedSemanticContext> deduped = new LinkedHashMap<>();
-    combined.stream()
-        .sorted(Comparator.comparingDouble(RetrievedSemanticContext::score).reversed())
-        .forEach(context -> deduped.putIfAbsent(context.id(), context));
     return new ThreadMemory(
-        dedupe(threadContexts, deduped),
-        dedupe(projectContexts, deduped),
-        dedupe(knowledgeContexts, deduped)
+        List.copyOf(threadContexts),
+        List.copyOf(projectContexts),
+        List.copyOf(knowledgeContexts)
     );
   }
 
-  private String buildSummary(
-      PromptThreadDetail exactThread,
-      MemoryHydration hydration,
-      List<RetrievedSemanticContext> contexts
-  ) {
-    StringBuilder builder = new StringBuilder("Memory lookup completed.");
-    appendThreadMatchSummary(builder, exactThread);
-    builder.append(" Exact memory records=").append(hydration.exactRecords().size()).append(".");
-    builder.append(" Related entries:\n");
-    for (int index = 0; index < contexts.size(); index++) {
-      RetrievedSemanticContext context = contexts.get(index);
-      builder.append(index + 1)
-          .append(". score=")
-          .append(String.format("%.3f", context.score()))
-          .append(", source=")
-          .append(describeSource(context.payload()))
-          .append("\n   ")
-          .append(snippet(readChunkText(context.payload()), 220))
-          .append("\n");
+  private String prependThreadSummary(PromptThreadDetail exactThread, String hydrationSummary) {
+    if (exactThread == null) {
+      return hydrationSummary;
     }
-    return builder.toString().strip();
+    return "Matched thread key "
+        + exactThread.thread().threadKey()
+        + " with "
+        + exactThread.requests().size()
+        + " requests and "
+        + exactThread.messages().size()
+        + " persisted messages. "
+        + hydrationSummary;
   }
 
-  private String buildSection(
-      PromptThreadDetail exactThread,
-      MemoryHydration hydration,
-      List<RetrievedSemanticContext> contexts
-  ) {
+  private String prependThreadSection(PromptThreadDetail exactThread, String hydrationSection) {
+    if (exactThread == null) {
+      return hydrationSection;
+    }
     StringBuilder builder = new StringBuilder();
-    appendThreadMatchSection(builder, exactThread);
-    if (!hydration.section().isBlank()) {
-      builder.append(hydration.section()).append("\n");
-    }
-    for (int index = 0; index < contexts.size(); index++) {
-      RetrievedSemanticContext context = contexts.get(index);
-      Map<String, Object> payload = context.payload();
-      builder.append(index + 1)
-          .append(". score=")
-          .append(String.format("%.3f", context.score()))
-          .append(", source=")
-          .append(describeSource(payload));
-      String taskId = readPayloadValue(payload, "taskId");
-      String sourcePath = readPayloadValue(payload, "sourcePath");
-      if (!taskId.isBlank()) {
-        builder.append(", taskId=").append(taskId);
-      }
-      if (!sourcePath.isBlank()) {
-        builder.append(", sourcePath=").append(sourcePath);
-      }
-      builder.append("\n   chunk: ")
-          .append(snippet(readChunkText(payload), 400))
-          .append("\n");
-    }
-    return builder.toString().strip();
-  }
-
-  private static String describeSource(Map<String, Object> payload) {
-    String knowledgeBase = readPayloadValue(payload, "knowledgeBase");
-    if (!knowledgeBase.isBlank()) {
-      return knowledgeBase;
-    }
-    String projectKey = readPayloadValue(payload, "projectKey");
-    if (!projectKey.isBlank()) {
-      return projectKey + "/" + readPayloadValue(payload, "kind");
-    }
-    return readPayloadValue(payload, "kind");
-  }
-
-  private static String readPayloadValue(Map<String, Object> payload, String key) {
-    Object value = payload == null ? null : payload.get(key);
-    return value == null ? "" : String.valueOf(value).strip();
-  }
-
-  private static String readChunkText(Map<String, Object> payload) {
-    String chunkText = readPayloadValue(payload, "chunkText");
-    if (!chunkText.isBlank()) {
-      return chunkText;
-    }
-    return readPayloadValue(payload, "body");
-  }
-
-  private static String snippet(String value, int maxLength) {
-    if (value == null) {
-      return "";
-    }
-    String normalized = value.replaceAll("\\s+", " ").strip();
-    if (normalized.length() <= maxLength) {
-      return normalized;
-    }
-    return normalized.substring(0, maxLength - 3) + "...";
-  }
-
-  private void appendThreadMatchSummary(StringBuilder builder, PromptThreadDetail exactThread) {
-    if (exactThread == null) {
-      return;
-    }
-    builder.append(" Matched thread key ")
-        .append(exactThread.thread().threadKey())
-        .append(" with ")
-        .append(exactThread.requests().size())
-        .append(" requests and ")
-        .append(exactThread.messages().size())
-        .append(" persisted messages.");
-  }
-
-  private void appendThreadMatchSection(StringBuilder builder, PromptThreadDetail exactThread) {
-    if (exactThread == null) {
-      return;
-    }
-    builder.append("Exact thread match: ")
+    builder.append("Exact prompt-thread audit match: ")
         .append(exactThread.thread().threadKey())
         .append(", latestSummary=")
         .append(exactThread.thread().latestRequestSummary() == null ? "" : exactThread.thread().latestRequestSummary())
@@ -260,17 +135,26 @@ public class PromptMemoryLookupService {
             .append("] ")
             .append(snippet(message.body(), 220))
             .append("\n"));
+    if (hydrationSection != null && !hydrationSection.isBlank()) {
+      builder.append("\n").append(hydrationSection);
+    }
+    return builder.toString().strip();
   }
 
-  private List<RetrievedSemanticContext> dedupe(
-      List<RetrievedSemanticContext> source,
-      Map<String, RetrievedSemanticContext> deduped
-  ) {
-    return source.stream()
-        .map(context -> deduped.get(context.id()))
-        .filter(java.util.Objects::nonNull)
-        .distinct()
-        .toList();
+  private static String readPayloadValue(Map<String, Object> payload, String key) {
+    Object value = payload == null ? null : payload.get(key);
+    return value == null ? "" : String.valueOf(value).strip();
+  }
+
+  private static String snippet(String value, int maxLength) {
+    if (value == null) {
+      return "";
+    }
+    String normalized = value.replaceAll("\\s+", " ").strip();
+    if (normalized.length() <= maxLength) {
+      return normalized;
+    }
+    return normalized.substring(0, maxLength - 3) + "...";
   }
 
   private String blank(String value) {
@@ -287,4 +171,3 @@ public class PromptMemoryLookupService {
   ) {
   }
 }
-

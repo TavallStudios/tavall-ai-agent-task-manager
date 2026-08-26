@@ -75,6 +75,8 @@ public class RepoSemanticFileSupport {
     return normalized.isBlank()
         || ".git".equals(normalized)
         || normalized.startsWith(".git/")
+        || ".idea".equals(normalized)
+        || normalized.startsWith(".idea/")
         || normalized.startsWith(".tavall-ai.");
   }
 
@@ -104,5 +106,4 @@ public class RepoSemanticFileSupport {
     return SemanticContentType.CODE;
   }
 }
-
 

@@ -3,7 +3,6 @@ package org.tavall.ai.app.retrieval;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.support.IntegrationTestSupport;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +20,7 @@ class SemanticSyncServiceTest extends IntegrationTestSupport {
   private SemanticSyncService semanticSyncService;
 
   @Autowired
-  private SharedTaskContextService sharedTaskContextService;
+  private SemanticMemoryService semanticMemoryService;
 
   @BeforeEach
   void cleanup() {
@@ -30,7 +29,7 @@ class SemanticSyncServiceTest extends IntegrationTestSupport {
 
   @Test
   void shouldEnqueueBackgroundOnlyProjectDocumentsUntilSyncLoopProcessesThem() {
-    sharedTaskContextService.enqueueProjectSemanticDocument(
+    semanticMemoryService.enqueueProjectDocument(
         "background-project",
         new SemanticDocumentRequest(
             "background-doc",
@@ -46,16 +45,18 @@ class SemanticSyncServiceTest extends IntegrationTestSupport {
         "background-doc"
     );
 
-    List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> before = sharedTaskContextService.searchProjectRelatedContexts(
+    List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> before = semanticMemoryService.searchProject(
         "background-project",
         "Background semantic indexing keeps this document out of Qdrant",
-        5
+        5,
+        Map.of()
     );
     int processed = semanticSyncService.processPendingOperations();
-    List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> after = sharedTaskContextService.searchProjectRelatedContexts(
+    List<org.tavall.ai.app.model.orchestration.RetrievedSemanticContext> after = semanticMemoryService.searchProject(
         "background-project",
         "Background semantic indexing keeps this document out of Qdrant",
-        5
+        5,
+        Map.of()
     );
 
     assertTrue(before.isEmpty());
@@ -65,4 +66,3 @@ class SemanticSyncServiceTest extends IntegrationTestSupport {
             && String.valueOf(item.payload().get("chunkText")).contains("Background semantic indexing")));
   }
 }
-

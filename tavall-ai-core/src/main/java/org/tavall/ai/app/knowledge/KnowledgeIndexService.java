@@ -2,8 +2,8 @@ package org.tavall.ai.app.knowledge;
 
 import org.tavall.ai.app.config.KnowledgeIndexProperties;
 import org.tavall.ai.app.model.orchestration.RetrievedSemanticContext;
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.retrieval.SemanticContentType;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.retrieval.SemanticVectorStoreService;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -21,21 +21,21 @@ public class KnowledgeIndexService {
 
   private static final String KNOWLEDGE_KIND = "knowledge-index";
   private final KnowledgeIndexProperties properties;
-  private final SharedTaskContextService sharedTaskContextService;
+  private final SemanticMemoryService semanticMemoryService;
 
   public KnowledgeIndexService(
       KnowledgeIndexProperties properties,
-      SharedTaskContextService sharedTaskContextService
+      SemanticMemoryService semanticMemoryService
   ) {
     this.properties = properties;
-    this.sharedTaskContextService = sharedTaskContextService;
+    this.semanticMemoryService = semanticMemoryService;
   }
 
   public KnowledgeIndexSummary reindex() {
     if (!properties.isEnabled()) {
       return new KnowledgeIndexSummary(false, 0, 0, "disabled");
     }
-    sharedTaskContextService.deleteKnowledgeContexts(properties.getKnowledgeBase(), Map.of());
+    semanticMemoryService.deleteKnowledgeContexts(properties.getKnowledgeBase(), Map.of());
     Path sourceRoot = resolvePath(properties.getSourceRoot());
     if (sourceRoot != null && Files.isDirectory(sourceRoot)) {
       return indexSourceFiles(sourceRoot);
@@ -48,7 +48,7 @@ public class KnowledgeIndexService {
   }
 
   public List<RetrievedSemanticContext> search(String queryText, int limit) {
-    return sharedTaskContextService.searchKnowledgeContexts(properties.getKnowledgeBase(), queryText, limit);
+    return semanticMemoryService.searchKnowledge(properties.getKnowledgeBase(), queryText, limit, Map.of());
   }
 
   private KnowledgeIndexSummary indexSourceFiles(Path root) {
@@ -86,7 +86,7 @@ public class KnowledgeIndexService {
   }
 
   private int indexDocument(String sourceKind, String sourcePath, String content) {
-    return sharedTaskContextService.upsertKnowledgeDocument(
+    return semanticMemoryService.storeKnowledgeDocument(
         properties.getKnowledgeBase(),
         SemanticVectorStoreService.deterministicDocumentId(properties.getKnowledgeBase() + ":" + sourcePath),
         KNOWLEDGE_KIND,
@@ -133,4 +133,3 @@ public class KnowledgeIndexService {
   public record KnowledgeIndexSummary(boolean enabled, int indexedFiles, int indexedChunks, String sourceKind) {
   }
 }
-

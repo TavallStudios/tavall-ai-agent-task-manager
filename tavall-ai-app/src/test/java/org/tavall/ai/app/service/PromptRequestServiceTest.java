@@ -3,8 +3,8 @@ package org.tavall.ai.app.service;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.tavall.ai.app.model.PromptRequestSummary;
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.orchestration.PromptMemoryLookupService;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.support.IntegrationTestSupport;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -25,14 +25,14 @@ class PromptRequestServiceTest extends IntegrationTestSupport {
   private PromptMemoryLookupService promptMemoryLookupService;
 
   @Autowired
-  private SharedTaskContextService sharedTaskContextService;
+  private SemanticMemoryService semanticMemoryService;
 
   @Test
-  void shouldCapturePromptRequestsIntoProjectMemoryAutomatically() {
+  void shouldPersistPromptThreadHistoryWithoutAutomaticProjectMemory() {
     String suffix = UUID.randomUUID().toString();
     String projectKey = "prompt-request-test";
     String promptText = "Remember this prompt memory " + suffix;
-    sharedTaskContextService.deleteProjectSemanticContexts(projectKey, java.util.Map.of());
+    semanticMemoryService.deleteProjectContexts(projectKey, java.util.Map.of());
 
     PromptRequestSummary summary = promptRequestService.create(
         projectKey,
@@ -44,11 +44,11 @@ class PromptRequestServiceTest extends IntegrationTestSupport {
         "integration-suite"
     );
 
-    PromptMemoryLookupService.PromptMemorySnapshot snapshot = promptMemoryLookupService.lookup(projectKey, promptText);
+    var snapshot = promptMemoryLookupService.lookup(projectKey, summary.threadKey(), promptText);
 
     assertTrue(summary.requestId().startsWith("pr_"));
-    assertTrue(snapshot.summary().contains("Memory lookup completed."));
+    assertTrue(snapshot.summary().contains("Memory pipeline retrieved"));
     assertTrue(snapshot.section().contains(promptText));
+    assertTrue(semanticMemoryService.searchProject(projectKey, promptText, 10, java.util.Map.of()).isEmpty());
   }
 }
-

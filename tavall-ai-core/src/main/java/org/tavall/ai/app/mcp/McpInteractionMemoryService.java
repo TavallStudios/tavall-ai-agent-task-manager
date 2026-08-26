@@ -1,29 +1,26 @@
 package org.tavall.ai.app.mcp;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.tavall.ai.app.memory.MemoryRuntimeService;
-import org.tavall.ai.app.memory.MemoryTurnHandle;
-import org.tavall.ai.app.model.PromptThreadMemoryLookupResult;
-import org.tavall.ai.app.persistence.postgres.PromptInteractionRepository;
-import org.tavall.ai.app.persistence.postgres.PromptMessageRepository;
-import org.tavall.ai.app.service.PromptThreadMemoryService;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncPromptSpecification;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncResourceSpecification;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
-import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptRequest;
 import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
-import java.util.Map;
 import org.springframework.stereotype.Component;
+import org.tavall.ai.app.memory.MemoryRuntimeService;
+import org.tavall.ai.app.memory.MemoryTurnHandle;
+import org.tavall.ai.app.persistence.postgres.PromptInteractionRepository;
+import org.tavall.ai.app.persistence.postgres.PromptMessageRepository;
 
 @Component
 public class McpInteractionMemoryService {
 
+  private static final int MAX_PERSISTED_MESSAGE_CHARS = 2000;
+
   private final ObjectMapper objectMapper;
   private final PromptInteractionRepository promptInteractionRepository;
   private final PromptMessageRepository promptMessageRepository;
-  private final PromptThreadMemoryService promptThreadMemoryService;
   private final McpInteractionThreadResolver threadResolver;
   private final MemoryRuntimeService memoryRuntimeService;
 
@@ -31,14 +28,12 @@ public class McpInteractionMemoryService {
       ObjectMapper objectMapper,
       PromptInteractionRepository promptInteractionRepository,
       PromptMessageRepository promptMessageRepository,
-      PromptThreadMemoryService promptThreadMemoryService,
       McpInteractionThreadResolver threadResolver,
       MemoryRuntimeService memoryRuntimeService
   ) {
     this.objectMapper = objectMapper;
     this.promptInteractionRepository = promptInteractionRepository;
     this.promptMessageRepository = promptMessageRepository;
-    this.promptThreadMemoryService = promptThreadMemoryService;
     this.threadResolver = threadResolver;
     this.memoryRuntimeService = memoryRuntimeService;
   }
@@ -136,14 +131,8 @@ public class McpInteractionMemoryService {
         null,
         context.interactionType() + "-request",
         context.requestedBy(),
-        context.requestSummary()
+        bounded(context.requestSummary())
     );
-    captureSemanticMessage(context, requestId, context.interactionType() + "-request", context.requestSummary(), Map.of(
-        "sender", context.requestedBy(),
-        "messageKind", "accepted",
-        "interactionName", context.interactionName(),
-        "sessionId", context.sessionId()
-    ));
     return requestId;
   }
 
@@ -169,14 +158,8 @@ public class McpInteractionMemoryService {
           null,
           "mcp-memory-lookup",
           "memory-runtime",
-          turnHandle.hydration().summary()
+          bounded(turnHandle.hydration().summary())
       );
-      captureSemanticMessage(context, requestId, "mcp-memory-lookup", turnHandle.hydration().summary(), Map.of(
-          "sender", "memory-runtime",
-          "messageKind", "memory-lookup",
-          "exactRecordCount", turnHandle.hydration().exactRecords().size(),
-          "semanticCandidateCount", turnHandle.hydration().semanticCandidates().size()
-      ));
       return turnHandle;
     } catch (RuntimeException exception) {
       promptMessageRepository.appendPromptMessage(
@@ -184,7 +167,7 @@ public class McpInteractionMemoryService {
           null,
           "mcp-memory-lookup-failure",
           "memory-runtime",
-          exception.getMessage() == null ? exception.toString() : exception.getMessage()
+          bounded(exception.getMessage() == null ? exception.toString() : exception.getMessage())
       );
       return null;
     }
@@ -198,18 +181,12 @@ public class McpInteractionMemoryService {
       String summary,
       Object result
   ) {
-    String body = serialize(result);
+    String body = bounded(serialize(result));
     promptMessageRepository.appendPromptMessage(requestId, null, messageKind, "tavall-ai-mcp", body);
     promptInteractionRepository.completeInteraction(requestId, summary);
-    captureSemanticMessage(context, requestId, messageKind, body, Map.of(
-        "sender", "tavall-ai-mcp",
-        "messageKind", "success",
-        "summary", summary
-    ));
     if (turnHandle != null) {
       memoryRuntimeService.completeTurn(turnHandle, body, false);
     }
-    captureSnapshot(context);
   }
 
   private void failInteraction(
@@ -219,47 +196,12 @@ public class McpInteractionMemoryService {
       String messageKind,
       RuntimeException exception
   ) {
-    String body = exception.getMessage() == null ? exception.toString() : exception.getMessage();
+    String body = bounded(exception.getMessage() == null ? exception.toString() : exception.getMessage());
     promptMessageRepository.appendPromptMessage(requestId, null, messageKind, "tavall-ai-mcp", body);
     promptInteractionRepository.failInteraction(requestId, body);
-    captureSemanticMessage(context, requestId, messageKind, body, Map.of(
-        "sender", "tavall-ai-mcp",
-        "messageKind", "failure",
-        "failureType", exception.getClass().getName()
-    ));
     if (turnHandle != null) {
       memoryRuntimeService.completeTurn(turnHandle, body, true);
     }
-    captureSnapshot(context);
-  }
-
-  private void captureSemanticMessage(
-      McpInteractionThreadContext context,
-      String requestId,
-      String kind,
-      String body,
-      Map<String, Object> payload
-  ) {
-    if (context.projectKey().isBlank()) {
-      return;
-    }
-    promptThreadMemoryService.capturePromptThreadMessage(
-        context.projectKey(),
-        requestId,
-        context.threadKey(),
-        context.repoPath(),
-        PromptInteractionRepository.mcpHttpTarget(),
-        kind,
-        body,
-        payload
-    );
-  }
-
-  private void captureSnapshot(McpInteractionThreadContext context) {
-    if (context.projectKey().isBlank()) {
-      return;
-    }
-    promptThreadMemoryService.capturePromptThreadSnapshot(context.projectKey(), context.threadKey());
   }
 
   private String summarizeSuccess(McpInteractionThreadContext context, MemoryTurnHandle turnHandle) {
@@ -279,6 +221,12 @@ public class McpInteractionMemoryService {
       return String.valueOf(value);
     }
   }
+
+  private String bounded(String value) {
+    String normalized = value == null ? "" : value.strip();
+    if (normalized.length() <= MAX_PERSISTED_MESSAGE_CHARS) {
+      return normalized;
+    }
+    return normalized.substring(0, MAX_PERSISTED_MESSAGE_CHARS - 3) + "...";
+  }
 }
-
-

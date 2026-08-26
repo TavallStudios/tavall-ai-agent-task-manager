@@ -9,7 +9,6 @@ import org.tavall.ai.app.model.KnownRepo;
 import org.tavall.ai.app.model.orchestration.RetrievedSemanticContext;
 import org.tavall.ai.app.persistence.postgres.RepoSemanticSyncState;
 import org.tavall.ai.app.persistence.postgres.RepoSemanticSyncStateRepository;
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.service.RepoCatalogService;
 import org.tavall.ai.app.support.IntegrationTestSupport;
 import java.io.IOException;
@@ -57,7 +56,7 @@ class RepoSemanticSyncServiceTest extends IntegrationTestSupport {
   private SemanticSyncService semanticSyncService;
 
   @Autowired
-  private SharedTaskContextService sharedTaskContextService;
+  private SemanticMemoryService semanticMemoryService;
 
   @DynamicPropertySource
   static void registerProperties(DynamicPropertyRegistry registry) {
@@ -83,12 +82,13 @@ class RepoSemanticSyncServiceTest extends IntegrationTestSupport {
     semanticSyncService.processPendingOperations();
     KnownRepo repo = repoCatalogService.listRepos().getFirst();
     RepoSemanticSyncState state = repoSemanticSyncStateRepository.find(repo.projectKey()).orElseThrow();
-    List<RetrievedSemanticContext> docs = sharedTaskContextService.searchProjectRelatedContexts(
+    List<RetrievedSemanticContext> docs = semanticMemoryService.searchProject(
         repo.projectKey(),
         "Use durable backfill memory",
-        10
+        10,
+        Map.of()
     );
-    List<RetrievedSemanticContext> javaSymbols = sharedTaskContextService.searchProjectRelatedContexts(
+    List<RetrievedSemanticContext> javaSymbols = semanticMemoryService.searchProject(
         repo.projectKey(),
         "example.Example status",
         10,
@@ -140,7 +140,7 @@ class RepoSemanticSyncServiceTest extends IntegrationTestSupport {
     Map<String, Object> syncSummary = repoSemanticSyncService.syncWorkspaceChanges(repo, repoPath);
     semanticSyncService.processPendingOperations();
 
-    List<RetrievedSemanticContext> javaSymbols = sharedTaskContextService.searchProjectRelatedContexts(
+    List<RetrievedSemanticContext> javaSymbols = semanticMemoryService.searchProject(
         repo.projectKey(),
         "example.Example mode",
         10,
@@ -176,15 +176,17 @@ class RepoSemanticSyncServiceTest extends IntegrationTestSupport {
 
     repoSemanticSyncService.reconcileWorkspaceChanges(repo, repoPath, baseRevision);
 
-    List<RetrievedSemanticContext> readmeContexts = sharedTaskContextService.searchProjectRelatedContexts(
+    List<RetrievedSemanticContext> readmeContexts = semanticMemoryService.searchProject(
         repo.projectKey(),
         "Final reconciliation captured this committed change",
-        10
+        10,
+        Map.of()
     );
-    List<RetrievedSemanticContext> sidecarContexts = sharedTaskContextService.searchProjectRelatedContexts(
+    List<RetrievedSemanticContext> sidecarContexts = semanticMemoryService.searchProject(
         repo.projectKey(),
         "Harness sidecar output should not be indexed",
-        10
+        10,
+        Map.of()
     );
 
     assertTrue(readmeContexts.stream().anyMatch(item ->
@@ -247,5 +249,3 @@ class RepoSemanticSyncServiceTest extends IntegrationTestSupport {
     return output;
   }
 }
-
-

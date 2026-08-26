@@ -1,11 +1,11 @@
 package org.tavall.ai.app.mcp;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.tavall.ai.app.model.PromptThreadDetail;
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.persistence.postgres.PromptThreadRepository;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.support.IntegrationTestSupport;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncPromptSpecification;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncResourceSpecification;
@@ -31,7 +31,7 @@ class McpInteractionMemoryTest extends IntegrationTestSupport {
   private PromptThreadRepository promptThreadRepository;
 
   @Autowired
-  private SharedTaskContextService sharedTaskContextService;
+  private SemanticMemoryService semanticMemoryService;
 
   @BeforeEach
   void cleanup() {
@@ -43,7 +43,10 @@ class McpInteractionMemoryTest extends IntegrationTestSupport {
   }
 
   @Test
-  void shouldPersistThreadHistoryAndSemanticMemoryForWrappedTools() {
+  void shouldPersistThreadHistoryWithoutDurableSemanticMemoryForWrappedTools() {
+    long durableMemoryCountBefore = jdbcClient.sql(
+        "SELECT count(*) FROM agent_task_manager.memory_records"
+    ).query(Long.class).single();
     SyncToolSpecification specification = mcpCatalog.toolSpecifications().stream()
         .filter(item -> "loadDashboardSummary".equals(item.tool().name()))
         .findFirst()
@@ -66,13 +69,19 @@ class McpInteractionMemoryTest extends IntegrationTestSupport {
     assertTrue(detail.messages().stream().anyMatch(message -> "mcp-tool-request".equals(message.messageKind())));
     assertTrue(detail.messages().stream().anyMatch(message -> "mcp-memory-lookup".equals(message.messageKind())));
     assertTrue(detail.messages().stream().anyMatch(message -> "mcp-tool-result".equals(message.messageKind())));
-    assertFalse(
-        sharedTaskContextService.searchProjectRelatedContexts(
+    assertTrue(
+        semanticMemoryService.searchProject(
             "integration-mcp-memory-tool",
             "loadDashboardSummary",
             10,
             Map.of("threadKey", "mcp-tool-thread")
         ).isEmpty()
+    );
+    assertEquals(
+        durableMemoryCountBefore,
+        jdbcClient.sql("SELECT count(*) FROM agent_task_manager.memory_records")
+            .query(Long.class)
+            .single()
     );
   }
 
@@ -107,16 +116,16 @@ class McpInteractionMemoryTest extends IntegrationTestSupport {
     PromptThreadDetail resourceDetail = promptThreadRepository.getDetail("mcp-resource-thread");
     assertTrue(promptDetail.messages().stream().anyMatch(message -> "mcp-prompt-result".equals(message.messageKind())));
     assertTrue(resourceDetail.messages().stream().anyMatch(message -> "mcp-resource-result".equals(message.messageKind())));
-    assertFalse(
-        sharedTaskContextService.searchProjectRelatedContexts(
+    assertTrue(
+        semanticMemoryService.searchProject(
             "integration-mcp-memory-prompt",
             "workerAgent",
             10,
             Map.of("threadKey", "mcp-prompt-thread")
         ).isEmpty()
     );
-    assertFalse(
-        sharedTaskContextService.searchProjectRelatedContexts(
+    assertTrue(
+        semanticMemoryService.searchProject(
             "integration-mcp-memory-resource",
             "state://dashboard/summary",
             10,
@@ -125,4 +134,3 @@ class McpInteractionMemoryTest extends IntegrationTestSupport {
     );
   }
 }
-

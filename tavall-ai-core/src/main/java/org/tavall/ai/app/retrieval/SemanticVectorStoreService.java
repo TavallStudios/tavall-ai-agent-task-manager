@@ -2,6 +2,8 @@ package org.tavall.ai.app.retrieval;
 
 import org.tavall.ai.app.model.orchestration.RetrievedSemanticContext;
 import org.tavall.ai.app.persistence.qdrant.EmbeddingPurpose;
+import org.tavall.ai.app.persistence.qdrant.EmbeddingProviderChain;
+import org.tavall.ai.app.persistence.qdrant.EmbeddingVectorResult;
 import org.tavall.ai.app.persistence.qdrant.QdrantCollectionNameResolver;
 import org.tavall.ai.app.persistence.qdrant.QdrantContextStore;
 import java.time.OffsetDateTime;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 public class SemanticVectorStoreService {
 
   private final QdrantCollectionNameResolver collectionNameResolver;
+  private final EmbeddingProviderChain embeddingProviderChain;
   private final QdrantContextStore qdrantContextStore;
   private final SemanticRetrievalReranker semanticRetrievalReranker;
   private final SemanticQueryPlanner semanticQueryPlanner;
@@ -25,12 +28,14 @@ public class SemanticVectorStoreService {
 
   public SemanticVectorStoreService(
       QdrantCollectionNameResolver collectionNameResolver,
+      EmbeddingProviderChain embeddingProviderChain,
       QdrantContextStore qdrantContextStore,
       SemanticRetrievalReranker semanticRetrievalReranker,
       SemanticQueryPlanner semanticQueryPlanner,
       SemanticChunkingService semanticChunkingService
   ) {
     this.collectionNameResolver = collectionNameResolver;
+    this.embeddingProviderChain = embeddingProviderChain;
     this.qdrantContextStore = qdrantContextStore;
     this.semanticRetrievalReranker = semanticRetrievalReranker;
     this.semanticQueryPlanner = semanticQueryPlanner;
@@ -47,14 +52,18 @@ public class SemanticVectorStoreService {
 
   public List<RetrievedSemanticContext> searchProject(String projectKey, String queryText, int limit, Map<String, Object> payloadFilter) {
     List<RetrievedSemanticContext> combined = new ArrayList<>();
+    Map<EmbeddingPurpose, EmbeddingVectorResult> embeddings = new LinkedHashMap<>();
     for (SemanticQueryPlanner.SemanticDomainSearch search : semanticQueryPlanner.planProjectQuery(queryText, limit).searches()) {
+      EmbeddingVectorResult embedding = embeddings.computeIfAbsent(
+          search.embeddingPurpose(),
+          purpose -> embeddingProviderChain.embed(null, queryText, purpose)
+      );
       combined.addAll(searchProject(
           projectKey,
           search.domain(),
-          queryText,
+          embedding,
           search.limit(),
-          payloadFilter,
-          search.embeddingPurpose()
+          payloadFilter
       ));
     }
     return semanticRetrievalReranker.rerankProjectResults(
@@ -142,17 +151,15 @@ public class SemanticVectorStoreService {
   private List<RetrievedSemanticContext> searchProject(
       String projectKey,
       SemanticCollectionDomain domain,
-      String queryText,
+      EmbeddingVectorResult embedding,
       int limit,
-      Map<String, Object> payloadFilter,
-      EmbeddingPurpose embeddingPurpose
+      Map<String, Object> payloadFilter
   ) {
     return qdrantContextStore.searchRelatedContexts(
         collectionNameResolver.projectCollection(projectKey, domain),
-        queryText,
+        embedding,
         limit,
-        withScope(payloadFilter, "projectKey", projectKey),
-        embeddingPurpose
+        withScope(payloadFilter, "projectKey", projectKey)
     );
   }
 
@@ -201,4 +208,3 @@ public class SemanticVectorStoreService {
     }
   }
 }
-

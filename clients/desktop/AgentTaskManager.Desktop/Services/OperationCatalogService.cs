@@ -105,9 +105,9 @@ public sealed class OperationCatalogService : IOperationCatalogService
                 "Memory",
                 "Thread, semantic, and prior-fix memory operations.",
                 [
+                    new OperationDescriptorDto("recordMemory", "Record Memory", "Persist one intentional distilled durable memory.", true, "fallback"),
                     new OperationDescriptorDto("searchRelatedContexts", "Search Related Contexts", "Load related semantic context chunks.", true, "fallback"),
                     new OperationDescriptorDto("searchPriorFixes", "Search Prior Fixes", "Retrieve related fix history.", true, "fallback"),
-                    new OperationDescriptorDto("loadRelatedSemanticContext", "Load Semantic Context", "Hydrate task context from semantic memory.", true, "fallback")
                 ]),
             new OperationGroupDto(
                 "computer-use",

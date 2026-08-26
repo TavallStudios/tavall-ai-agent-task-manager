@@ -1,6 +1,7 @@
 .gradle/
 build/
 distribution/
+graphify-out/
 *.log
 .idea/
 *.iml

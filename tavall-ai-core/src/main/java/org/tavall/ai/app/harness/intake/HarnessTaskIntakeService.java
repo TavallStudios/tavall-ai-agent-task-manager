@@ -9,6 +9,7 @@ import org.tavall.ai.app.orchestration.OverseerOrchestrationService;
 import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.retrieval.SemanticCollectionDomain;
 import org.tavall.ai.app.retrieval.SemanticContentType;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.service.RepoCatalogService;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -24,19 +25,22 @@ public class HarnessTaskIntakeService {
   private final OverseerOrchestrationService overseerOrchestrationService;
   private final RepoCatalogService repoCatalogService;
   private final SharedTaskContextService sharedTaskContextService;
+  private final SemanticMemoryService semanticMemoryService;
 
   public HarnessTaskIntakeService(
       HarnessRoutingService harnessRoutingService,
       HarnessStateService harnessStateService,
       OverseerOrchestrationService overseerOrchestrationService,
       RepoCatalogService repoCatalogService,
-      SharedTaskContextService sharedTaskContextService
+      SharedTaskContextService sharedTaskContextService,
+      SemanticMemoryService semanticMemoryService
   ) {
     this.harnessRoutingService = harnessRoutingService;
     this.harnessStateService = harnessStateService;
     this.overseerOrchestrationService = overseerOrchestrationService;
     this.repoCatalogService = repoCatalogService;
     this.sharedTaskContextService = sharedTaskContextService;
+    this.semanticMemoryService = semanticMemoryService;
   }
 
   public HarnessStateSnapshot intakeTask(ParentTaskRequest request) {
@@ -135,7 +139,7 @@ public class HarnessTaskIntakeService {
       SemanticContentType contentType
   ) {
     sharedTaskContextService.storeSharedTaskContext(taskId, null, contextKey, "team", summary, payload);
-    sharedTaskContextService.storeProjectSemanticDocument(
+    semanticMemoryService.storeProjectDocument(
         projectKey,
         taskId,
         null,
@@ -182,4 +186,3 @@ public class HarnessTaskIntakeService {
     return String.join("\n", lines).strip();
   }
 }
-

@@ -7,7 +7,7 @@ import org.tavall.ai.app.harness.intake.HarnessTaskIntakeService;
 import org.tavall.ai.app.harness.intake.ParentTaskRequest;
 import org.tavall.ai.app.harness.intake.ParentTaskType;
 import org.tavall.ai.app.harness.state.HarnessStateSnapshot;
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import org.tavall.ai.app.support.IntegrationTestSupport;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -32,7 +32,7 @@ class HarnessTaskIntakeTest extends IntegrationTestSupport {
   private JdbcClient jdbcClient;
 
   @Autowired
-  private SharedTaskContextService sharedTaskContextService;
+  private SemanticMemoryService semanticMemoryService;
 
   @BeforeEach
   void cleanup() {
@@ -85,15 +85,17 @@ class HarnessTaskIntakeTest extends IntegrationTestSupport {
         .collect(Collectors.toSet())
         .containsAll(Set.of("harness-parent-task", "harness-routing-plan", "harness-codebase-input")));
     assertTrue(snapshot.dashboardModel().workerTypeCounts().containsKey("CODE"));
-    assertTrue(sharedTaskContextService.searchProjectRelatedContexts(
+    assertTrue(semanticMemoryService.searchProject(
         snapshot.taskSchema().batch().projectKey(),
         "cleanup review state",
-        10
+        10,
+        Map.of()
     ).stream().anyMatch(item -> "TASK_HISTORY".equals(item.payload().get("semanticDomain"))));
-    assertTrue(sharedTaskContextService.searchProjectRelatedContexts(
+    assertTrue(semanticMemoryService.searchProject(
         snapshot.taskSchema().batch().projectKey(),
         "LocalCodexWorkerTransport",
-        10
+        10,
+        Map.of()
     ).stream().anyMatch(item -> "CODE_REPO".equals(item.payload().get("semanticDomain"))));
   }
 

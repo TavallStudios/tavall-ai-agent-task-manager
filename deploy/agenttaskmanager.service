@@ -1,0 +1,18 @@
+[Unit]
+Description=AgentTaskManager Spring Boot
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/srv/AgentTaskManager/current
+EnvironmentFile=/etc/agenttaskmanager.env
+EnvironmentFile=/etc/tavall/tavall.env
+EnvironmentFile=-/etc/agenttaskmanager-memory-plane.env
+ExecStart=/usr/bin/java --enable-preview -cp /srv/AgentTaskManager/current/distribution/agent-task-manager/application.jar:/srv/AgentTaskManager/current/distribution/agent-task-manager/libs/* org.tavall.ai.app.AgentTaskManagerLauncher
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

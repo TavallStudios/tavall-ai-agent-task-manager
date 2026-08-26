@@ -7,8 +7,8 @@ import org.tavall.ai.app.model.orchestration.RetrievedSemanticContext;
 import org.tavall.ai.app.model.orchestration.SharedTaskContext;
 import org.tavall.ai.app.model.validation.ValidationReport;
 import org.tavall.ai.app.orchestration.ArtifactService;
-import org.tavall.ai.app.orchestration.SharedTaskContextService;
 import org.tavall.ai.app.persistence.postgres.ValidationReportRepository;
+import org.tavall.ai.app.retrieval.SemanticMemoryService;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -26,20 +26,20 @@ public class CleanJavaTaskContextService {
   private final ArtifactService artifactService;
   private final HarnessStateService harnessStateService;
   private final JavaPackageDependencyMapService javaPackageDependencyMapService;
-  private final SharedTaskContextService sharedTaskContextService;
+  private final SemanticMemoryService semanticMemoryService;
   private final ValidationReportRepository validationReportRepository;
 
   public CleanJavaTaskContextService(
       ArtifactService artifactService,
       HarnessStateService harnessStateService,
       JavaPackageDependencyMapService javaPackageDependencyMapService,
-      SharedTaskContextService sharedTaskContextService,
+      SemanticMemoryService semanticMemoryService,
       ValidationReportRepository validationReportRepository
   ) {
     this.artifactService = artifactService;
     this.harnessStateService = harnessStateService;
     this.javaPackageDependencyMapService = javaPackageDependencyMapService;
-    this.sharedTaskContextService = sharedTaskContextService;
+    this.semanticMemoryService = semanticMemoryService;
     this.validationReportRepository = validationReportRepository;
   }
 
@@ -139,7 +139,7 @@ public class CleanJavaTaskContextService {
     if (projectKey.isBlank() || queryText.isBlank()) {
       return List.of();
     }
-    return sharedTaskContextService.searchProjectRelatedContexts(projectKey, queryText, 6);
+    return semanticMemoryService.searchProject(projectKey, queryText, 6, Map.of());
   }
 
   private List<ValidationReport> validationHistory(String taskId) {
@@ -207,4 +207,3 @@ public class CleanJavaTaskContextService {
     return normalized.substring(0, maxLength - 3) + "...";
   }
 }
-

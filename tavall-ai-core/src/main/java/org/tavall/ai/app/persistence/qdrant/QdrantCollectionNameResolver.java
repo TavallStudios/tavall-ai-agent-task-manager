@@ -1,5 +1,6 @@
 package org.tavall.ai.app.persistence.qdrant;
 
+import org.tavall.ai.app.config.EmbeddingProperties;
 import org.tavall.ai.app.config.QdrantProperties;
 import org.tavall.ai.app.retrieval.SemanticCollectionDomain;
 import java.util.Locale;
@@ -9,9 +10,11 @@ import org.springframework.stereotype.Component;
 public class QdrantCollectionNameResolver {
 
   private final QdrantProperties properties;
+  private final EmbeddingProperties embeddingProperties;
 
-  public QdrantCollectionNameResolver(QdrantProperties properties) {
+  public QdrantCollectionNameResolver(QdrantProperties properties, EmbeddingProperties embeddingProperties) {
     this.properties = properties;
+    this.embeddingProperties = embeddingProperties;
   }
 
   public String legacyCollection() {
@@ -19,19 +22,27 @@ public class QdrantCollectionNameResolver {
   }
 
   public String projectCollection(String projectKey) {
-    return properties.getProjectCollectionPrefix() + "_" + sanitize(projectKey);
+    return profiled(properties.getProjectCollectionPrefix() + "_" + sanitize(projectKey));
   }
 
   public String projectCollection(String projectKey, SemanticCollectionDomain domain) {
-    return projectCollection(projectKey) + "_" + domain.collectionSuffix();
+    return profiled(properties.getProjectCollectionPrefix() + "_" + sanitize(projectKey) + "_" + domain.collectionSuffix());
   }
 
   public String knowledgeCollection(String knowledgeBase) {
-    return properties.getKnowledgeCollectionPrefix() + "_" + sanitize(knowledgeBase);
+    return profiled(properties.getKnowledgeCollectionPrefix() + "_" + sanitize(knowledgeBase));
   }
 
   public String knowledgeCollection(String knowledgeBase, SemanticCollectionDomain domain) {
-    return knowledgeCollection(knowledgeBase) + "_" + domain.collectionSuffix();
+    return profiled(properties.getKnowledgeCollectionPrefix() + "_" + sanitize(knowledgeBase) + "_" + domain.collectionSuffix());
+  }
+
+  public String embeddingProfile() {
+    return embeddingProperties.collectionProfile();
+  }
+
+  private String profiled(String logicalCollectionName) {
+    return logicalCollectionName + "__" + embeddingProfile();
   }
 
   private static String sanitize(String rawValue) {
@@ -41,4 +52,3 @@ public class QdrantCollectionNameResolver {
     return normalized.isEmpty() ? "default" : normalized;
   }
 }
-

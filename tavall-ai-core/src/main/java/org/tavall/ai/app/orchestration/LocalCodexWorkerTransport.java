@@ -20,7 +20,6 @@ import org.tavall.ai.app.model.orchestration.WorkerTask;
 import org.tavall.ai.app.model.orchestration.WorkerTransportKind;
 import org.tavall.ai.app.persistence.postgres.WorkerTaskRepository;
 import org.tavall.ai.app.retrieval.RepoSemanticSyncService;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -37,7 +36,6 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
   private final OrchestrationProperties orchestrationProperties;
   private final TaskPoolService taskPoolService;
   private final WorkerLifecycleService workerLifecycleService;
-  private final PromptMemoryCaptureService promptMemoryCaptureService;
   private final org.tavall.ai.app.service.RepoCatalogService repoCatalogService;
   private final WorkerPromptFactory workerPromptFactory;
   private final WorkerTaskRepository workerTaskRepository;
@@ -56,7 +54,6 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
       OrchestrationProperties orchestrationProperties,
       TaskPoolService taskPoolService,
       WorkerLifecycleService workerLifecycleService,
-      PromptMemoryCaptureService promptMemoryCaptureService,
       org.tavall.ai.app.service.RepoCatalogService repoCatalogService,
       WorkerPromptFactory workerPromptFactory,
       WorkerTaskRepository workerTaskRepository,
@@ -74,7 +71,6 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
     this.orchestrationProperties = orchestrationProperties;
     this.taskPoolService = taskPoolService;
     this.workerLifecycleService = workerLifecycleService;
-    this.promptMemoryCaptureService = promptMemoryCaptureService;
     this.repoCatalogService = repoCatalogService;
     this.workerPromptFactory = workerPromptFactory;
     this.workerTaskRepository = workerTaskRepository;
@@ -268,42 +264,6 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
           summary
       );
     }
-    promptMemoryCaptureService.captureProjectMemory(
-        repo.projectKey(),
-        request.taskId(),
-        request.workerTaskId(),
-        "worker-final-response",
-        runResult.finalMessage().isBlank() ? summary : runResult.finalMessage(),
-        Map.ofEntries(
-            Map.entry("repoPath", request.repoPath().toString()),
-            Map.entry("exitCode", effectiveExitCode),
-            Map.entry("cleanupReviewStatus", gateResult.cleanup().status()),
-            Map.entry("validationStatus", gateResult.validation().status()),
-            Map.entry("patchScopeAllowed", gateResult.patchScopeAllowed()),
-            Map.entry("summary", summary),
-            Map.entry("toolPolicyGatePassed", toolPolicyAudit.passed()),
-            Map.entry("missingToolCalls", toolPolicyAudit.missingCalls()),
-            Map.entry("toolPolicyViolations", toolPolicyAudit.violations()),
-            Map.entry("forbiddenToolCalls", toolPolicyAudit.forbiddenToolCalls()),
-            Map.entry("memoryStatus", toolPolicyAudit.memoryStatus()),
-            Map.entry("qdrantHealth", toolPolicyAudit.qdrantHealth()),
-            Map.entry("runtimePlatform", toolPolicyAudit.runtimePlatform()),
-            Map.entry("nativeWindowsShellEnforcementMode", toolPolicyAudit.nativeWindowsShellEnforcementMode()),
-            Map.entry("gitWorkflowRequired", toolPolicyAudit.gitWorkflowRequired()),
-            Map.entry("gitEnforcementReason", toolPolicyAudit.gitEnforcementReason()),
-            Map.entry("diffPresent", toolPolicyAudit.diffPresent()),
-            Map.entry("gitCommitCreated", toolPolicyAudit.commitCreated()),
-            Map.entry("gitCommitCount", toolPolicyAudit.commitCount()),
-            Map.entry("gitBranchName", runResult.finalGitState().branchName()),
-            Map.entry("gitCommitHash", runResult.finalGitState().headCommitHash()),
-            Map.entry("gitCommitSubject", runResult.finalGitState().headSubject()),
-            Map.entry("javaSymbolStatus", gateResult.javaSymbol().javaSymbolStatus()),
-            Map.entry("reflectionAugmented", gateResult.javaSymbol().reflectionAugmented()),
-            Map.entry("contractDeltaStatus", gateResult.javaSymbol().contractDeltaStatus()),
-            Map.entry("contractDeltaSummary", gateResult.javaSymbol().contractDeltaSummary()),
-            Map.entry("contractDeltaArtifactId", gateResult.javaSymbol().contractDeltaArtifactId())
-        )
-    );
     if (taskStatus == TaskLifecycleStatus.COMPLETED) {
       taskPoolService.completeWorkerTask(request.workerTaskId(), summary);
     } else if (taskStatus == TaskLifecycleStatus.NEEDS_REWORK) {
@@ -443,5 +403,3 @@ public class LocalCodexWorkerTransport implements WorkerTransport {
         .toList();
   }
 }
-
-
