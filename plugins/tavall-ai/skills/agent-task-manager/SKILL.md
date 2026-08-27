@@ -1,6 +1,6 @@
 ---
 name: agent-task-manager
-description: Manage the AgentTaskManager plugin-managed cross-project harness and task runtime. Use when Codex needs the installed Tavall AI plugin to own local harness/runtime registration, repo-context or worker-context usage, Java validation and approval flow, deterministic git workflow, or shared Redis/Postgres task coordination across repos.
+description: Manage the AgentTaskManager plugin-managed cross-project harness and task runtime. Use when the installed Tavall AI plugin needs harness/runtime registration, repo-context or worker-context usage, Java validation and approval flow, deterministic git workflow, or shared Redis/Postgres task coordination across repos.
 ---
 
 # Agent Task Manager
@@ -15,13 +15,13 @@ Use this plugin-local specialist when the AgentTaskManager harness/runtime workf
 
 ## Workflow
 
-1. Call `runHarnessToolBundle(repo-context)` first when that harness surface is exposed.
-   It carries harness-owned memory/context for the active project alongside brokered repo inspection.
+1. Call `runHarnessToolBundle(repo-context)` first when that harness surface is exposed. It carries harness-owned memory/context for the active project alongside brokered repo inspection.
 2. Call `runHarnessToolBundle(worker-context)` when worker or task state matters.
 3. Use [references/tool-surface.md](references/tool-surface.md) for retrieval, artifact, approval, and validation tool selection.
 4. For Java work, call `loadCleanJavaTaskContext`, then `runHarnessToolBundle(java-context)`, then `runCleanJavaHarness` when those capabilities are exposed.
 5. For repository mutation, follow [references/git-workflow.md](references/git-workflow.md) and prefer the first-party deterministic Git workflow when available.
 6. Expect chat-visible harness transcript messages for memory lookup, Java symbol preload, semantic sync, tool policy, observed tool calls, and final git workflow outcome when the harness owns execution.
+7. If the run changed a Tavall repository, use `tavall-local-ci` after the final commit and before claiming completion or handing off the PR.
 
 ## Memory Ownership
 
@@ -37,6 +37,7 @@ Use this plugin-local specialist when the AgentTaskManager harness/runtime workf
 - Treat direct shell file probing as fallback-only when harness tools are unavailable or failing.
 - Do not use raw shell Git mutation as the primary path when the first-party workflow is available.
 - Treat plugin prompts as guidance only. The harness owns its own memory enforcement and durable sync behavior.
+- Local diagnostic tests do not replace the required exact-head Tavall CI completion step.
 
 ## Notes
 
