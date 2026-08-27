@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tavall Skill Orchestrator"
+  short_description: "Routes Tavall work through the live skill graph"
+  default_prompt: "Use $tavall-skill-orchestrator first for Tavall work. Discover the live installed skill graph, route through Tavall memory when available, require $tavall-git-workflow for repository/PR policy, route substantive repository work through $tavall-ai and $tavall-agent-orchestration when exposed, require exact-head $tavall-local-ci or its typed Tavall Cloud equivalent after diff-producing engineering work, and surface degraded or missing dependencies instead of silently skipping them."

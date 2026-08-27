@@ -1,0 +1,252 @@
+version: 2
+entrypoint: tavall-skill-orchestrator
+policy:
+  unknown_skill: discover_before_fallback
+  required_dependency_missing: surface_and_degrade_or_block
+  duplicate_authority: resolve_by_repo_policy_then_narrowest_owner
+  duplicate_identity: surface_and_reconcile
+  installed_skill_precedence: runtime_over_stale_registry
+  memory_on_tavall_prompt: route_when_available
+  diff_completion: exact_head_local_ci
+
+discovery:
+  sources:
+    - installed_skills
+    - connected_plugins
+    - repository_local_skills
+    - repository_agent_instructions
+    - tavall_ai_function_catalog
+    - tavall_cloud_catalog
+  historical_memory_is_authority: false
+
+skills:
+  - id: tavall-skill-orchestrator
+    kind: skill
+    identity: exact
+    role: orchestrator
+    routes: [tavall]
+
+  - id: tavall-memory-plane
+    kind: skill
+    identity: exact_known
+    role: foundation
+    routes: [tavall]
+    invocation: every_tavall_prompt_when_available
+    substantive_bootstrap_capability: memoryContext
+    source_status: runtime_or_external
+    missing_behavior: degraded
+
+  - id: tavall-git-workflow
+    kind: skill
+    identity: exact
+    role: foundation
+    routes: [git, repository, branch, commit, pull_request, staging, reconciliation, promotion]
+    canonical_policy:
+      repository: TavallStudios/tavall-project-novus
+      path: docs/quality/GIT_WORKFLOW.md
+    missing_behavior: blocked_for_policy_decisions
+
+  - id: tavall-ai
+    kind: skill
+    identity: exact_current
+    role: domain_router
+    routes: [tavall_ai, agent_runtime, model_runtime, agent_task_manager, harness, task_runtime, function_catalog, plugin_execution, mcp]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/tavall-ai/SKILL.md
+    fallback_sources:
+      - repository: TavallStudios/tavall-ai-agent-task-manager
+        path: agent-task-manager/SKILL.md
+    notes:
+      - Top-level Tavall AI operating entry point when the Tavall AI plugin is installed.
+
+  - id: agent-task-manager
+    kind: skill
+    identity: exact_current
+    role: specialist
+    routes: [agent_task_manager, harness, task_runtime, prompt_thread_context, mcp]
+    requires: [tavall-ai]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/agent-task-manager/SKILL.md
+    notes:
+      - Owns task-runtime prompt-thread context, not the broader tavall-memory-plane contract.
+
+  - id: tavall-agent-orchestration
+    kind: skill
+    identity: exact_current
+    role: domain_orchestrator
+    routes: [substantive_repository_work, implementation_coordination, review_coordination, reconciliation_coordination, e2e_coordination]
+    requires: [tavall-ai]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/tavall-agent-orchestration/SKILL.md
+
+  - id: tavall-agent-implementation
+    kind: skill
+    identity: exact_current
+    role: specialist
+    routes: [implementation, coding, bounded_acceptance_unit]
+    requires: [tavall-agent-orchestration]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/tavall-agent-implementation/SKILL.md
+
+  - id: tavall-agent-review
+    kind: skill
+    identity: exact_current
+    role: specialist
+    routes: [review, code_review, independent_review]
+    requires: [tavall-agent-orchestration]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/tavall-agent-review/SKILL.md
+
+  - id: tavall-agent-reconciliation
+    kind: skill
+    identity: exact_current
+    role: specialist
+    routes: [reconciliation, pr_reconciliation, staging_reconciliation, topology_repair]
+    requires: [tavall-agent-orchestration, tavall-git-workflow]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/tavall-agent-reconciliation/SKILL.md
+
+  - id: tavall-agent-e2e
+    kind: skill
+    identity: exact_current
+    role: specialist
+    routes: [e2e, runtime_acceptance, realistic_validation]
+    requires: [tavall-agent-orchestration]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/tavall-agent-e2e/SKILL.md
+
+  - id: tavall-agent-architecture
+    kind: skill
+    identity: exact_current
+    role: specialist
+    routes: [architecture, architecture_migration, structural_repair]
+    requires: [tavall-agent-orchestration]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/tavall-agent-architecture/SKILL.md
+
+  - id: tavall-agent-documentation
+    kind: skill
+    identity: exact_current
+    role: specialist
+    routes: [documentation, technical_docs, evidence_documentation]
+    requires: [tavall-agent-orchestration]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/tavall-agent-documentation/SKILL.md
+
+  - id: tavall-agent-scheduler
+    kind: skill
+    identity: exact_current
+    role: placement_specialist
+    routes: [distributed_workload_placement, worker_selection, recovery, top_level_session_placement]
+    requires: [tavall-ai, tavall-cloud]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/tavall-agent-scheduler/SKILL.md
+
+  - id: tavall-agent-builder
+    kind: skill
+    identity: exact_current
+    role: domain_coordinator
+    routes: [builder_agent, builder_coordination, builder_studio_coordination]
+    requires: [tavall-ai]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/tavall-agent-builder/SKILL.md
+    notes:
+      - Coordinates around minecraft-builder; does not replace authoritative Builder implementation.
+
+  - id: tavall-ai-distributed-execution
+    kind: skill
+    identity: exact_current
+    role: runtime_specialist
+    routes: [model_execution, provider_routing, execution_failover]
+    requires: [tavall-ai]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/tavall-ai-distributed-execution/SKILL.md
+
+  - id: tavall-local-ci
+    kind: skill
+    identity: exact_known
+    role: completion_gate
+    routes: [local_ci, exact_head_validation, engineering_completion]
+    invocation: diff_producing_engineering_completion_when_available
+    requires: [tavall-cloud]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: plugins/tavall-ai/skills/tavall-local-ci/SKILL.md
+    source_status: integrated_current
+    missing_behavior: degraded_to_typed_tavall_cloud_local_ci
+
+  - id: minecraft-builder
+    kind: skill
+    identity: exact_known
+    role: domain
+    routes: [minecraft_build, builder_studio, schematic, world_build, minecraft_visual_validation]
+    discovery_required: true
+
+  - id: rendering-builder-replays
+    kind: skill
+    identity: exact_known
+    role: specialist
+    routes: [builder_replay, replay_rendering, replay_visual_validation]
+    discovery_required: true
+
+  - id: builder-studio
+    kind: workflow_alias
+    identity: discover
+    role: aggregate
+    routes: [builder_studio]
+    requires: [minecraft-builder]
+    optional: [rendering-builder-replays, impeccable]
+
+  - id: tavall-web-agent
+    kind: skill_alias
+    identity: discover
+    role: domain
+    routes: [web, frontend, website, ui, browser_acceptance]
+    default_helpers: [impeccable]
+
+  - id: impeccable
+    kind: helper_bundle
+    identity: runtime_discovery
+    role: helper
+    routes: [web_quality, design_quality, builder_quality]
+    optional: true
+
+  - id: tavall-java-tools
+    kind: capability_alias
+    identity: discover
+    role: domain
+    routes: [java, jvm, gradle, java_testing, architecture_validation]
+    source_repository: TavallStudios/tavall-java-tools
+
+  - id: tavall-cloud
+    kind: capability_alias
+    identity: discover
+    role: domain
+    routes: [cloud, environment, deployment, infrastructure, machine, service, sandbox, durable_job, local_ci_execution]
+    source_repository: TavallStudios/tavall-cloud
+
+supporting_capabilities:
+  - id: tavall-ai-function-catalog
+    source_repository: TavallStudios/tavall-ai-function-catalog
+    routes: [tool_discovery, capability_discovery]
+  - id: tavall-ai-interface
+    source_repository: TavallStudios/tavall-ai-interface
+    routes: [ai_interface]
+  - id: tavall-ai-codex
+    source_repository: TavallStudios/tavall-ai-codex
+    routes: [codex_escalation]
+  - id: tavall-ai-workflow
+    source_repository: TavallStudios/tavall-ai-workflow
+    routes: [workflow_runtime]
