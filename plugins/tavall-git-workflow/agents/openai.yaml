@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tavall Git Workflow"
+  short_description: "Tavall PR, stacking, staging and promotion policy"
+  default_prompt: "Use $tavall-git-workflow for Tavall Git and GitHub decisions. Read the current canonical GIT_WORKFLOW.md and stricter repository-local policy, inspect the live branch/PR/staging graph, reuse durable PRs, stack real dependencies, preserve truthful validation evidence, and keep promotion separate from deployment."
