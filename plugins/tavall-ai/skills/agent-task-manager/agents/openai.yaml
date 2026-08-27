@@ -1,4 +1,4 @@
 interface:
   display_name: "Agent Task Manager"
-  short_description: "Plugin-managed harness and task runtime skill"
-  default_prompt: "Use the AgentTaskManager plugin to own local MCP registration and optional operator-surface startup, then work through the AgentTaskManager harness for repo context, task context, Java validation, and deterministic git workflow."
+  short_description: "Plugin-managed harness and task runtime specialist"
+  default_prompt: "Use $agent-task-manager for the AgentTaskManager harness/task-runtime workflow. Keep $tavall-ai as the top-level Tavall AI operating entry point, and use the harness for repo/task context, Java validation, deterministic Git workflow, and prompt-thread task-runtime context when its capabilities are exposed."

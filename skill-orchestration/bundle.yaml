@@ -1,5 +1,5 @@
 name: tavall-skill-orchestration-bundle
-version: 0.1.0
+version: 0.2.0
 entrypoint: tavall-skill-orchestrator
 components:
   - tavall-skill-orchestrator
@@ -8,6 +8,17 @@ external_foundations:
   - tavall-memory-plane
 integrates:
   - tavall-ai
+  - agent-task-manager
+  - tavall-agent-orchestration
+  - tavall-agent-implementation
+  - tavall-agent-review
+  - tavall-agent-reconciliation
+  - tavall-agent-e2e
+  - tavall-agent-architecture
+  - tavall-agent-documentation
+  - tavall-agent-scheduler
+  - tavall-agent-builder
+  - tavall-ai-distributed-execution
   - minecraft-builder
   - rendering-builder-replays
   - builder-studio
@@ -15,6 +26,8 @@ integrates:
   - impeccable
   - tavall-java-tools
   - tavall-cloud
+conditional_completion:
+  - tavall-local-ci
 supporting_capabilities:
   - tavall-ai-function-catalog
   - tavall-ai-interface

@@ -8,7 +8,7 @@
       "name": "tavall-ai",
       "source": {
         "source": "local",
-        "path": "./agent-task-manager"
+        "path": "./plugins/tavall-ai"
       },
       "policy": {
         "installation": "AVAILABLE",
