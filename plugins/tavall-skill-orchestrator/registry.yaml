@@ -184,7 +184,7 @@ skills:
     source:
       repository: TavallStudios/tavall-ai-agent-task-manager
       path: plugins/tavall-ai/skills/tavall-local-ci/SKILL.md
-    source_status: staged_external_pr
+    source_status: integrated_current
     missing_behavior: degraded_to_typed_tavall_cloud_local_ci
 
   - id: minecraft-builder
