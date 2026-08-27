@@ -1,0 +1,119 @@
+version: 1
+entrypoint: tavall-skill-orchestrator
+policy:
+  unknown_skill: discover_before_fallback
+  required_dependency_missing: surface_and_degrade_or_block
+  duplicate_authority: resolve_by_repo_policy_then_narrowest_owner
+  memory_on_tavall_prompt: route_when_available
+
+discovery:
+  sources:
+    - installed_skills
+    - connected_plugins
+    - repository_local_skills
+    - repository_agent_instructions
+    - tavall_ai_function_catalog
+    - tavall_cloud_catalog
+  historical_memory_is_authority: false
+
+skills:
+  - id: tavall-skill-orchestrator
+    kind: skill
+    identity: exact
+    role: orchestrator
+    routes: [tavall]
+
+  - id: tavall-memory-plane
+    kind: skill
+    identity: exact_known
+    role: foundation
+    routes: [tavall]
+    invocation: every_tavall_prompt_when_available
+    substantive_bootstrap_capability: memoryContext
+    source_status: runtime_or_external
+    missing_behavior: degraded
+
+  - id: tavall-git-workflow
+    kind: skill
+    identity: exact
+    role: foundation
+    routes: [git, repository, branch, commit, pull_request, staging, reconciliation, promotion]
+    canonical_policy:
+      repository: TavallStudios/tavall-project-novus
+      path: docs/quality/GIT_WORKFLOW.md
+    missing_behavior: blocked_for_policy_decisions
+
+  - id: tavall-ai
+    kind: skill
+    identity: exact_current
+    role: domain
+    routes: [agent_task_manager, harness, task_runtime, function_catalog, plugin_execution, mcp]
+    source:
+      repository: TavallStudios/tavall-ai-agent-task-manager
+      path: agent-task-manager/SKILL.md
+    notes:
+      - Owns task-runtime prompt-thread context, not the broader tavall-memory-plane contract.
+
+  - id: minecraft-builder
+    kind: skill
+    identity: exact_known
+    role: domain
+    routes: [minecraft_build, builder_studio, schematic, world_build, minecraft_visual_validation]
+    discovery_required: true
+
+  - id: rendering-builder-replays
+    kind: skill
+    identity: exact_known
+    role: specialist
+    routes: [builder_replay, replay_rendering, replay_visual_validation]
+    discovery_required: true
+
+  - id: builder-studio
+    kind: workflow_alias
+    identity: discover
+    role: aggregate
+    routes: [builder_studio]
+    requires: [minecraft-builder]
+    optional: [rendering-builder-replays, impeccable]
+
+  - id: tavall-web-agent
+    kind: skill_alias
+    identity: discover
+    role: domain
+    routes: [web, frontend, website, ui, browser_acceptance]
+    default_helpers: [impeccable]
+
+  - id: impeccable
+    kind: helper_bundle
+    identity: runtime_discovery
+    role: helper
+    routes: [web_quality, design_quality, builder_quality]
+    optional: true
+
+  - id: tavall-java-tools
+    kind: capability_alias
+    identity: discover
+    role: domain
+    routes: [java, jvm, gradle, java_testing, architecture_validation]
+    source_repository: TavallStudios/tavall-java-tools
+
+  - id: tavall-cloud
+    kind: capability_alias
+    identity: discover
+    role: domain
+    routes: [cloud, environment, deployment, infrastructure, machine, service, sandbox]
+    source_repository: TavallStudios/tavall-cloud
+
+supporting_capabilities:
+  - id: tavall-ai-function-catalog
+    source_repository: TavallStudios/tavall-ai-function-catalog
+    routes: [tool_discovery, capability_discovery]
+  - id: tavall-ai-interface
+    source_repository: TavallStudios/tavall-ai-interface
+    routes: [ai_interface]
+  - id: tavall-ai-codex
+    source_repository: TavallStudios/tavall-ai-codex
+    routes: [codex_escalation]
+  - id: tavall-ai-workflow
+    source_repository: TavallStudios/tavall-ai-workflow
+    routes: [workflow_runtime]

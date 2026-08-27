@@ -1,0 +1,22 @@
+name: tavall-skill-orchestration-bundle
+version: 0.1.0
+entrypoint: tavall-skill-orchestrator
+components:
+  - tavall-skill-orchestrator
+  - tavall-git-workflow
+external_foundations:
+  - tavall-memory-plane
+integrates:
+  - tavall-ai
+  - minecraft-builder
+  - rendering-builder-replays
+  - builder-studio
+  - tavall-web-agent
+  - impeccable
+  - tavall-java-tools
+  - tavall-cloud
+supporting_capabilities:
+  - tavall-ai-function-catalog
+  - tavall-ai-interface
+  - tavall-ai-codex
+  - tavall-ai-workflow
