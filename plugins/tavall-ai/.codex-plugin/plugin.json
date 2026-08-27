@@ -1,7 +1,7 @@
 {
   "name": "tavall-ai",
-  "version": "0.1.0",
-  "description": "Own the local AgentTaskManager MCP runtime, startup helpers, and bundled harness skill for Codex.",
+  "version": "0.2.0",
+  "description": "Load Tavall AI role skills for Function Catalog-backed orchestration, distributed Tavall work, and exact-head local CI completion.",
   "author": {
     "name": "TJ",
     "url": "https://docs.tavall.org/tavall-ai"
@@ -10,17 +10,18 @@
   "license": "Proprietary",
   "keywords": [
     "tavall-ai",
-    "mcp",
-    "harness",
     "codex",
-    "git-workflow"
+    "agents",
+    "orchestration",
+    "function-catalog",
+    "local-ci",
+    "github-checks"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "Agent Task Manager",
-    "shortDescription": "Own the ATM MCP runtime and harness workflow",
-    "longDescription": "Use the AgentTaskManager plugin to register the local ATM MCP server, bootstrap the optional operator surface, and load the bundled cross-repo harness skill. The harness owns memory lookup and repo sync, repo-context and worker-context include memory, and changed files are synced automatically.",
+    "displayName": "Tavall AI",
+    "shortDescription": "Tavall role skills, orchestration, and exact-head CI",
+    "longDescription": "Use Tavall AI role skills to coordinate one session with specialized role agents and escalate through the Tavall scheduler only when a separate worker/session is justified. Function tools come from the authorized Function Catalog surface; Tavall Cloud remains the placement, workspace, process-isolation, resource, and local-CI authority. Diff-producing Tavall engineering runs require durable exact-head local CI before completion.",
     "developerName": "TJ",
     "category": "Coding",
     "capabilities": [
@@ -31,13 +32,13 @@
     "privacyPolicyURL": "https://docs.tavall.org/tavall-ai",
     "termsOfServiceURL": "https://docs.tavall.org/tavall-ai",
     "defaultPrompt": [
-      "Use AgentTaskManager for repo context, worker context, harness-owned memory, and git workflow",
-      "Expect harness transcript messages for memory lookup, Java symbol preload, semantic sync, tool policy, tool calls, and git workflow outcome",
-      "Start the local ATM MCP runtime for this repo",
-      "Bring up the ATM operator surface if local HTTP control is needed",
-      "Treat repo-context and worker-context as the memory-bearing entry points, rely on automatic changed-file and Java-symbol sync, and collapse each diff-producing prompt into one git workflow commit"
+      "Use the Tavall AI orchestration skill for substantive Tavall repository work",
+      "Prefer multiple specialized Tavall agents inside the current session when they can safely share the owning workspace",
+      "Use the scheduler role only for distributed worker/top-level-session placement and never for implementation itself",
+      "Treat Function Catalog functions as the callable capability surface and Tavall Cloud as machine/workspace/process/local-CI authority",
+      "Commit and push meaningful mutation checkpoints so distributed recovery can resume from Git rather than unpublished workstation state",
+      "Before completing any diff-producing Tavall engineering run, use the bundled tavall-local-ci skill to submit durable profile=all validation for the exact final HEAD"
     ],
     "brandColor": "#0F766E"
   }
 }
-
