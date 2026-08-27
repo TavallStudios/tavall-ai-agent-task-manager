@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+origin=''
+repository=''
+expected_head=''
+profile=''
+evidence_handle=''
+
+usage() {
+    printf '%s\n' 'Usage: scripts/ci/run --origin <github-bot|chatgpt|codex|manual|scheduler> --repository <owner/name> --expected-head <sha> --profile <build|integration|all> --evidence-handle <tavall-storage://...>' >&2
+}
+
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        --origin)
+            origin="${2:-}"
+            shift 2
+            ;;
+        --repository)
+            repository="${2:-}"
+            shift 2
+            ;;
+        --expected-head)
+            expected_head="${2:-}"
+            shift 2
+            ;;
+        --profile)
+            profile="${2:-}"
+            shift 2
+            ;;
+        --evidence-handle)
+            evidence_handle="${2:-}"
+            shift 2
+            ;;
+        *)
+            usage
+            exit 64
+            ;;
+    esac
+done
+
+case "${origin}" in
+    github-bot|chatgpt|codex|manual|scheduler)
+        ;;
+    *)
+        printf '%s\n' 'unsupported Tavall CI origin' >&2
+        exit 64
+        ;;
+esac
+
+if [[ ! "${repository}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+    printf '%s\n' 'repository must be an owner/name identifier' >&2
+    exit 64
+fi
+if [[ ! "${expected_head}" =~ ^([a-f0-9]{40}|[a-f0-9]{64})$ ]]; then
+    printf '%s\n' 'expected head must be a lowercase SHA-1 or SHA-256 identifier' >&2
+    exit 64
+fi
+case "${profile}" in
+    build|integration|all)
+        ;;
+    *)
+        printf '%s\n' 'profile must be build, integration, or all' >&2
+        exit 64
+        ;;
+esac
+if [[ ! "${evidence_handle}" =~ ^tavall-storage://[a-z0-9][a-z0-9-]{1,62}/jobs/[0-9a-f-]{36}$ ]]; then
+    printf '%s\n' 'evidence handle must identify a DEV STORAGE job evidence location' >&2
+    exit 64
+fi
+
+cd "${repository_root}"
+actual_head="$(git rev-parse HEAD)"
+if [[ "${actual_head}" != "${expected_head}" ]]; then
+    printf 'expected head does not match workspace HEAD: expected=%s actual=%s\n' "${expected_head}" "${actual_head}" >&2
+    exit 65
+fi
+
+check_context="tavall-ci/${origin}/${profile}"
+evidence_root="${TAVALL_CI_EVIDENCE_DIRECTORY:-${repository_root}/.tavall/local-ci}"
+mkdir -p "${evidence_root}"
+run_directory="$(mktemp -d "${evidence_root%/}/orchestration-${origin}-${profile}-XXXXXXXX")"
+metadata_file="${run_directory}/run.metadata"
+verify_evidence_directory="${run_directory}/verify"
+started_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+cat > "${metadata_file}" <<EOF
+repository=${repository}
+expectedHead=${expected_head}
+actualHead=${actual_head}
+origin=${origin}
+profile=${profile}
+checkContext=${check_context}
+evidenceHandle=${evidence_handle}
+startedAt=${started_at}
+state=RUNNING
+EOF
+
+export TAVALL_CI_ORIGIN="${origin}"
+export TAVALL_CI_EXPECTED_HEAD="${expected_head}"
+export TAVALL_CI_CHECK_CONTEXT="${check_context}"
+export TAVALL_CI_EVIDENCE_HANDLE="${evidence_handle}"
+export TAVALL_CI_EVIDENCE_DIRECTORY="${verify_evidence_directory}"
+
+set +e
+bash "${repository_root}/scripts/ci/verify" "${profile}"
+exit_code=$?
+set -e
+
+finished_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+if [[ "${exit_code}" -eq 0 ]]; then
+    result='SUCCESS'
+else
+    result='FAILURE'
+fi
+cat >> "${metadata_file}" <<EOF
+finishedAt=${finished_at}
+exitCode=${exit_code}
+state=COMPLETED
+result=${result}
+verifyEvidenceDirectory=${verify_evidence_directory}
+EOF
+
+printf 'repository=%s origin=%s expectedHead=%s checkContext=%s evidenceHandle=%s metadata=%s exitCode=%s\n' \
+    "${repository}" "${origin}" "${expected_head}" "${check_context}" "${evidence_handle}" "${metadata_file}" "${exit_code}"
+exit "${exit_code}"
