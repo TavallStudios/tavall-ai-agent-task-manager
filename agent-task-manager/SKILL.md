@@ -36,6 +36,15 @@ Use this default order when the harness is active:
 6. For branch and commit mutation, follow [references/git-workflow.md](references/git-workflow.md) and use `planGitCommit`, then `prepareGitBranch`, then `createGitCommit`.
 7. Never use downstream generic git mutation tools such as `git_commit`, `git_add`, `git_checkout`, `git_create_branch`, or `git_reset` when the AgentTaskManager git workflow is available.
 
+## Test Authoring Order
+
+Testing and validation are required, but their authoring/execution order is intentionally non-prescriptive.
+
+- Do not require or introduce TDD, tests-first, RED/GREEN/REFACTOR, RED-first checkpoints, failing-test-first sequencing, or any rule that production implementation must wait for a failing test.
+- Do not create separate RED or failure-only milestones as engineering lifecycle gates.
+- Add regression, integration, acceptance, runtime, and other meaningful behavioral coverage where appropriate.
+- Production behavior, matching tests, validation, and approval evidence must converge before completion or promotion regardless of which was authored first.
+
 ## Always-On Memory Flow
 
 This skill should treat prompt-thread memory as an always-on stage, not an optional extra.
@@ -156,4 +165,3 @@ If `AGENT_TASK_MANAGER_DB_URL` is not set, the helper script will try the local 
 - The clean split is: plugin owns runtime registration and startup helpers; skill owns workflow, tool ordering, and policy.
 - The stdio launcher scripts use the executable Gradle wrapper in the resolved AgentTaskManager checkout when the staged distribution is not already built.
 - The runtime is MCP-first. Do not assume a local dashboard, a browser workflow, or queued prompt-request execution.
-

@@ -1,7 +1,7 @@
 {
   "name": "tavall-ai",
   "version": "0.2.0",
-  "description": "Load Tavall AI role skills for Function Catalog-backed Codex orchestration and distributed Tavall work.",
+  "description": "Load Tavall AI role skills for Function Catalog-backed orchestration, distributed Tavall work, and exact-head local CI completion.",
   "author": {
     "name": "TJ",
     "url": "https://docs.tavall.org/tavall-ai"
@@ -13,13 +13,15 @@
     "codex",
     "agents",
     "orchestration",
-    "function-catalog"
+    "function-catalog",
+    "local-ci",
+    "github-checks"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Tavall AI",
-    "shortDescription": "Tavall role skills and distributed Codex orchestration",
-    "longDescription": "Use Tavall AI role skills to coordinate one Codex session with specialized role agents and to escalate through the Tavall scheduler only when a separate worker/session is justified. Function tools come from the authorized Function Catalog surface; Tavall Cloud remains the placement, workspace, process-isolation, resource, and local-CI authority.",
+    "shortDescription": "Tavall role skills, orchestration, and exact-head CI",
+    "longDescription": "Use Tavall AI role skills to coordinate one session with specialized role agents and escalate through the Tavall scheduler only when a separate worker/session is justified. Function tools come from the authorized Function Catalog surface; Tavall Cloud remains the placement, workspace, process-isolation, resource, and local-CI authority. Diff-producing Tavall engineering runs require durable exact-head local CI before completion.",
     "developerName": "TJ",
     "category": "Coding",
     "capabilities": [
@@ -31,10 +33,11 @@
     "termsOfServiceURL": "https://docs.tavall.org/tavall-ai",
     "defaultPrompt": [
       "Use the Tavall AI orchestration skill for substantive Tavall repository work",
-      "Prefer multiple specialized Tavall agents inside the current Codex session when they can safely share the owning workspace",
+      "Prefer multiple specialized Tavall agents inside the current session when they can safely share the owning workspace",
       "Use the scheduler role only for distributed worker/top-level-session placement and never for implementation itself",
       "Treat Function Catalog functions as the callable capability surface and Tavall Cloud as machine/workspace/process/local-CI authority",
-      "Commit and push meaningful mutation checkpoints so distributed recovery can resume from Git rather than unpublished workstation state"
+      "Commit and push meaningful mutation checkpoints so distributed recovery can resume from Git rather than unpublished workstation state",
+      "Before completing any diff-producing Tavall engineering run, use the bundled tavall-local-ci skill to submit durable profile=all validation for the exact final HEAD"
     ],
     "brandColor": "#0F766E"
   }
