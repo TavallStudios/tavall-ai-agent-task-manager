@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT"
+
+MAX_WORKERS="${TAVALL_CI_MAX_WORKERS:-2}"
+
+# This is the canonical Tavall AI verification entrypoint. Remote CI wrappers must not
+# duplicate build logic; Tavall development execution surfaces invoke this script locally.
+exec ./gradlew \
+  --no-daemon \
+  --max-workers="$MAX_WORKERS" \
+  clean \
+  check \
+  stageDistribution
