@@ -5,6 +5,7 @@ import java.util.Set;
 /** Stable agent-side composition contract for the external Minecraft Builder platform. */
 public final class TavallBuilderAgentContract {
     private static final Set<TavallBuilderRole> ROLES = Set.of(
+            TavallBuilderRole.CONCEPT,
             TavallBuilderRole.PLANNER,
             TavallBuilderRole.TERRAIN,
             TavallBuilderRole.ARCHITECTURE,

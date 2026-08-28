@@ -3,6 +3,7 @@ package org.tavall.agent.builder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tavall.agent.TavallAgent;
+import org.tavall.agent.TavallAgentCapability;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -23,7 +24,9 @@ class TavallBuilderAgentTest {
 
         assertEquals("builder", agent.id());
         assertEquals(Set.of("distributed-execution"), agent.requiredRuntimeModuleIds());
+        assertTrue(agent.capabilities().contains(TavallAgentCapability.FUNCTION_DISCOVERY));
         assertEquals(Set.of(
+                TavallBuilderRole.CONCEPT,
                 TavallBuilderRole.PLANNER,
                 TavallBuilderRole.TERRAIN,
                 TavallBuilderRole.ARCHITECTURE,
@@ -38,6 +41,9 @@ class TavallBuilderAgentTest {
                 TavallBuilderArtifactKind.VISUAL_EVIDENCE,
                 TavallBuilderArtifactKind.WORLD_BAKE_MANIFEST
         ), TavallBuilderAgentContract.artifactKinds());
+        assertTrue(agent.instructions().contains("prepareFirstConcept"));
+        assertTrue(agent.instructions().contains("acceptFirstConcept"));
+        assertTrue(agent.instructions().contains("MineBench"));
     }
 
     @Test

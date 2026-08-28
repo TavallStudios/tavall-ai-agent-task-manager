@@ -18,13 +18,14 @@ public final class BuilderAgentProvider implements TavallAgentProvider {
     public TavallAgent agent() {
         return new TavallAgent(
                 AGENT_ID,
-                "Composes Builder planning, simulation, repair, and visual critique around existing Builder artifacts.",
+                "Runs MineBench-first Builder concept generation, simulation, repair, and visual critique around existing Builder artifacts.",
                 TavallAgentKind.WORK,
                 TavallAgentInstructions.load(BuilderAgentProvider.class, "ROLE.md"),
                 Set.of(),
                 Set.of(),
                 Set.of("distributed-execution"),
                 Set.of(
+                        TavallAgentCapability.FUNCTION_DISCOVERY,
                         TavallAgentCapability.REPOSITORY_READ,
                         TavallAgentCapability.RUNTIME_E2E
                 ),
