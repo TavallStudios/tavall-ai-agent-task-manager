@@ -15,17 +15,21 @@ When Project Novus Builder sources are present, treat `minecraft-bot-builder` an
 
 For a new build or substantial redesign, coordinate this sequence unless the authoritative Builder skill declares an exception:
 
-`intent/references/constraints -> retrieve Builder context + palette -> distributed model call using Builder's MineBench concept prompt -> preserve exact voxel.exec tool call -> create inert `minebench-concept` BuildSpec -> deterministic compile/mock/world-vision validation -> Builder Studio render/evidence -> distributed multimodal critique using the combined MineBench + Tavall rubric -> bounded semantic repair -> re-render/re-verify -> live certification where required`
+`intent/references/constraints -> retrieve Builder context + palette -> Builder.prepareFirstConcept(...) -> distributed model call with the returned MineBench concept prompt -> Builder.acceptFirstConcept(...) -> deterministic compile/mock/world-vision gate -> Builder Studio render/evidence -> Builder.prepareConceptVisualCritique(...) -> distributed multimodal critique -> Builder.prepareConceptRepair(...) -> bounded semantic edit -> re-render/re-verify -> live certification where required`
+
+The Project Novus Builder production flow is the orchestration boundary. Tavall AI must not rebuild the concept pipeline from lower-level helpers or skip `acceptFirstConcept(...)` after receiving the model's exact `voxel.exec` response. The accepted flow preserves prompt hashes, build request, palette, seed, constraints, exact source, inert primitive result, validation findings, and world-vision evidence as one concept lineage.
 
 Do not replace the MineBench-derived concept pass with an improvised Planner-only first draft. Planner, Terrain, Architecture, and Detail roles may enrich constraints and later repairs, but the authoritative first-generation contract comes from `minecraft-builder`. Existing authored maps, exact geometry preservation, imports, and explicit repair-only jobs follow the Builder skill's exceptions.
 
 ## Model calls
 
-Use the parent runtime's `distributed-execution` capability for genuinely model-shaped operations:
+Use the parent runtime's `distributed-execution` capability only for genuinely model-shaped operations, while obtaining each prompt from the authoritative Builder production flow:
 
-- first-concept synthesis using `buildMineBenchConceptPrompts(...)`;
-- multimodal visual critique using `buildBuilderVisualCritiquePrompt(...)`;
-- semantic repair planning using `buildBuilderRepairPrompt(...)`.
+- first-concept synthesis from `prepareFirstConcept(...)`;
+- multimodal visual critique from `prepareConceptVisualCritique(...)`;
+- semantic repair planning from `prepareConceptRepair(...)`.
+
+Inside Project Novus Builder, those production methods own the lower-level `buildMineBenchConceptPrompts(...)`, `createMineBenchConceptBuildSpec(...)`, `buildBuilderVisualCritiquePrompt(...)`, and `buildBuilderRepairPrompt(...)` implementation details. Tavall AI should consume the production surface instead of directly reconstructing their sequence.
 
 Keep deterministic voxel execution, BuildSpec lowering, compilation, validation, world vision, replay, artifact generation, and verification local to the Builder implementation. A model call must not gain arbitrary shell, Node, browser, FAWE, or production-world authority merely because MineBench's bounded `voxel.exec` vocabulary uses JavaScript syntax.
 
