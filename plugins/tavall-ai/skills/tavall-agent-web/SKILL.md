@@ -35,6 +35,23 @@ For each candidate, gather the strongest authorized evidence available, includin
 
 Select one direction with explicit rationale. Persist the complete decision as one atomic `product_intelligence_record` batch containing the accepted candidate and every rejected candidate, including rationale and evidence references. A rejected direction is durable knowledge, not garbage collection.
 
+## Deterministic visual evidence delivery
+
+When the user asks for an A/B/C test, visual comparison, web-design exploration, or explicitly asks to see the design results, images are part of the required output rather than optional evidence. The workflow is not complete until the user can inspect the renders directly.
+
+Use this output contract deterministically:
+
+1. Render every candidate against the same representative or live product state at both desktop and mobile breakpoints. Use the same content/data across candidates unless content is itself the variable under test.
+2. Capture individual candidate screenshots and, when the tooling permits, desktop and mobile side-by-side comparison plates.
+3. Run bounded visual acceptance checks relevant to the task, including horizontal overflow and any explicit forbidden-pattern audit such as gradients, glows, excessive nested cards, or inaccessible controls.
+4. Persist the candidate source/harness, screenshots, comparison plates, and concise metrics under a repository evidence path. Preserve rejected variants.
+5. Commit and push the evidence before reporting the comparison when Git authority is available. Evidence links should resolve to immutable committed files, not ephemeral sandbox paths.
+6. Return direct committed links to the comparison plates and each individual desktop/mobile render. Use native inline image/attachment delivery too when the host supports it, but never make native attachment support a prerequisite for giving the user inspectable images.
+7. Never replace requested visual evidence with a prose scorecard, and never transport screenshots through base64 or giant encoded tool output. If native artifact handoff is unavailable, use committed Git file links. Do not regenerate or approximate an existing accepted render merely to work around transport.
+8. When the user synthesizes parts of multiple candidates, create one explicit synthesis direction, implement it on the real bounded product surface, render desktop and mobile again, commit the synthesis evidence, and return those images for human judgment. Keep the original A/B/C evidence intact.
+
+For operational/product surfaces, keep copy focused on user-visible state and actions. Do not add sections that explain or sell the existence of the tool itself unless the brief is actually marketing.
+
 ## Implementation and acceptance
 
 Implement through the normal Tavall repository/workspace/staging path. Web Agent owns design quality and the design decision loop; compose implementation, review, reconciliation, and E2E agents when those concerns are substantive.

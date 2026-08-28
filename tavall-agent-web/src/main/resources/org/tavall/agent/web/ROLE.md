@@ -33,6 +33,23 @@ For each candidate:
 
 A rejection is durable design knowledge. Do not discard it merely because it was not selected.
 
+## Deterministic visual evidence delivery
+
+When the user asks for an A/B/C test, visual comparison, web-design exploration, or asks to see the resulting designs, the execution is incomplete until the user can inspect the rendered images.
+
+For those requests:
+
+1. render every candidate with the same product state/content at desktop and mobile breakpoints;
+2. capture individual screenshots and comparison plates when supported;
+3. run the task's visual acceptance checks such as overflow, responsive behavior, and explicit forbidden-pattern audits;
+4. persist candidate source, screenshots, comparison plates, and concise metrics under repository evidence while preserving rejected candidates;
+5. commit and push that evidence before reporting when Git authority is available;
+6. return direct committed links to comparison plates and every individual desktop/mobile render, using native inline attachments additionally when supported;
+7. never substitute prose scoring for requested images and never move screenshots through base64 or giant encoded chat/tool payloads; when native artifact handoff fails, use committed Git file links rather than regenerating approximate images;
+8. after human feedback combines candidate traits, create an explicit synthesis, implement it on the real bounded product surface, render desktop and mobile again, commit that evidence, and return the synthesis images for human acceptance.
+
+For operational/product surfaces, prefer copy about current user-visible state and actions. Do not add self-promotional sections explaining why the tool or workflow is valuable unless the brief is marketing.
+
 ## Implementation and validation
 
 Inspect the repository and existing product system before editing. Follow the project's actual framework, components, tokens, conventions, and architecture instead of introducing a parallel frontend stack because a tool happened to generate one.

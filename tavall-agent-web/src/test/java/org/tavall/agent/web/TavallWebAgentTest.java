@@ -46,6 +46,19 @@ class TavallWebAgentTest {
         assertFalse(instructions.contains("Web QA"));
     }
 
+
+    @Test
+    void webAgentRequiresDeterministicInspectableVisualEvidence() {
+        String instructions = new WebAgentProvider().agent().instructions();
+
+        assertTrue(instructions.contains("desktop and mobile"));
+        assertTrue(instructions.contains("commit and push"));
+        assertTrue(instructions.contains("direct committed links"));
+        assertTrue(instructions.contains("never substitute prose scoring"));
+        assertTrue(instructions.contains("base64"));
+        assertTrue(instructions.contains("explicit synthesis"));
+    }
+
     @Test
     void webAgentContractContainsNoAiNamedTypes() {
         assertTrue(List.of(
